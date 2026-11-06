@@ -360,6 +360,24 @@ echo installed
         self.assertTrue(any("scriptlets" in note for note in report["notes"]), report["notes"])
         self.assertEqual(report["files"], 1)       # only /usr/bin/probe would be installed
 
+    def test_an_installed_package_is_labelled_for_the_paths_it_will_have_when_merged(self):
+        policy = os.path.join(self.paths["root"], "etc/selinux/targeted/contexts/files")
+        os.makedirs(policy)
+        with open(os.path.join(policy, "file_contexts"), "w") as handle:
+            handle.write("/.*   system_u:object_r:usr_t:s0\n")
+        seen = []
+        from foundationd.backends import sellabel
+        real = sellabel.label_tree
+        sellabel.label_tree = lambda tree, contexts, setter=None: seen.append(sorted(os.listdir(tree)))
+        self.addCleanup(setattr, sellabel, "label_tree", real)
+
+        def runner(cmd, timeout=60, input_bytes=None):
+            if cmd[0] == "systemd-sysext":
+                return 0, json.dumps([{"hierarchy": "/usr", "extensions": ["probe"]}]), ""
+            return self.runner(cmd, timeout, input_bytes)
+        compat.install(self.rpm, False, self.paths, support.Recorder(), runner)
+        self.assertEqual(seen, [["usr"]])
+
     def test_installing_such_a_package_succeeds_and_reports_what_was_dropped(self):
         ctx = support.Recorder()
 

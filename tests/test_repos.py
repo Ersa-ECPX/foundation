@@ -283,6 +283,22 @@ class Downloads(Base):
         with self.assertRaises(Failed):
             repos.download([{**package, "repo": "elsewhere"}], [self.repo()], self.dest, self.runner())
 
+    def test_many_files_are_fetched_together_and_progress_is_reported(self):
+        packages = [self.package(self.web, name=f"p{i}-1-1.x86_64.rpm", body=f"body {i}".encode()) for i in range(12)]
+        seen = []
+        got = repos.download(packages, [self.repo()], self.dest, self.runner(), workers=4, progress=lambda d, t: seen.append((d, t)))
+        self.assertEqual(sorted(os.path.basename(g["file"]) for g in got), sorted(f"p{i}-1-1.x86_64.rpm" for i in range(12)))
+        self.assertEqual(seen[-1], (12, 12))
+        self.assertEqual(len(seen), 12)
+        self.assertEqual([g["name"] for g in got], ["pkg"] * 12)             # the order of the request is kept
+
+    def test_one_bad_file_among_many_fails_the_whole_download(self):
+        packages = [self.package(self.web, name=f"p{i}-1-1.x86_64.rpm", body=f"body {i}".encode()) for i in range(6)]
+        packages[3]["checksum"] = ["sha256", "f" * 64]
+        with self.assertRaises(Failed):
+            repos.download(packages, [self.repo()], self.dest, self.runner(), workers=3)
+        self.assertFalse(any(name.endswith("p3-1-1.x86_64.rpm") for name in os.listdir(self.dest)))
+
     def test_forget_removes_only_files_that_are_no_longer_wanted(self):
         os.makedirs(self.dest)
         for name in ("keep.rpm", "drop.rpm"):

@@ -18,6 +18,7 @@ What is trusted, and how:
     what the base already has, and downloads and verifies them. bundles.py turns those into an extension.
 """
 
+import concurrent.futures
 import configparser
 import hashlib
 import os
@@ -488,33 +489,51 @@ class Pool:
 
 # -- downloading -------------------------------------------------------------------------------
 
-def download(packages, repos, directory, runner=run, file_fetcher=fetch_file):
+def download(packages, repos, directory, runner=run, file_fetcher=fetch_file, workers=6, progress=None):
     """Download and verify the RPMs of a resolved list into `directory`; returns the packages with a "file" added.
 
     A file already there with the right checksum is reused, so adding to a bundle fetches only what is new.
+    Several files are fetched at once (`workers`); `progress(done, total)` is called as each one finishes.
     """
     os.makedirs(directory, mode=0o755, exist_ok=True)
     by_alias = {repo.alias: repo for repo in repos}
-    result, per_repo = [], {}
+    plan = []
     for package in packages:
         repo = by_alias.get(package["repo"])
         if repo is None:
             raise Failed(f"{package['name']} comes from {package['repo']}, which is not an enabled repository")
-        kind, expected = package["checksum"]
         filename = os.path.basename(package["location"])
         if not filename.endswith(".rpm") or not re.match(r"^[A-Za-z0-9._+~-]+$", filename):
             raise Failed(f"unsafe package file name: {filename!r}")
-        target = os.path.join(directory, filename)
-        fresh = False
+        plan.append((package, repo, os.path.join(directory, filename)))
+
+    def fetch_one(item):
+        package, repo, target = item
+        kind, expected = package["checksum"]
         if os.path.exists(target) and kind and digest(target, kind) == expected:
-            fresh = True
-        if not fresh:
-            partial = target + ".part"
-            file_fetcher(repo.baseurl + package["location"], partial, MAX_RPM)
-            if kind and digest(partial, kind) != expected:
-                os.unlink(partial)
-                raise Failed(f"{filename} does not match the checksum in the repository metadata")
-            os.replace(partial, target)
+            return
+        partial = target + ".part"
+        file_fetcher(repo.baseurl + package["location"], partial, MAX_RPM)
+        if kind and digest(partial, kind) != expected:
+            os.unlink(partial)
+            raise Failed(f"{os.path.basename(target)} does not match the checksum in the repository metadata")
+        os.replace(partial, target)
+
+    finished = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        futures = [pool.submit(fetch_one, item) for item in plan]
+        try:
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+                finished += 1
+                if progress:
+                    progress(finished, len(plan))
+        except BaseException:
+            for future in futures:
+                future.cancel()
+            raise
+    per_repo, result = {}, []
+    for package, repo, target in plan:
         per_repo.setdefault(repo.alias, []).append(target)
         result.append({**package, "file": target})
     for alias, files in per_repo.items():

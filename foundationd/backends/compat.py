@@ -23,7 +23,7 @@ import tempfile
 import time
 
 from ..errors import Failed, InvalidArgument, NotFound
-from . import cpio, elf, extensions, osinfo, richdeps
+from . import cpio, elf, extensions, osinfo, richdeps, sellabel
 from .runner import check, run
 
 USRMERGE = {"bin": "usr/bin", "sbin": "usr/sbin", "lib": "usr/lib", "lib64": "usr/lib64"}
@@ -380,6 +380,11 @@ def install(rpm_path, force, paths, ctx, runner=run):
         os.makedirs(release_dir, exist_ok=True)
         with open(os.path.join(release_dir, f"extension-release.{name}"), "w", encoding="utf-8") as handle:
             handle.write(release_file(name, report["arch"], paths))
+        # An overlay shows the extension's directories with the extension's labels, so they must be the labels the
+        # merged paths have (sellabel.py), not those of /var/lib/extensions.
+        contexts = sellabel.Contexts.load(paths["root"])
+        if contexts is not None:
+            sellabel.label_tree(tree, contexts)
         ctx.progress(0.6)
 
         ctx.step("install", "Installing the extension")

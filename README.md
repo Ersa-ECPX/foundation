@@ -242,7 +242,7 @@ limits, signature checks) and the bundle builder (build, add, remove, rollback, 
 labelling) have unit tests with real signatures and real small RPMs. The solver, the downloads and the signature
 verification were run against the live openSUSE and Packman repositories in a Tumbleweed container, including a
 base with openSUSE's limited FFmpeg installed, where the solver correctly chose Packman's replacements
-(`scripts/test-bundles-container`). **Not tested:** a bundle merged on a booted image under enforcing SELinux
+(`scripts/test-bundles-container`). The real `codecs` entry built there in 87 s from 29 packages (265 files) on a base with GStreamer and openSUSE's limited FFmpeg: Packman's `libavcodec62` with the H.264 decoder, the x264/x265/de265/faac GStreamer plugins, the FFmpeg 9 family skipped (`when_installed`, the base has none). **Not tested:** a bundle merged on a booted image under enforcing SELinux
 (the labelling code is tested, the result on a running system is not), and the updates of a bundle after the base
 image itself has been updated (`compat revalidate` rechecks bundles like other extensions).
 

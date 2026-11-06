@@ -223,7 +223,8 @@ def build(paths, ctx, name, specs, catalog_name="", allow_repos=(), force_refres
 
     ctx.step("download", f"Downloading {len(todo)} package(s)")
     cache = _rpm_dir(paths, name)
-    downloaded = repos.download(todo, enabled, cache, runner, **({"file_fetcher": file_fetcher} if file_fetcher else {}))
+    downloaded = repos.download(todo, enabled, cache, runner, progress=lambda done, total: ctx.progress(0.25 + 0.35 * done / total),
+                                **({"file_fetcher": file_fetcher} if file_fetcher else {}))
     ctx.progress(0.6)
 
     ctx.step("build", "Building the extension")
