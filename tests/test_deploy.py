@@ -211,6 +211,8 @@ class Install(unittest.TestCase):
         """ecp.pad= in the mkosi configuration reserves the room; this fails if it ever stops being enough."""
         import re
         root = os.path.join(os.path.dirname(__file__), "..", "..")
+        if not os.path.isfile(os.path.join(root, "mkosi.conf.d", "10-x86-64.conf")):
+            self.skipTest("not in the source tree")        # the RPM build only has the foundation/ directory
 
         def cmdline(*files):
             text = ""
