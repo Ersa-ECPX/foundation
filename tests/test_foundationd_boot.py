@@ -97,6 +97,14 @@ class BootEndToEnd(BootDaemon):
         _path, props = self.run_job("SetNextBoot", "(s)", "0.2.0")
         self.assertEqual((props["State"], props["Result"]["mode"]), ("done", "next"))
 
+    def test_set_splash_rewrites_the_kernel_image_and_reports_it(self):
+        _path, props = self.run_job("SetSplash", "(s)", "dark")
+        self.assertEqual(props["State"], "done", props["ErrorMessage"])
+        self.assertEqual(props["Result"]["theme"], "dark")
+        self.assertEqual(list(props["Result"]["changed"]), ["ecp_0.2.0+2.efi"])
+        _path, props = self.run_job("SetSplash", "(s)", "dark")
+        self.assertEqual(list(props["Result"]["changed"]), [])
+
     def test_selecting_an_empty_slot_fails_with_a_clear_error(self):
         _path, props = self.run_job("SetDefaultSlot", "(s)", "empty2")
         self.assertEqual((props["State"], props["ErrorName"]), ("failed", ERR + "InvalidArgument"))

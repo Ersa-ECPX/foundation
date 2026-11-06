@@ -199,7 +199,7 @@ class Queries(JobCase):
 
 class Validation(JobCase):
     def test_bad_arguments_are_rejected_before_anything_starts(self):
-        for method, signature, args in ((BOOT, "SetDefaultSlot", ("-rf",)), (BOOT, "SetNextBoot", ("a b",)),
+        for method, signature, args in ((BOOT, "SetDefaultSlot", ("-rf",)), (BOOT, "SetNextBoot", ("a b",)), (BOOT, "SetSplash", ("blue",)),
                                         (APPS, "Install", ("../x",)), (APPS, "Remove", ("-y",)),
                                         (COMPAT, "Remove", ("a/b",)), (APPS, "GetInfo", ("",))):
             kind = "(s)"

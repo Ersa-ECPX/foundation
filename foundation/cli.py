@@ -297,6 +297,18 @@ def cmd_slot_release(client, args):
     return run_job(client, args, "Boot", "ReleaseSlot", "(s)", slot["name"])[0]
 
 
+def cmd_splash(client, args):
+    code, job = run_job(client, args, "Boot", "SetSplash", "(s)", args.theme)
+    if job is not None and job.ok and not args.json:
+        changed, skipped = job.result.get("changed", []), job.result.get("skipped", [])
+        ui.kv([("Boot splash", args.theme),
+               ("Changed", ", ".join(changed) or "nothing (already set)")])
+        for item in skipped:
+            ui.warn(f"{item['file']} was not changed: {item['reason']}")
+        ui.note("The boot splash changes at the next restart.")
+    return code
+
+
 def cmd_reboot(client, args):
     what = "into the firmware setup" if args.firmware else "now"
     if not sure(args, f"Restart the computer {what}?"):
@@ -1094,6 +1106,9 @@ def build_parser():
     copy.add_argument("--to", dest="target", metavar="SLOT", required=True, help="the slot to overwrite")
     copy.add_argument("--force", action="store_true", help="overwrite a slot that is in use")
     add(slot, "release", cmd_slot_release, "mark a standby slot empty so updates can use it", yes=True, wait=True).add_argument("slot")
+
+    add(sub, "splash", cmd_splash, "choose the light or dark boot splash (takes effect at the next restart)",
+        wait=True).add_argument("theme", choices=("light", "dark"))
 
     reboot = add(sub, "reboot", cmd_reboot, "restart the computer", yes=True)
     reboot.add_argument("--firmware", action="store_true", help="restart into the firmware setup")

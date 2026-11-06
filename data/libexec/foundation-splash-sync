@@ -1,0 +1,52 @@
+#!/usr/bin/python3 -I
+"""Make the boot splash follow the desktop style (run by foundation-splash-sync.service).
+
+Reads org.gnome.desktop.interface color-scheme ('prefer-dark' means dark, anything else light) and asks foundationd
+(Boot.SetSplash on the system bus) to set that theme: once at start and again whenever the value changes. The boot
+splash itself changes at the next boot.
+"""
+import sys
+
+import gi
+
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib  # noqa: E402
+
+SCHEMA, KEY = "org.gnome.desktop.interface", "color-scheme"
+NAME, PATH, BOOT = "org.ersa.Foundation1", "/org/ersa/Foundation1", "org.ersa.Foundation1.Boot"
+
+
+def theme_for(scheme):
+    return "dark" if scheme == "prefer-dark" else "light"
+
+
+def main():
+    source = Gio.SettingsSchemaSource.get_default()
+    if source is None or source.lookup(SCHEMA, True) is None:
+        print(f"foundation-splash-sync: schema {SCHEMA} is not installed", file=sys.stderr)
+        return 0
+    settings = Gio.Settings.new(SCHEMA)
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+    last = [None]
+
+    def sync(*_args):
+        theme = theme_for(settings.get_string(KEY))
+        if theme == last[0]:
+            return
+        try:
+            # Interactive authorization lets polkit decide (the action is open to the active local user).
+            bus.call_sync(NAME, PATH, BOOT, "SetSplash", GLib.Variant("(s)", (theme,)), None,
+                          Gio.DBusCallFlags.ALLOW_INTERACTIVE_AUTHORIZATION, 30000, None)
+        except GLib.Error as error:
+            print(f"foundation-splash-sync: cannot set the {theme} boot splash: {error.message}", file=sys.stderr)
+            return
+        last[0] = theme
+
+    sync()
+    settings.connect(f"changed::{KEY}", sync)
+    GLib.MainLoop().run()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
