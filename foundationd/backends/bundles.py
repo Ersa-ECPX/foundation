@@ -22,7 +22,7 @@ import shutil
 import tempfile
 import time
 
-from ..errors import Failed, InvalidArgument, NotFound
+from ..errors import Failed, InvalidArgument, NotFound, Unavailable
 from . import compat, extensions, repos, sellabel
 from .runner import run
 
@@ -43,6 +43,64 @@ def _meta(paths, name):
         if meta.get("name") == name:
             return meta
     return None
+
+
+def _images_dir(paths, identity):
+    """Where bundle trees built for one image are kept while that image is not the running one."""
+    return os.path.join(paths["state"], "bundles", "images", identity)
+
+
+def _archive(paths, name, meta):
+    """Move a bundle's tree (active or disabled) and manifest into the store of the image it was built for."""
+    identity = (meta.get("bundle") or {}).get("built_for")
+    if not identity:
+        return False
+    for source in (compat._enabled_dir(paths, name), compat._disabled_dir(paths, name)):
+        if os.path.lexists(source):
+            target_dir = _images_dir(paths, identity)
+            os.makedirs(target_dir, exist_ok=True)
+            target = os.path.join(target_dir, name)
+            shutil.rmtree(target, ignore_errors=True)
+            os.rename(source, target)
+            compat._write_json(os.path.join(target_dir, f"{name}.json"), meta)
+            return True
+    return False
+
+
+def _restore(paths, name, identity, enabled=True):
+    """Bring a stored tree for `identity` back as the active one. Returns its manifest, or None if there is none."""
+    stored = os.path.join(_images_dir(paths, identity), name)
+    try:
+        with open(stored + ".json", encoding="utf-8") as handle:
+            meta = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not os.path.isdir(stored):
+        return None
+    destination = compat._enabled_dir(paths, name)
+    os.makedirs(os.path.dirname(destination), exist_ok=True)
+    shutil.rmtree(destination, ignore_errors=True)
+    os.rename(stored, destination)
+    os.unlink(stored + ".json")
+    compat._write_json(compat._meta_path(paths, name), meta)
+    return meta
+
+
+def state_of(paths, meta):
+    """current: built for this image and enabled. stale: built for another image (or no longer fits). disabled: otherwise off."""
+    name = meta["name"]
+    if compat.built_for_other_image(meta, paths):
+        return "stale"
+    if not os.path.isdir(compat._enabled_dir(paths, name)):
+        return "disabled"
+    release = os.path.join(compat._enabled_dir(paths, name), compat.RELEASE_DIR, f"extension-release.{name}")
+    try:
+        with open(release, encoding="utf-8") as handle:
+            wanted = compat.release_file(name, meta.get("arch", ""), paths).splitlines()
+            have = handle.read().splitlines()
+    except OSError:
+        return "stale"
+    return "current" if all(line in have for line in wanted if not line.startswith("ARCHITECTURE=")) else "stale"
 
 
 def _check_name(name):
@@ -112,7 +170,8 @@ def list_bundles(paths):
                        "packages": [f"{p['name']}-{p['evr']}" for p in bundle.get("packages", [])],
                        "repos": sorted({p["repo"] for p in bundle.get("packages", [])}),
                        "updated": bundle.get("updated", 0), "files": meta.get("files", 0),
-                       "enabled": os.path.isdir(compat._enabled_dir(paths, meta["name"]))})
+                       "enabled": os.path.isdir(compat._enabled_dir(paths, meta["name"])),
+                       "state": state_of(paths, meta), "built_for": bundle.get("built_for", "")})
     return result
 
 
@@ -239,6 +298,8 @@ def build(paths, ctx, name, specs, catalog_name="", allow_repos=(), force_refres
         destination = compat._enabled_dir(paths, name)
         os.makedirs(os.path.dirname(destination), exist_ok=True)
         previous = None
+        identity = compat.image_identity(paths)
+        archived = bool(existing) and compat.built_for_other_image(existing, paths) and _archive(paths, name, existing)
         if os.path.lexists(destination):
             previous = os.path.join(scratch, "previous")
             os.rename(destination, previous)
@@ -248,10 +309,11 @@ def build(paths, ctx, name, specs, catalog_name="", allow_repos=(), force_refres
                 "forced": False, "problems": [], "requires": [], "provides": [],
                 "needed_libs": sorted(lib for lib in required if lib not in provided),
                 "optional_libs": [], "provides_libs": sorted(provided),
-                "bundle": {"specs": specs, "catalog": catalog_name, "updated": int(time.time()),
+                "bundle": {"specs": specs, "catalog": catalog_name, "updated": int(time.time()), "built_for": identity,
                            "packages": [{"name": p["name"], "evr": p["evr"], "arch": p["arch"], "repo": p["repo"],
                                          "file": p["file"]} for p in downloaded]}}
         old_meta = existing
+        shutil.rmtree(compat._disabled_dir(paths, name), ignore_errors=True)
         compat._write_json(compat._meta_path(paths, name), meta)
 
         ctx.step("merge", "Merging the extension")
@@ -268,6 +330,8 @@ def build(paths, ctx, name, specs, catalog_name="", allow_repos=(), force_refres
                     os.unlink(compat._meta_path(paths, name))
                 except OSError:
                     pass
+            if archived:
+                _restore(paths, name, (existing["bundle"] or {}).get("built_for"))
             try:
                 extensions.operate("sysext", "refresh", runner)
             except Failed:
@@ -342,3 +406,148 @@ def update(paths, ctx, name="", runner=run, **kwargs):
         outcome["changed"] = sorted(after - before)
         results.append(outcome)
     return {"bundles": results}
+
+
+# -- following the system image ------------------------------------------------------------------
+
+def select(paths):
+    """At boot, before systemd-sysext merges anything: make every bundle match the running image.
+
+    A bundle built for this image (kept in the store while another image ran) is put back; one that only exists
+    for another image is switched off, never merged, because its libraries may not match this base. Only renames,
+    so it is quick and safe to run early. Returns {"restored": [...], "disabled": [...], "stale": [...]}.
+    """
+    identity = compat.image_identity(paths)
+    restored, disabled, stale = [], [], []
+    for meta in compat.installed_metas(paths):
+        bundle = meta.get("bundle")
+        if not bundle:
+            continue
+        name = meta["name"]
+        if state_of(paths, meta) == "current":
+            continue
+        if os.path.isdir(os.path.join(_images_dir(paths, identity), name)):
+            _archive(paths, name, meta)
+            if _restore(paths, name, identity) is not None:
+                restored.append(name)
+                continue
+        if os.path.isdir(compat._enabled_dir(paths, name)):
+            os.makedirs(os.path.dirname(compat._disabled_dir(paths, name)), exist_ok=True)
+            shutil.rmtree(compat._disabled_dir(paths, name), ignore_errors=True)
+            os.rename(compat._enabled_dir(paths, name), compat._disabled_dir(paths, name))
+            disabled.append(name)
+        stale.append(name)
+    marker = os.path.join(paths["state"], "bundles", "stale")
+    if stale:
+        os.makedirs(os.path.dirname(marker), exist_ok=True)
+        with open(marker, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(stale) + "\n")
+    else:
+        try:
+            os.unlink(marker)
+        except OSError:
+            pass
+    return {"restored": restored, "disabled": disabled, "stale": stale}
+
+
+def refresh_stale(paths, ctx, runner=run, **kwargs):
+    """Rebuild every bundle that does not fit the running image; leave the ones that do alone."""
+    todo = [m for m in compat.installed_metas(paths) if m.get("bundle") and state_of(paths, m) == "stale"]
+    names = {m["name"] for m in todo}
+    skipped = [b["name"] for b in list_bundles(paths) if b["name"] not in names]
+    results, failed = [], []
+    for index, meta in enumerate(todo):
+        bundle = meta["bundle"]
+        allow = tuple(sorted({p["repo"] for p in bundle.get("packages", [])}))
+        try:
+            outcome = build(paths, ctx, meta["name"], bundle["specs"], catalog_name=bundle.get("catalog", ""), allow_repos=allow,
+                            force_refresh=(index == 0), runner=runner, **kwargs)
+            results.append(outcome)
+        except (Failed, InvalidArgument, NotFound, Unavailable) as error:
+            ctx.log(f"{meta['name']} could not be rebuilt: {error}")
+            failed.append({"name": meta["name"], "error": str(error)})
+    marker = os.path.join(paths["state"], "bundles", "stale")
+    if not failed:
+        try:
+            os.unlink(marker)
+        except OSError:
+            pass
+    return {"bundles": results, "failed": failed, "skipped": skipped}
+
+
+def base_sonames(root):
+    """Shared libraries found in the standard library directories of the image mounted at `root`."""
+    names = set()
+    for directory in ("usr/lib64", "usr/lib", "usr/lib/x86_64-linux-gnu", "usr/lib/aarch64-linux-gnu"):
+        try:
+            names.update(n for n in os.listdir(os.path.join(root, directory)) if ".so" in n)
+        except OSError:
+            pass
+    return names
+
+
+def prebuild(paths, ctx, new_root, runner=run, pool_factory=None, fetcher=None, file_fetcher=None):
+    """Build every bundle for a system image that is installed but not running yet, so its first boot needs nothing.
+
+    `new_root` is the new image mounted read-only. Each bundle is solved against that image's own package database,
+    its libraries are checked against that image, and the finished tree goes into the store for that image;
+    `select` puts it in place at the first boot of the image. A bundle that cannot be built (no network, a package
+    gone, a library missing) is reported and left for `refresh_stale` after that boot. Returns
+    {"identity", "ready": [...], "failed": [{"name", "error"}]}.
+    """
+    base = {**paths, "root": new_root, "os_release": os.path.join(new_root, "usr/lib/os-release")}
+    identity = compat.image_identity(base)
+    metas = [m for m in compat.installed_metas(paths) if m.get("bundle")]
+    ready, failed = [], []
+    if not metas:
+        return {"identity": identity, "ready": ready, "failed": failed}
+    enabled = repos.enabled(paths)
+    try:
+        if not enabled:
+            raise Failed("no package repository is enabled")
+        _refresh_needed(paths, enabled, True, ctx, runner, fetcher, file_fetcher)
+    except (Failed, Unavailable) as error:
+        return {"identity": identity, "ready": ready,
+                "failed": [{"name": m["name"], "error": str(error)} for m in metas]}
+    sonames = base_sonames(new_root)
+    for index, meta in enumerate(metas):
+        name, bundle = meta["name"], meta["bundle"]
+        if bundle.get("built_for") == identity:
+            ready.append(name)
+            continue
+        scratch = None
+        try:
+            ctx.log(f"building {name} for {identity}")
+            pool = (pool_factory or repos.Pool)(enabled, base, _others_rpms(paths, name))
+            todo, _skipped, _missing = pool.resolve(bundle["specs"])
+            if not todo:
+                raise Failed("everything in the bundle is now part of the new image")
+            downloaded = repos.download(todo, enabled, _rpm_dir(paths, name), runner,
+                                        **({"file_fetcher": file_fetcher} if file_fetcher else {}))
+            scratch, tree, dropped = _assemble(base, name, [p["file"] for p in downloaded], runner)
+            required, _optional, provided = compat.scan_libraries(tree)
+            others = {lib for m in metas if m is not meta for lib in m.get("provides_libs", [])}
+            missing = sorted(lib for lib in required if lib not in provided and lib not in sonames and lib not in others)
+            if missing:
+                raise Failed("the new image no longer provides: " + ", ".join(missing))
+            target = os.path.join(_images_dir(paths, identity), name)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            shutil.rmtree(target, ignore_errors=True)
+            os.rename(tree, target)
+            updated = json.loads(json.dumps(meta))
+            updated["bundle"].update({"built_for": identity, "updated": int(time.time()),
+                                      "packages": [{"name": p["name"], "evr": p["evr"], "arch": p["arch"], "repo": p["repo"],
+                                                    "file": p["file"]} for p in downloaded]})
+            updated.update({"files": _count_files(target), "dropped": dropped,
+                            "needed_libs": sorted(lib for lib in required if lib not in provided),
+                            "provides_libs": sorted(provided), "installed": int(time.time())})
+            compat._write_json(os.path.join(_images_dir(paths, identity), f"{name}.json"), updated)
+            repos.forget(_rpm_dir(paths, name), [p["file"] for p in downloaded])
+            ready.append(name)
+        except (Failed, InvalidArgument, NotFound, Unavailable) as error:
+            failed.append({"name": name, "error": str(error)})
+        finally:
+            if scratch:
+                shutil.rmtree(scratch, ignore_errors=True)
+        ctx.progress((index + 1) / len(metas))
+    return {"identity": identity, "ready": ready, "failed": failed}

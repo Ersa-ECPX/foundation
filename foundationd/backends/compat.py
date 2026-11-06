@@ -17,6 +17,7 @@ dropped (and reported); files that would shadow a file of the base are reported 
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -333,6 +334,20 @@ def analyse(rpm_path, paths, runner=run):
 
 # -- installing --------------------------------------------------------------------------------
 
+def image_identity(paths=None, os_release_path=None):
+    """Which system image this is, as a short token ("ecp_0.1.0_20251101"). Bundles are built for exactly one."""
+    host = osinfo.os_release(os_release_path or paths["os_release"])
+    image, version = host.get("IMAGE_ID"), host.get("IMAGE_VERSION")
+    parts = [image, version, host.get("VERSION_ID")] if image and version else [host.get("ID") or "linux", host.get("VERSION_ID") or host.get("BUILD_ID") or "unknown"]
+    return re.sub(r"[^A-Za-z0-9._-]", "-", "_".join(p for p in parts if p))
+
+
+def built_for_other_image(meta, paths):
+    """True if this extension was built for a different image than the running one (it is only known for bundles)."""
+    built = (meta.get("bundle") or {}).get("built_for")
+    return bool(built) and built != image_identity(paths)
+
+
 def release_file(name, rpm_arch, paths):
     """The extension-release content that makes systemd-sysext accept this extension."""
     host = osinfo.os_release(paths["os_release"])
@@ -465,6 +480,8 @@ def revalidate(paths, ctx, runner=run):
         available = libraries | {lib for other in metas if other is not meta for lib in other.get("provides_libs", [])}
         missing_libs = [lib for lib in meta.get("needed_libs", []) if lib not in available]
         problems = []
+        if built_for_other_image(meta, paths):
+            problems.append("built for a different system image; it is rebuilt for this one (foundation compat refresh)")
         if missing:
             problems.append(f"requirements no longer provided: {', '.join(missing)}")
         if missing_libs:

@@ -155,6 +155,130 @@ class BundleCase(unittest.TestCase):
         return os.path.lexists(os.path.join(self.tree(name), relative))
 
 
+class FollowingTheImage(BundleCase):
+    """A bundle belongs to the system image it was built for: slots, updates and rollbacks keep them matching."""
+
+    def set_image(self, version, version_id="20251101"):
+        with open(self.paths["os_release"], "w") as handle:
+            handle.write(f'ID="opensuse-tumbleweed"\nVERSION_ID="{version_id}"\nIMAGE_ID="ecp"\nIMAGE_VERSION="{version}"\n')
+
+    def setUp(self):
+        super().setUp()
+        self.set_image("0.1.0")
+        real = repos.refresh
+        repos.refresh = lambda repo, *a, **k: {"alias": repo.alias, "changed": False, "revision": ""}
+        self.addCleanup(setattr, repos, "refresh", real)
+
+    def state(self, name="media"):
+        return {b["name"]: b["state"] for b in bundles.list_bundles(self.paths)}[name]
+
+    def test_a_bundle_records_the_image_it_was_built_for(self):
+        self.build("media", ["one"])
+        (bundle,) = bundles.list_bundles(self.paths)
+        self.assertEqual(bundle["built_for"], "ecp_0.1.0_20251101")
+        self.assertEqual(bundle["state"], "current")
+
+    def test_a_new_image_makes_the_bundle_stale_and_boot_switches_it_off(self):
+        self.build("media", ["one"])
+        self.set_image("0.2.0")
+        self.assertEqual(self.state(), "stale")
+        result = bundles.select(self.paths)
+        self.assertEqual((result["disabled"], result["stale"]), (["media"], ["media"]))
+        self.assertFalse(os.path.exists(self.tree()), "never merged against a base it was not built for")
+        self.assertTrue(os.path.isfile(os.path.join(self.paths["state"], "bundles", "stale")))
+        self.assertEqual(self.state(), "stale")
+
+    def test_a_stale_bundle_is_not_re_enabled_by_revalidate(self):
+        self.build("media", ["one"])
+        self.set_image("0.2.0")
+        bundles.select(self.paths)
+        compat.revalidate(self.paths, self.ctx, self.runner)
+        self.assertFalse(os.path.exists(self.tree()))
+
+    def test_refresh_rebuilds_only_what_does_not_fit(self):
+        self.build("media", ["one"])
+        self.build("tools", ["three"])
+        self.set_image("0.2.0")
+        self.build("tools", ["three"])                    # this one was already rebuilt for the new image
+        result = bundles.refresh_stale(self.paths, self.ctx, runner=self.runner, pool_factory=FakePool)
+        self.assertEqual([r["name"] for r in result["bundles"]], ["media"])
+        self.assertEqual((result["failed"], result["skipped"]), ([], ["tools"]))
+        self.assertEqual(self.state("media"), "current")
+        self.assertTrue(self.exists("usr/bin/one"))
+        self.assertFalse(os.path.exists(os.path.join(self.paths["state"], "bundles", "stale")))
+
+    def test_the_tree_for_the_old_image_is_kept_so_a_rollback_finds_it(self):
+        self.build("media", ["one"])
+        self.set_image("0.2.0")
+        bundles.refresh_stale(self.paths, self.ctx, runner=self.runner, pool_factory=FakePool)
+        self.assertTrue(os.path.isdir(os.path.join(bundles._images_dir(self.paths, "ecp_0.1.0_20251101"), "media")))
+        self.set_image("0.1.0")                           # the machine falls back to the old slot
+        self.assertEqual(self.state(), "stale")
+        result = bundles.select(self.paths)
+        self.assertEqual(result["restored"], ["media"])
+        self.assertEqual(self.state(), "current")
+        self.assertTrue(self.exists("usr/bin/one"))
+        self.set_image("0.2.0")                           # and forward again, without any download
+        self.assertEqual(bundles.select(self.paths)["restored"], ["media"])
+        self.assertEqual(self.state(), "current")
+
+    def test_a_rebuild_that_cannot_be_merged_leaves_the_old_tree_available(self):
+        self.build("media", ["one"])
+        self.set_image("0.2.0")
+        self.merge_fails = True
+        result = bundles.refresh_stale(self.paths, self.ctx, runner=self.runner, pool_factory=FakePool)
+        self.assertEqual([f["name"] for f in result["failed"]], ["media"])
+        self.set_image("0.1.0")
+        self.merge_fails = False
+        bundles.select(self.paths)
+        self.assertEqual(self.state(), "current")
+        self.assertTrue(self.exists("usr/bin/one"))
+
+    def new_image(self, version, libs=()):
+        root = os.path.join(self.tmp, "new-" + version)
+        os.makedirs(os.path.join(root, "usr/lib"))
+        os.makedirs(os.path.join(root, "usr/lib64"))
+        for lib in libs:
+            open(os.path.join(root, "usr/lib64", lib), "w").close()
+        with open(os.path.join(root, "usr/lib/os-release"), "w") as handle:
+            handle.write(f'ID="opensuse-tumbleweed"\nVERSION_ID="20251101"\nIMAGE_ID="ecp"\nIMAGE_VERSION="{version}"\n')
+        return root
+
+    def test_bundles_are_built_for_an_installed_image_before_it_boots(self):
+        self.build("media", ["one"])
+        result = bundles.prebuild(self.paths, self.ctx, self.new_image("0.2.0"), runner=self.runner, pool_factory=FakePool)
+        self.assertEqual((result["ready"], result["failed"], result["identity"]), (["media"], [], "ecp_0.2.0_20251101"))
+        self.assertEqual(self.state(), "current", "the running image is untouched")
+        self.assertTrue(self.exists("usr/bin/one"))
+        self.set_image("0.2.0")                           # first boot of the new image
+        self.assertEqual(self.state(), "stale")
+        self.assertEqual(bundles.select(self.paths)["restored"], ["media"])
+        self.assertEqual(self.state(), "current")
+        with open(os.path.join(self.tree(), "usr/lib/extension-release.d/extension-release.media")) as handle:
+            self.assertIn("VERSION_ID=20251101", handle.read())
+        self.set_image("0.1.0")                           # and the old slot still has its own
+        self.assertEqual(bundles.select(self.paths)["restored"], ["media"])
+
+    def test_a_bundle_that_does_not_fit_the_new_image_is_reported_and_left_for_later(self):
+        self.build("media", ["one"])
+        original = bundles.compat.scan_libraries
+        bundles.compat.scan_libraries = lambda tree: ({"libgone.so.3"}, set(), set())
+        self.addCleanup(setattr, bundles.compat, "scan_libraries", original)
+        result = bundles.prebuild(self.paths, self.ctx, self.new_image("0.2.0", libs=["libother.so.1"]),
+                                  runner=self.runner, pool_factory=FakePool)
+        self.assertEqual(result["ready"], [])
+        self.assertIn("libgone.so.3", result["failed"][0]["error"])
+        self.assertEqual(self.state(), "current")
+
+    def test_a_failed_refresh_of_the_package_lists_leaves_every_bundle_for_later(self):
+        self.build("media", ["one"])
+        def broken(repo, *a, **k):
+            raise Failed("no network")
+        repos.refresh = broken
+        result = bundles.prebuild(self.paths, self.ctx, self.new_image("0.2.0"), runner=self.runner, pool_factory=FakePool)
+        self.assertEqual([f["name"] for f in result["failed"]], ["media"])
+
+
 class Building(BundleCase):
     def test_many_packages_become_one_extension_with_their_dependencies(self):
         result = self.build("media", ["one"])
