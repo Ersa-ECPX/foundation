@@ -101,11 +101,23 @@ def parse_entry(filename):
                  int(match.group("done") or 0))
 
 
-def find_esp(paths, mounts):
+def find_esp(paths, mounts, trigger=os.listdir):
+    """The mount point of the EFI system partition, or "".
+
+    systemd's gpt-auto-generator mounts it lazily: until something looks at /efi (or /boot) only an autofs is
+    there, which is not the vfat filesystem. Looking at the directory makes systemd mount it, so do that and read the
+    mount table again before deciding there is none.
+    """
     if paths.get("esp"):
         return paths["esp"]
     for target in ESP_CANDIDATES:
         mount = mounts.get(target)
+        if mount and mount["fstype"] == "autofs":
+            try:
+                trigger(target)
+            except OSError:
+                continue
+            mount = osinfo.mounts(paths["mountinfo"]).get(target)
         if mount and mount["fstype"] == "vfat":
             return target
     return ""

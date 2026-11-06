@@ -325,6 +325,31 @@ class SlotSelectTests(unittest.TestCase):
 
 
 @needs_sfdisk
+class FindEspTests(unittest.TestCase):
+    def test_a_lazily_mounted_esp_is_found_after_looking_at_it(self):
+        system = support.FakeSystem()
+        self.addCleanup(system.cleanup)
+        paths = {k: v for k, v in system.paths.items() if k != "esp"}
+        system.write_mountinfo(["40 36 0:30 / /efi rw - autofs systemd-1 rw"])
+        looked = []
+
+        def trigger(target):
+            looked.append(target)           # systemd mounts the partition when something looks at the directory
+            system.write_mountinfo(["40 36 0:30 / /efi rw - autofs systemd-1 rw", "41 40 259:3 / /efi rw - vfat /dev/vda3 rw"])
+        mounts = osinfo.mounts(paths["mountinfo"])
+        self.assertEqual(slots.find_esp(paths, mounts, trigger), "/efi")
+        self.assertEqual(looked, ["/efi"])
+
+    def test_an_autofs_that_never_mounts_is_no_esp(self):
+        system = support.FakeSystem()
+        self.addCleanup(system.cleanup)
+        paths = {k: v for k, v in system.paths.items() if k != "esp"}
+        system.write_mountinfo(["40 36 0:30 / /efi rw - autofs systemd-1 rw"])
+        self.assertEqual(slots.find_esp(paths, osinfo.mounts(paths["mountinfo"]), lambda target: None), "")
+        self.assertEqual(slots.find_esp(paths, osinfo.mounts(paths["mountinfo"]), lambda target: (_ for _ in ()).throw(OSError())), "")
+
+
+@needs_sfdisk
 class SlotCopyTests(unittest.TestCase):
     FS_BYTES = 1 * support.MIB
 
