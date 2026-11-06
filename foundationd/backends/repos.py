@@ -595,6 +595,18 @@ class Pool:
 
 # -- downloading -------------------------------------------------------------------------------
 
+def package_url(repo, location):
+    """Where a package is downloaded from. Normally the repository's address plus the location in its signed metadata;
+    a repository may instead list absolute https addresses (the metadata on one host, the packages as release assets on
+    another). Either way the file must match the checksum in the signed metadata and carry a valid RPM signature, so
+    the host that serves it is not trusted for anything."""
+    if location.startswith("https://"):
+        return location
+    if "://" in location or location.startswith("/") or ".." in location.split("/"):
+        raise Failed(f"unsafe package location: {location!r}")
+    return repo.baseurl + location
+
+
 def download(packages, repos, directory, runner=run, file_fetcher=fetch_file, workers=6, progress=None):
     """Download and verify the RPMs of a resolved list into `directory`; returns the packages with a "file" added.
 
@@ -619,7 +631,7 @@ def download(packages, repos, directory, runner=run, file_fetcher=fetch_file, wo
         if os.path.exists(target) and kind and digest(target, kind) == expected:
             return
         partial = target + ".part"
-        file_fetcher(repo.baseurl + package["location"], partial, MAX_RPM)
+        file_fetcher(package_url(repo, package["location"]), partial, MAX_RPM)
         if kind and digest(partial, kind) != expected:
             os.unlink(partial)
             raise Failed(f"{os.path.basename(target)} does not match the checksum in the repository metadata")

@@ -399,7 +399,7 @@ def _install_update_file(client, args, path):
     if not sure(args, "Install this update?"):
         return 1
     fds, index = open_rpm(path)
-    code, job = run_job(client, args, "Updates", "Install", "(hssbb)", index, args.slot or "", bool(args.unsigned), bool(args.force), fds=fds)
+    code, job = run_job(client, args, "Updates", "Install", "(hsbb)", index, args.slot or "", bool(args.unsigned), bool(args.force), fds=fds)
     if job is not None and job.ok and not args.json:
         result = job.result
         ui.kv([("Version", result["version"]), ("Installed in", f"slot {result['slot']}"),

@@ -81,6 +81,22 @@ class Base(unittest.TestCase):
                           gpgcheck=True, repo_gpgcheck=True)
 
 
+class PackageLocations(unittest.TestCase):
+    REPO = repos.Repo(alias="r", name="r", baseurl="https://example.org/repo/")
+
+    def test_a_relative_location_is_under_the_repository(self):
+        self.assertEqual(repos.package_url(self.REPO, "noarch/a.rpm"), "https://example.org/repo/noarch/a.rpm")
+
+    def test_an_absolute_https_location_is_used_as_it_is(self):
+        url = "https://github.com/Ersa-ECPX/packages/releases/download/v1/a-1.noarch.rpm"
+        self.assertEqual(repos.package_url(self.REPO, url), url)
+
+    def test_other_schemes_and_traversal_are_refused(self):
+        for location in ("http://example.org/a.rpm", "file:///etc/a.rpm", "ftp://x/a.rpm", "/abs/a.rpm", "../a.rpm", "a/../../b.rpm"):
+            with self.assertRaises(Failed):
+                repos.package_url(self.REPO, location)
+
+
 class OwnRepositories(Base):
     """Repositories a user adds themselves, with their own signing key."""
 
