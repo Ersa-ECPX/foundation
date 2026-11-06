@@ -1,6 +1,6 @@
 """boot.* workers: slot and boot state (queries) and slot changes (jobs)."""
 
-from ..backends import slots
+from ..backends import slots, splash
 from ..workerlib import worker
 
 
@@ -36,3 +36,8 @@ def copy(ctx):
 @worker("boot.release")
 def release(ctx):
     return slots.release(ctx.paths, ctx.arg("slot"), ctx)
+
+
+@worker("boot.splash")
+def set_splash(ctx):
+    return splash.set_theme(ctx.paths, ctx.arg("theme"), ctx)

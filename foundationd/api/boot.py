@@ -8,7 +8,7 @@ import re
 
 from gi.repository import Gio, GLib
 
-from ..errors import Busy, Unavailable
+from ..errors import Busy, InvalidArgument, Unavailable
 from ..service import DEFERRED, Method
 from ..variants import reply_dict, reply_list
 from . import validate
@@ -16,6 +16,7 @@ from . import validate
 BOOT = "org.ersa.Foundation1.Boot"
 ACTION_BOOT = "org.ersa.foundation.boot"
 ACTION_SLOTS = "org.ersa.foundation.slots"
+ACTION_SPLASH = "org.ersa.foundation.splash"
 LOGIN = ("org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.login1.Manager")
 LOCKS = ("slots",)
 
@@ -47,6 +48,13 @@ def register(service):
     copy, check_copy = job_method("boot.copy", ("source", "target", "force"),
                                   (validate.optional_slot, validate.slot, lambda v: v))
     release, check_release = job_method("boot.release", ("slot",), (validate.slot,))
+
+    def splash_theme(value):
+        if value not in ("light", "dark"):
+            raise InvalidArgument(f"not a splash theme: {value!r} (use light or dark)")
+        return value
+
+    set_splash, check_splash = job_method("boot.splash", ("theme",), (splash_theme,))
 
     def logind(method, parameters, then):
         """Call a logind method; then(error_message_or_None) runs when it returns."""
@@ -91,6 +99,7 @@ def register(service):
         (BOOT, "SetNextBoot"): Method(set_next, ACTION_BOOT, check_next),
         (BOOT, "CopySlot"): Method(copy, ACTION_SLOTS, check_copy),
         (BOOT, "ReleaseSlot"): Method(release, ACTION_SLOTS, check_release),
+        (BOOT, "SetSplash"): Method(set_splash, ACTION_SPLASH, check_splash),
         (BOOT, "Reboot"): Method(reboot_handler(False), ACTION_BOOT),
         (BOOT, "RebootToFirmware"): Method(reboot_handler(True), ACTION_BOOT),
     }

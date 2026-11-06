@@ -242,6 +242,17 @@
       <arg name="slot" type="s" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
+    <!--
+      Set the boot splash theme: "light" (the default) or "dark". Plymouth reads plymouth.splash=ersa-dark
+      from the kernel command line, so this rewrites that token in every unified kernel image on the ESP
+      (light removes it). It takes effect at the next boot. A signed image cannot be changed and is
+      reported under skipped. Requires org.ersa.foundation.splash (allowed for the active local user).
+      Result: theme (s), changed (as, file names), skipped (aa{ss}: file, reason).
+    -->
+    <method name="SetSplash">
+      <arg name="theme" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
     <!-- Reboot now. Refused with Busy while a job is running unless force is true. Requires
          org.ersa.foundation.boot. -->
     <method name="Reboot">

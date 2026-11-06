@@ -217,6 +217,16 @@ class Boot(Cli, BootDaemon):
             self.assertEqual(handle.read().split(), ["set-default", "ecp_0.2.0.efi"])
         self.assertIn("default", self.cli("slot", "status")[1])
 
+    def test_splash_dark_then_light(self):
+        code, out, err = self.cli("splash", "dark")
+        self.assertEqual(code, 0, err)
+        self.assertIn("ecp_0.2.0+2.efi", out)
+        self.assertIn("next restart", out)
+        code, out, _err = self.cli("splash", "dark", "--json")
+        self.assertEqual(json.loads(out[out.index("{\n"):])["result"]["changed"], [])
+        self.assertEqual(self.cli("splash", "light")[0], 0)
+        self.assertNotEqual(self.cli("splash", "blue")[0], 0)
+
     def test_boot_once(self):
         self.assertEqual(self.cli("slot", "boot", "0.2.0", "--once", "--yes")[0], 0)
         with open(self.bootctl_log) as handle:
