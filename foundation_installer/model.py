@@ -11,6 +11,7 @@ PARTITION_TITLES = {
     "ECP-RECOVERY": "Recovery",
     "_empty": "System slot B",
     "ECP-DATA": "Your files and settings",
+    "ECP-LIVE": "The installer's workspace",
 }
 
 

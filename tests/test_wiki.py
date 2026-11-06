@@ -161,7 +161,7 @@ class Site(unittest.TestCase):
 
     def test_the_unfinished_features_are_marked(self):
         section = self.document.split('data-page="features/updates"', 1)[1].split("</section>", 1)[0]
-        self.assertIn('class="badge bad"', section)
+        self.assertIn('class="badge mid"', section)
 
     def test_a_publishable_site_gets_nojekyll_a_cname_and_the_images_it_uses(self):
         import tempfile
