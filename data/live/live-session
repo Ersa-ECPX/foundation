@@ -1,0 +1,40 @@
+#!/bin/sh
+# Prepare the installer medium's live session (part of the installer sysext). Everything is written under /etc and /home, which on
+# the medium live in the writable overlay and data volume, never in the root image that the
+# installer copies to a disk.
+set -eu
+
+id liveuser >/dev/null 2>&1 || useradd --create-home --shell /bin/bash --groups wheel --comment "Live session" liveuser
+echo 'liveuser:liveuser' | chpasswd
+
+install -d -m 0750 /etc/sudoers.d
+printf '%s\n' '# Installer medium only.' 'liveuser ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/10-liveuser
+chmod 0440 /etc/sudoers.d/10-liveuser
+
+install -d -m 0755 /etc/polkit-1/rules.d
+cat > /etc/polkit-1/rules.d/50-ersa-live-installer.rules <<'RULE'
+// Installer medium only: the live user may run the installer's operations without a password.
+polkit.addRule(function(action, subject) {
+    if (subject.user == "liveuser" &&
+        (["org.ersa.foundation.deploy", "org.ersa.foundation.jobs", "org.ersa.foundation.boot"].indexOf(action.id) >= 0)) {
+        return polkit.Result.YES;
+    }
+});
+RULE
+
+install -d -m 0755 /etc/gdm
+printf '%s\n' '[daemon]' 'AutomaticLoginEnable=True' 'AutomaticLogin=liveuser' > /etc/gdm/custom.conf
+
+install -d -m 0755 /etc/xdg/autostart
+cat > /etc/xdg/autostart/org.ersa.Installer.desktop <<'DESK'
+[Desktop Entry]
+Type=Application
+Name=Install Ersa Compute Platform
+Exec=/usr/bin/ersa-installer
+Icon=system-software-install
+Terminal=false
+X-GNOME-Autostart-enabled=true
+DESK
+
+install -d -m 0700 -o liveuser -g liveuser /home/liveuser/.config
+install -m 0644 -o liveuser -g liveuser /dev/null /home/liveuser/.config/gnome-initial-setup-done

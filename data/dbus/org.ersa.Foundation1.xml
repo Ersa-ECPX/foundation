@@ -1,0 +1,354 @@
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<!--
+  org.ersa.Foundation1: the contract between foundationd and its clients (the foundation CLI, the
+  installer, the recovery environment, a future settings applet). Clients and test mocks are built
+  against this file, not against the daemon.
+
+  Conventions
+  - Only implemented interfaces appear here. Planned ones (Deploy, Updates, Diagnostics) are in
+    docs/foundationd.md and are added when they work. Changes within Foundation1 are additive only;
+    a breaking change becomes Foundation2.
+  - Reads (List*, Get*, Describe, Inspect, Search) need no authorization and never block the daemon.
+  - A call that changes the system returns the object path of a Job (org.ersa.Foundation1.Job) as
+    soon as the request is accepted, and does the work afterwards. Watch the job's signals or poll
+    its properties. Authorization is checked before the job is created.
+  - Dictionaries (a{sv}) carry named fields; unknown fields must be ignored by clients.
+  - Files are passed as unix file descriptors (type h), never as paths, so the root daemon never
+    opens a path chosen by an unprivileged caller.
+  - Errors are returned under org.ersa.Foundation1.Error.*: NotAuthorized, InvalidArgument,
+    UnknownKey, ReadOnly, Busy, NotFound, NotCancellable, Unavailable, AlreadyProvisioned, Failed.
+-->
+<node>
+  <!-- Identity and overall state. Object /org/ersa/Foundation1. -->
+  <interface name="org.ersa.Foundation1.Manager">
+    <property name="Version" type="s" access="read"/>
+    <!-- Version of this API: "1". -->
+    <property name="ApiVersion" type="s" access="read"/>
+    <!--
+      Overall status. Keys:
+        provisioned  (b)  first-boot setup has finished (state key system.provisioned)
+        provisioned_at (s) when it was recorded (UTC, ISO 8601); absent until then
+        developer    (b)  developer mode is enabled (config key system.developer_mode)
+        capabilities (as) feature names that are available: config, jobs, boot, apps, compat,
+                          extensions. Clients show only these.
+    -->
+    <method name="GetStatus">
+      <arg name="status" type="a{sv}" direction="out"/>
+    </method>
+    <!--
+      Facts about the running system. Keys:
+        os (a{sv}: name, base, image_id, image_version, ecp), architecture (s),
+        mounts (aa{sv}: target, source, fstype, readonly), services (a{sv}: unit -> state string)
+      Absent facts are left out (D-Bus has no null), so clients must treat every key as optional.
+    -->
+    <method name="GetSystemInfo">
+      <arg name="info" type="a{sv}" direction="out"/>
+    </method>
+    <!-- RPM packages in the base image. Fields: name, version, vendor. -->
+    <method name="ListBasePackages">
+      <arg name="packages" type="aa{sv}" direction="out"/>
+    </method>
+    <!--
+      Look for evidence that first-boot setup is complete (the "setup done" file GNOME Initial Setup
+      writes for the administrator account it created) and record it once. Returns whether the
+      machine is provisioned afterwards. No authorization: the caller cannot supply the evidence,
+      only the service reads it. Started by a user unit after each login until it succeeds.
+    -->
+    <method name="CheckProvisioning">
+      <arg name="provisioned" type="b" direction="out"/>
+    </method>
+    <!--
+      Record that first-boot setup is complete, for a front end that is not GNOME Initial Setup (a
+      custom setup app, an MDM enrolment agent). Requires org.ersa.foundation.provision. Fails with
+      AlreadyProvisioned once it has been recorded: this is a one-way latch.
+    -->
+    <method name="CompleteProvisioning"/>
+    <!-- Job objects: running jobs and the most recent finished ones, oldest first. -->
+    <method name="ListJobs">
+      <arg name="jobs" type="ao" direction="out"/>
+    </method>
+  </interface>
+
+  <!--
+    Settings. Every key is registered in the daemon's schema, which gives it a type, a default and
+    whether it can be changed through this interface. Keys that describe what the machine has done
+    (for example system.provisioned) are state, not configuration, and are not exposed here.
+    Values are variants whose type is fixed by the schema (b, s or i).
+  -->
+  <interface name="org.ersa.Foundation1.Config">
+    <!-- Effective value of a key (image default, then /etc overrides). -->
+    <method name="Get">
+      <arg name="key" type="s" direction="in"/>
+      <arg name="value" type="v" direction="out"/>
+    </method>
+    <!-- Every registered key with its effective value. -->
+    <method name="List">
+      <arg name="values" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Describe one key: type (s, a signature), default (v), description (s), writable (b), and
+         choices (as) when the key accepts only certain strings. -->
+    <method name="Describe">
+      <arg name="key" type="s" direction="in"/>
+      <arg name="info" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Set a key. Requires org.ersa.foundation.config. Emits Changed on success. -->
+    <method name="Set">
+      <arg name="key" type="s" direction="in"/>
+      <arg name="value" type="v" direction="in"/>
+    </method>
+    <!-- Remove the override written by Set. Same authorization as Set. -->
+    <method name="Reset">
+      <arg name="key" type="s" direction="in"/>
+    </method>
+    <signal name="Changed">
+      <arg name="key" type="s"/>
+    </signal>
+  </interface>
+
+  <!--
+    A long-running operation. Objects live at /org/ersa/Foundation1/Job/&lt;id&gt; and outlive the
+    client that started them. Finished jobs stay for a while (the most recent 50 are kept).
+  -->
+  <interface name="org.ersa.Foundation1.Job">
+    <!-- What the job does, for example "apps.install". -->
+    <property name="Kind" type="s" access="read"/>
+    <!-- queued is never used today; running, done, failed or cancelled. -->
+    <property name="State" type="s" access="read"/>
+    <!-- Machine-readable id and human title of the current step. -->
+    <property name="Step" type="s" access="read"/>
+    <property name="StepTitle" type="s" access="read"/>
+    <!-- 0.0 to 1.0, or -1 when the job cannot tell. -->
+    <property name="Progress" type="d" access="read"/>
+    <!-- Whether Cancel can still work. False once the job passes a point of no return. -->
+    <property name="Cancellable" type="b" access="read"/>
+    <!-- Kind-specific result; empty until the job finishes successfully. -->
+    <property name="Result" type="a{sv}" access="read"/>
+    <!-- Error name (org.ersa.Foundation1.Error.*) and message when State is failed. -->
+    <property name="ErrorName" type="s" access="read"/>
+    <property name="ErrorMessage" type="s" access="read"/>
+    <!-- Ask the job to stop at its next safe point. Requires org.ersa.foundation.jobs (cancelling
+         someone else's operation is a denial of service). Fails with NotCancellable after the
+         job has passed its point of no return. -->
+    <method name="Cancel"/>
+    <!-- The last n lines of the job's log. -->
+    <method name="Logs">
+      <arg name="lines" type="i" direction="in"/>
+      <arg name="log" type="as" direction="out"/>
+    </method>
+    <signal name="StepChanged">
+      <arg name="id" type="s"/>
+      <arg name="title" type="s"/>
+    </signal>
+    <signal name="ProgressChanged">
+      <arg name="fraction" type="d"/>
+    </signal>
+    <signal name="Message">
+      <arg name="text" type="s"/>
+    </signal>
+    <signal name="Finished">
+      <arg name="ok" type="b"/>
+      <arg name="message" type="s"/>
+    </signal>
+  </interface>
+
+  <!--
+    Installing the operating system on a disk (the installer's back end). The running image is copied
+    to the target: partitions are created (ESP, recovery, two root slots, one btrfs data volume), the
+    running root is copied into the first slot and verified, and the disk is made bootable last, so an
+    interrupted install never leaves something that looks bootable.
+  -->
+  <interface name="org.ersa.Foundation1.Deploy">
+    <!--
+      Every whole disk. Fields: path (s), name (s), size (x), model (s), removable (b),
+      boot_medium (b: holds the running system), mounted (as), usable (b), reason (s: why not).
+    -->
+    <method name="ListDisks">
+      <arg name="disks" type="aa{sv}" direction="out"/>
+    </method>
+    <!--
+      What installing to the disk would do; changes nothing. Fields: disk, size, model, removable,
+      version (s), partitions (aa{sv}: label, size, note), will_erase (aa{sv}: number, name, size),
+      problems (as), possible (b).
+    -->
+    <method name="PlanDeploy">
+      <arg name="disk" type="s" direction="in"/>
+      <arg name="plan" type="a{sv}" direction="out"/>
+    </method>
+    <!--
+      Install to the disk, erasing everything on it. confirm must equal disk exactly. Refused for the
+      disk that holds the running system, a disk with mounted partitions, a read-only or too small
+      disk. Requires org.ersa.foundation.deploy (always asks). Result: disk, version,
+      root_partition, bytes, partitions.
+    -->
+    <method name="Deploy">
+      <arg name="disk" type="s" direction="in"/>
+      <arg name="confirm" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+  </interface>
+
+  <!--
+    Boot slots and boot control. A slot is a root-type partition. Its label is ecp-root_&lt;name&gt;
+    and the unified kernel image (UKI) ecp_&lt;name&gt;+N.efi on the ESP boots the partition with that
+    label. Requires UEFI with systemd-boot.
+  -->
+  <interface name="org.ersa.Foundation1.Boot">
+    <!--
+      State of the current boot. Keys: efi (b: booted through systemd-boot), running_slot (s),
+      running_device (s), selected_entry (s), default_entry (s), tries_left (i, -1 when blessed),
+      tries_done (i), assessment (s: good, pending or unknown).
+    -->
+    <method name="GetBootState">
+      <arg name="state" type="a{sv}" direction="out"/>
+    </method>
+    <!--
+      Every root slot. Fields: name (s), label (s), device (s), size (t), state (s: running, standby
+      or empty), running (b), default (b: boots by default), entry (s: UKI file on the ESP, empty if
+      none), tries_left (i, -1 when blessed or absent), bootable (b).
+    -->
+    <method name="GetSlots">
+      <arg name="slots" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- Boot the slot by default from now on (persistent). Requires org.ersa.foundation.boot. -->
+    <method name="SetDefaultSlot">
+      <arg name="slot" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Boot the slot once, at the next boot only. Requires org.ersa.foundation.boot. -->
+    <method name="SetNextBoot">
+      <arg name="slot" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!--
+      Copy a slot onto another and make the copy a bootable slot of its own (its own label and
+      UKI, so it never collides with the source). The source defaults to the running slot when
+      empty. A target that is not empty is overwritten only when force is true. The running slot
+      cannot be a target. Requires org.ersa.foundation.slots. Result: slot, label, entry, bytes.
+    -->
+    <method name="CopySlot">
+      <arg name="source" type="s" direction="in"/>
+      <arg name="target" type="s" direction="in"/>
+      <arg name="force" type="b" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Empty a standby slot: relabel it _empty and remove its UKI, so OTA can use it. The running
+         slot cannot be released. Requires org.ersa.foundation.slots. -->
+    <method name="ReleaseSlot">
+      <arg name="slot" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Reboot now. Refused with Busy while a job is running unless force is true. Requires
+         org.ersa.foundation.boot. -->
+    <method name="Reboot">
+      <arg name="force" type="b" direction="in"/>
+    </method>
+    <!-- Reboot into the firmware setup screen. Same rules as Reboot. -->
+    <method name="RebootToFirmware">
+      <arg name="force" type="b" direction="in"/>
+    </method>
+  </interface>
+
+  <!-- System-wide Flatpak applications (stored under /var/lib/flatpak). -->
+  <interface name="org.ersa.Foundation1.Apps">
+    <!-- Fields: id, name, version, origin. -->
+    <method name="ListInstalled">
+      <arg name="apps" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- Fields: id, name, description. Searches the configured remote. -->
+    <method name="Search">
+      <arg name="term" type="s" direction="in"/>
+      <arg name="apps" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- Details of an application in the remote, as named fields (Ref, Version, License, ...). -->
+    <method name="GetInfo">
+      <arg name="id" type="s" direction="in"/>
+      <arg name="info" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Add the Flathub remote if it is not configured. Requires org.ersa.foundation.apps. -->
+    <method name="SetupRemote">
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <method name="Install">
+      <arg name="id" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <method name="Remove">
+      <arg name="id" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Update every installed application. -->
+    <method name="Update">
+      <arg name="job" type="o" direction="out"/>
+    </method>
+  </interface>
+
+  <!--
+    Legacy or third-party RPMs run as system extensions, so the immutable base stays untouched.
+    The payload is unpacked (no scriptlets run) and merged over /usr by systemd-sysext. Each
+    extension lives in /var/lib/foundation/compat/&lt;name&gt; and is linked from /var/lib/extensions.
+  -->
+  <interface name="org.ersa.Foundation1.Compat">
+    <!--
+      Check an RPM against the running base without changing anything. The file is passed as a
+      descriptor. Fields: name, version, release, arch, files (i), compatible (b), problems (as),
+      missing_requires (as; rich dependencies such as "(a or b)" are evaluated and reported whole),
+      missing_libraries (as: needed by a program in the package), optional_libraries (as: needed only
+      by plugins no program links against; a missing one disables a feature, not the program),
+      outside_usr (as: files outside /usr and /opt, which are not installed), conflicts (as: files that
+      would replace files of the base), notes (as: things worth knowing that do not stop an install),
+      scriptlets (b: it has scriptlets, which are not run). compatible is false only for problems
+      (missing requirements or libraries, conflicts, a wrong architecture), never for notes.
+    -->
+    <method name="Inspect">
+      <arg name="rpm" type="h" direction="in"/>
+      <arg name="report" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Install an RPM as an extension. Refused when Inspect reports problems unless force is
+         true. Requires org.ersa.foundation.compat. Result: name, version, merged (b). -->
+    <method name="Install">
+      <arg name="rpm" type="h" direction="in"/>
+      <arg name="force" type="b" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <method name="Remove">
+      <arg name="name" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Installed compat extensions. Fields: name, version, release, arch, files (i), enabled (b),
+         merged (b), problems (as: why it is disabled, if it is). -->
+    <method name="List">
+      <arg name="extensions" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- Recheck every compat extension against the current base (after an OS update). Extensions
+         that no longer fit are disabled (unlinked), never deleted. Result: checked, disabled (as),
+         enabled (as). -->
+    <method name="Revalidate">
+      <arg name="job" type="o" direction="out"/>
+    </method>
+  </interface>
+
+  <!-- systemd-sysext and systemd-confext images, of any origin. kind is "sysext" or "confext". -->
+  <interface name="org.ersa.Foundation1.Extensions">
+    <!-- Fields: name, kind, path, type (s: directory, image or link), merged (b), managed (b: it
+         is a compat extension managed by foundationd). -->
+    <method name="List">
+      <arg name="kind" type="s" direction="in"/>
+      <arg name="extensions" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- Overlay all extensions of the kind onto the system. Requires org.ersa.foundation.extensions. -->
+    <method name="Merge">
+      <arg name="kind" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <method name="Unmerge">
+      <arg name="kind" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Merge again, picking up added or removed images. -->
+    <method name="Refresh">
+      <arg name="kind" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+  </interface>
+</node>

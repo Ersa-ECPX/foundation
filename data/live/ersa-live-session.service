@@ -1,0 +1,15 @@
+[Unit]
+Description=Ersa Compute Platform live session (installer medium only)
+# Part of the installer sysext, so it exists only on the installer medium; an installed system never
+# merges that extension.
+Before=display-manager.service
+After=local-fs.target
+DefaultDependencies=yes
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/ecp/live-session
+
+[Install]
+WantedBy=graphical.target
+

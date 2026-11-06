@@ -1,0 +1,28 @@
+{
+  "ota.url": {
+    "type": "string",
+    "default": "https://updates.ersa.invalid/ecp",
+    "description": "Base URL of the OS image update source (placeholder until a server exists)."
+  },
+  "ota.channel": {
+    "type": "string",
+    "default": "stable",
+    "choices": ["stable", "testing"],
+    "description": "Update channel."
+  },
+  "ota.auto_check": {
+    "type": "boolean",
+    "default": true,
+    "description": "Check the update source periodically."
+  },
+  "ota.auto_download": {
+    "type": "boolean",
+    "default": false,
+    "description": "Download updates without being asked."
+  },
+  "system.developer_mode": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable developer features. Changing it requires administrator authentication."
+  }
+}

@@ -1,0 +1,12 @@
+[Unit]
+Description=Tell the Ersa Compute Platform service that first-boot setup is complete
+ConditionPathExists=!/var/lib/foundation/provisioned
+
+[Service]
+Type=oneshot
+# Stay "active" afterwards: the path unit watches a file that keeps existing, so without this it
+# would start the service again as soon as it finished.
+RemainAfterExit=yes
+ExecStart=/usr/bin/busctl --system call org.ersa.Foundation1 /org/ersa/Foundation1 org.ersa.Foundation1.Manager CheckProvisioning
+
+# Started by foundation-provisioning.path (enabled by the image's user preset); no [Install] here.

@@ -1,0 +1,25 @@
+[Unit]
+Description=Ersa Compute Platform management service
+Documentation=file:///usr/share/doc/foundation/README.md
+
+[Service]
+# Started by D-Bus activation; exits by itself when idle.
+Type=dbus
+BusName=org.ersa.Foundation1
+ExecStart=/usr/libexec/foundationd
+StateDirectory=foundation
+ConfigurationDirectory=foundation
+
+# Hardening that is safe for the workers this service starts as its children.
+#
+# Deliberately NOT used: ProtectSystem=, ProtectHome=, PrivateTmp=, ProtectKernel*=, ReadWritePaths=
+# and anything else that gives the service its own mount namespace. Workers merge system extensions
+# (an overlay mounted on /usr), write boot slots and the EFI system partition, and install Flatpak
+# applications; an overlay mounted inside a private namespace would be invisible to the rest of the
+# system, and the other writes would be blocked. Also not used: NoNewPrivileges= (Flatpak runs
+# bubblewrap) and a network restriction to AF_UNIX (Flatpak downloads over the network).
+# Stronger isolation will come from running each kind of worker in its own transient systemd unit.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native

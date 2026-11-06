@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Install Ersa Compute Platform
+Comment=Install the operating system on a disk
+Exec=/usr/bin/ersa-installer
+Icon=system-software-install
+Terminal=false
+NoDisplay=true
+Categories=System;
+StartupNotify=true

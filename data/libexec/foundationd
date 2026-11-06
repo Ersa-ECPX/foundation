@@ -1,0 +1,8 @@
+#!/usr/bin/python3 -I
+import sys
+
+sys.path.insert(0, "/usr/lib/foundation")
+
+from foundationd.__main__ import main  # noqa: E402
+
+sys.exit(main())

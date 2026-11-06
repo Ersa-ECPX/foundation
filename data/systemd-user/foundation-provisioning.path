@@ -1,0 +1,13 @@
+[Unit]
+Description=Watch for the end of the Ersa Compute Platform first-boot setup
+# Not needed once the machine is provisioned (the marker is created by foundationd).
+ConditionPathExists=!/var/lib/foundation/provisioned
+
+[Path]
+# GNOME Initial Setup writes this file *during* the new account's first session, after the session
+# (and a one-shot check at its start) has begun, so the file has to be watched for, not tested once.
+PathExists=%h/.config/gnome-initial-setup-done
+Unit=foundation-provisioning.service
+
+[Install]
+WantedBy=default.target

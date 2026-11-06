@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- One action per kind of change. Reading state needs no authorization. -->
+<policyconfig>
+  <vendor>Ersa Compute Platform</vendor>
+  <vendor_url>https://ersa.invalid/ecp</vendor_url>
+
+  <action id="org.ersa.foundation.config">
+    <description>Change Ersa Compute Platform settings</description>
+    <message>Authentication is required to change system settings</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.ersa.foundation.apps">
+    <description>Install, update or remove applications</description>
+    <message>Authentication is required to change the installed applications</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.ersa.foundation.compat">
+    <description>Install or remove compatibility packages</description>
+    <message>Authentication is required to change the compatibility packages</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.ersa.foundation.extensions">
+    <description>Merge or unmerge system extensions</description>
+    <message>Authentication is required to change the system extensions</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.ersa.foundation.boot">
+    <description>Choose the boot slot or restart the computer</description>
+    <message>Authentication is required to change how the computer starts</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Overwrites a boot slot: always asks, never remembers the answer. -->
+  <action id="org.ersa.foundation.slots">
+    <description>Copy or release a boot slot</description>
+    <message>Authentication is required to overwrite a boot slot</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Erases a whole disk: always asks, never remembers the answer. -->
+  <action id="org.ersa.foundation.deploy">
+    <description>Install the operating system on a disk</description>
+    <message>Authentication is required to erase a disk and install the operating system</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <!-- Ending first-boot setup is a one-way step. A setup front end ships its own polkit rule for it. -->
+  <action id="org.ersa.foundation.provision">
+    <description>Record that first-boot setup is complete</description>
+    <message>Authentication is required to finish the first-boot setup</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <action id="org.ersa.foundation.jobs">
+    <description>Cancel a running operation</description>
+    <message>Authentication is required to cancel a running operation</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+</policyconfig>
