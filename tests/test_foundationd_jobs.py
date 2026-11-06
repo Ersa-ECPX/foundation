@@ -23,7 +23,7 @@ from test_foundationd_bus import (BusCase, CONFIG, MANAGER, NAME, PATH, ROOT, gi
 if gi:
     from gi.repository import Gio, GLib
 
-EXTENSIONS, BOOT, APPS, COMPAT = (f"org.ersa.Foundation1.{n}" for n in ("Extensions", "Boot", "Apps", "Compat"))
+EXTENSIONS, BOOT, APPS, COMPAT, REPOS = (f"org.ersa.Foundation1.{n}" for n in ("Extensions", "Boot", "Apps", "Compat", "Repos"))
 JOB = "org.ersa.Foundation1.Job"
 WORKER = f"{sys.executable} {os.path.join(HERE, 'scripted_worker.py')}"
 ERR = "org.ersa.Foundation1.Error."
@@ -208,6 +208,29 @@ class Validation(JobCase):
         self.assertEqual(self.error_of(APPS, "Search", "(s)", "-x"), ERR + "InvalidArgument")
         self.assertEqual(self.call(MANAGER, "ListJobs"), ([],))
 
+    def test_bad_repository_and_bundle_arguments_are_rejected_before_anything_starts(self):
+        for interface, method, signature, args in (
+                (COMPAT, "InstallPackages", "(sasas)", ("../x", ["vlc"], [])),          # bundle name
+                (COMPAT, "InstallPackages", "(sasas)", ("media", ["-evil"], [])),       # package starts with '-'
+                (COMPAT, "InstallPackages", "(sasas)", ("media", [], [])),              # nothing to install
+                (COMPAT, "InstallPackages", "(sasas)", ("media", ["vlc"], ["bad name"])),
+                (COMPAT, "InstallCatalog", "(ssb)", ("a/b", "", True)),
+                (COMPAT, "InstallCatalog", "(ssb)", ("codecs", "-x", True)),
+                (COMPAT, "RemovePackages", "(sas)", ("media", ["a b"])),
+                (COMPAT, "UpdateBundles", "(s)", ("../x",)),
+                (REPOS, "Search", "(s)", ("-x",)),
+                (REPOS, "Search", "(s)", ("",)),
+                (REPOS, "Info", "(s)", ("a b",)),
+                (REPOS, "SetEnabled", "(sb)", ("../x", True)),
+                (REPOS, "Refresh", "(asb)", (["bad name"], False))):
+            self.assertEqual(self.error_of(interface, method, signature, *args), ERR + "InvalidArgument", (method, args))
+        self.assertEqual(self.call(MANAGER, "ListJobs"), ([],))
+
+    def test_the_read_only_repository_and_bundle_queries_need_no_authorization(self):
+        self.assertEqual(self.call(REPOS, "List"), ([],))          # no repository definitions on this machine
+        self.assertEqual(self.call(COMPAT, "ListBundles"), ([],))
+        self.assertEqual(self.call(COMPAT, "ListCatalog"), ([],))
+
     def test_unknown_job_object_has_no_methods(self):
         with self.assertRaises(GLib.Error):
             self.conn.call_sync(NAME, "/org/ersa/Foundation1/Job/999", JOB, "Cancel", None, None,
@@ -221,6 +244,12 @@ class Denied(JobCase):
         self.assertEqual(self.error_of(EXTENSIONS, "Merge", "(s)", "sysext"), ERR + "NotAuthorized")
         self.assertEqual(self.error_of(BOOT, "CopySlot", "(ssb)", "", "b", True), ERR + "NotAuthorized")
         self.assertEqual(self.error_of(BOOT, "Reboot", "(b)", False), ERR + "NotAuthorized")
+        self.assertEqual(self.error_of(COMPAT, "InstallPackages", "(sasas)", "media", ["vlc"], []), ERR + "NotAuthorized")
+        self.assertEqual(self.error_of(COMPAT, "InstallCatalog", "(ssb)", "codecs", "", True), ERR + "NotAuthorized")
+        self.assertEqual(self.error_of(COMPAT, "RemovePackages", "(sas)", "media", []), ERR + "NotAuthorized")
+        self.assertEqual(self.error_of(COMPAT, "UpdateBundles", "(s)", ""), ERR + "NotAuthorized")
+        self.assertEqual(self.error_of(REPOS, "SetEnabled", "(sb)", "packman-essentials", True), ERR + "NotAuthorized")
+        self.assertEqual(self.error_of(REPOS, "Refresh", "(asb)", [], False), ERR + "NotAuthorized")
         self.assertEqual(self.call(MANAGER, "ListJobs"), ([],))
 
     def test_cancel_is_checked_against_polkit_before_anything_else(self):

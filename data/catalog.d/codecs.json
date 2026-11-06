@@ -1,0 +1,101 @@
+{
+  "name": "codecs",
+  "title": "Multimedia codecs",
+  "description": "Full FFmpeg libraries (H.264, H.265, AAC and more), x264, x265 and GStreamer's patent-encumbered codec plugins, so videos and music that openSUSE's own limited FFmpeg cannot play work in Firefox, GNOME and other applications that use the system libraries.",
+  "notice": "These packages come from Packman, a third-party community repository, and are downloaded to this computer directly from it; they are not part of the Ersa Compute Platform image. Some of these codecs are covered by patents in some countries. You are responsible for checking that using them is allowed where you are. Flatpak applications bring their own codecs and do not need this.",
+  "repos": [
+    "packman-essentials"
+  ],
+  "packages": [
+    {
+      "name": "libavcodec62",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libavformat62",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libavutil60",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libswresample6",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libswscale9",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libavfilter11",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libavdevice62",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libavcodec63",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libavformat63",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libavutil61",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libswresample7",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libswscale10",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libavfilter12",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "libavdevice63",
+      "repo": "packman-essentials",
+      "when_installed": true
+    },
+    {
+      "name": "gstreamer-plugins-bad-codecs",
+      "repo": "packman-essentials"
+    },
+    {
+      "name": "gstreamer-plugins-ugly-codecs",
+      "repo": "packman-essentials"
+    },
+    {
+      "name": "libx264-165",
+      "repo": "packman-essentials"
+    },
+    {
+      "name": "libx265-215",
+      "repo": "packman-essentials"
+    },
+    {
+      "name": "libde265-0",
+      "repo": "packman-essentials"
+    }
+  ]
+}

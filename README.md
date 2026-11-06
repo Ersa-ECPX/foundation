@@ -183,6 +183,69 @@ will not release the running slot or the only slot that can boot.
 value the loader variable ended up with. A slot just copied is tried a few times (the `+3`
 counter) and boot falls back to the previous entry if it does not start.
 
+## Repositories and bundles
+
+`foundation repo` and `foundation compat install PACKAGE...` give the immutable image what a package manager
+would, without making the base writable: every package becomes part of a **bundle**, and a bundle is **one system
+extension** overlaid on `/usr` and `/opt`.
+
+```
+foundation repo list                          # the repositories, whether each is on, how fresh its lists are
+foundation repo refresh                       # download the signed package lists
+foundation repo search vlc                    # find packages in the enabled repositories
+foundation repo info ffmpeg                   # the newest version in each repository
+
+foundation compat install vlc gimp --into media   # packages (and what they need) into one bundle
+foundation compat install @codecs                 # a ready-made bundle from the catalog
+foundation compat remove media gimp               # take a package (and what only it needed) out
+foundation compat remove media                    # or remove the whole bundle
+foundation compat update                          # newest packages, for every bundle
+foundation compat bundles | catalog | list
+```
+
+**How it works.** The repositories are described in zypp's `.repo` format (`/usr/lib/foundation/repos.d`, local
+overrides in `/etc/foundation/repos.d`). foundationd reads their metadata with **libsolv** (the solver and metadata
+reader libzypp and dnf use) through its Python bindings; there is no `zypper` and no libzypp on the system. To add
+packages to a bundle it re-solves the whole bundle against the installed base plus the other bundles, downloads
+what is missing, builds the new extension beside the old one, swaps it in and merges it. If the merge fails the
+previous bundle comes back. Downloaded RPMs stay in `/var/lib/foundation/bundles/<name>.rpms`, so a rebuild fetches
+only what is new. Solving the bundle as a whole means conflicts show up together and shared dependencies are
+stored once; the other bundles count as installed, so nothing is duplicated, and a bundle that others use
+libraries from cannot be removed.
+
+**What is trusted.** Each repository names its signing key by file (`gpgkey=file:///usr/share/foundation/keys/...`);
+keys are never fetched from the network. `repomd.xml` must carry a valid detached signature from that key, the
+package list must match the checksum the signed `repomd.xml` lists, and every RPM must match its checksum and carry
+a valid signature from the repository's key (checked with `rpmkeys` against a private keyring). Only https and file
+URLs are accepted, sizes are capped, and a remote repository cannot switch the checks off. Packages are unpacked by
+a strict reader (no scriptlets, nothing outside `/usr` and `/opt`, no path escapes) and **every file is labelled for
+SELinux for the path it will have once merged**, from the policy's own `file_contexts`: an overlay shows the
+extension's directories on top of the real ones, so unlabelled ones made `/usr` unreadable to confined services
+(that is what stopped an early installer image from reaching the desktop).
+
+**Shipped repositories.** `opensuse-oss` (on) and `packman-essentials` (off). Packman is a third-party community
+repository with the full FFmpeg, x264, x265 and GStreamer codec plugins that openSUSE's own build leaves out. It
+stays off until something asks for it; installing `@codecs` shows what it is, says that some codecs are
+patent-encumbered in some countries, and asks before turning it on. The fingerprints of the pinned keys are:
+openSUSE Project Signing Key `AD48 5664 E901 B867 051A B15F 35A2 F86E 29B7 00A4`, PackMan Project
+`F887 5B88 0D51 8B6B 8C53 0D13 45A1 D067 1ABD 1AFB`. They were downloaded from the projects' servers, over
+https, and match across two mirrors; compare them with the projects' own pages before relying on them.
+
+**The catalog** (`/usr/lib/foundation/catalog.d/*.json`) lists ready-made bundles: a name, a description, a notice,
+the repositories it needs and its packages. A package can say `"repo": "..."` (only from that repository) and
+`"when_installed": true` (only if the base has it, which replaces a library the base ships only where there is
+one). `codecs` replaces the base's limited FFmpeg libraries with Packman's full builds and adds the encumbered
+codec plugins. Flatpak applications bring their own codecs and do not need it.
+
+**Tested.** The repository layer (signed metadata, tampering, wrong key, checksum mismatch, unsafe locations, size
+limits, signature checks) and the bundle builder (build, add, remove, rollback, update, dependents, catalog,
+labelling) have unit tests with real signatures and real small RPMs. The solver, the downloads and the signature
+verification were run against the live openSUSE and Packman repositories in a Tumbleweed container, including a
+base with openSUSE's limited FFmpeg installed, where the solver correctly chose Packman's replacements
+(`scripts/test-bundles-container`). **Not tested:** a bundle merged on a booted image under enforcing SELinux
+(the labelling code is tested, the result on a running system is not), and the updates of a bundle after the base
+image itself has been updated (`compat revalidate` rechecks bundles like other extensions).
+
 ## Compatibility RPMs
 
 `foundation compat install foo.rpm` runs a legacy or third-party RPM without touching the immutable

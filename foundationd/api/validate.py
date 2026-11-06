@@ -76,3 +76,32 @@ def timezone_name(value):
     if not isinstance(value, str) or (value and not _ZONE.match(value)):
         raise InvalidArgument(f"not a valid time zone: {value!r}")
     return value
+
+
+_PACKAGE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$")
+_ALIAS = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+
+
+def package(value):
+    """A package name as the repositories spell it."""
+    if not isinstance(value, str) or not _PACKAGE.match(value):
+        raise InvalidArgument(f"not a valid package name: {value!r}")
+    return value
+
+
+def packages(values, maximum=64):
+    if not isinstance(values, list) or not 1 <= len(values) <= maximum:
+        raise InvalidArgument(f"give between 1 and {maximum} package names")
+    return [package(v) for v in values]
+
+
+def alias(value):
+    if not isinstance(value, str) or not _ALIAS.match(value):
+        raise InvalidArgument(f"not a valid repository name: {value!r}")
+    return value
+
+
+def aliases(values, maximum=32):
+    if not isinstance(values, list) or len(values) > maximum:
+        raise InvalidArgument("too many repository names")
+    return [alias(v) for v in values]

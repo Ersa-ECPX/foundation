@@ -1,0 +1,10 @@
+# Packman Essentials: full builds of FFmpeg, x264, x265 and the GStreamer "-codecs" plugins, which openSUSE's own
+# repository leaves out for patent reasons. A third-party community repository, so it is off until someone
+# asks for something that needs it (the catalog's "codecs" bundle enables it after confirmation).
+# Metadata and packages are signed with the Packman signing key (data/keys/packman.asc).
+[packman-essentials]
+name=Packman Essentials
+enabled=0
+baseurl=https://ftp.gwdg.de/pub/linux/misc/packman/suse/openSUSE_Tumbleweed/Essentials/
+gpgkey=file:///usr/share/foundation/keys/packman.asc
+priority=90

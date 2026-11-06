@@ -78,7 +78,62 @@ def register(service):
     def revalidate(call):
         return service.start_job("compat.revalidate", {}, LOCKS)
 
+    # -- bundles: many packages from the repositories in one extension --------------------------------
+
+    def list_bundles(call):
+        return service.query(call, "bundles.list", {}, reply_list)
+
+    def list_catalog(call):
+        return service.query(call, "bundles.catalog", {}, reply_list)
+
+    def check_bundle_install(call):
+        validate.name(call.args[0])
+        validate.packages(call.args[1])
+        validate.aliases(call.args[2])
+        jobs.check_locks(LOCKS + ("repos",))
+
+    def install_packages(call):
+        bundle, packages, allow = call.args
+        return service.start_job("bundles.install", {"bundle": validate.name(bundle), "packages": validate.packages(packages),
+                                                      "allow_repos": validate.aliases(allow)}, LOCKS + ("repos",))
+
+    def check_catalog_install(call):
+        validate.name(call.args[0])
+        if call.args[1]:
+            validate.name(call.args[1])
+        jobs.check_locks(LOCKS + ("repos",))
+
+    def install_catalog(call):
+        entry, bundle, allow = call.args
+        return service.start_job("bundles.install_catalog", {"entry": validate.name(entry), "bundle": bundle and validate.name(bundle),
+                                                              "allow_repos": bool(allow)}, LOCKS + ("repos",))
+
+    def check_bundle_remove(call):
+        validate.name(call.args[0])
+        if call.args[1]:
+            validate.packages(call.args[1])
+        jobs.check_locks(LOCKS + ("repos",))
+
+    def remove_packages(call):
+        bundle, packages = call.args
+        return service.start_job("bundles.remove", {"bundle": validate.name(bundle),
+                                                    "packages": validate.packages(packages) if packages else []}, LOCKS + ("repos",))
+
+    def check_bundle_update(call):
+        if call.args[0]:
+            validate.name(call.args[0])
+        jobs.check_locks(LOCKS + ("repos",))
+
+    def update_bundles(call):
+        return service.start_job("bundles.update", {"bundle": call.args[0] and validate.name(call.args[0])}, LOCKS + ("repos",))
+
     return {
+        (COMPAT, "ListBundles"): Method(list_bundles),
+        (COMPAT, "ListCatalog"): Method(list_catalog),
+        (COMPAT, "InstallPackages"): Method(install_packages, ACTION_COMPAT, check_bundle_install),
+        (COMPAT, "InstallCatalog"): Method(install_catalog, ACTION_COMPAT, check_catalog_install),
+        (COMPAT, "RemovePackages"): Method(remove_packages, ACTION_COMPAT, check_bundle_remove),
+        (COMPAT, "UpdateBundles"): Method(update_bundles, ACTION_COMPAT, check_bundle_update),
         (COMPAT, "Inspect"): Method(inspect),
         (COMPAT, "Install"): Method(install, ACTION_COMPAT, check_locks),
         (COMPAT, "Remove"): Method(remove, ACTION_COMPAT, check_name),

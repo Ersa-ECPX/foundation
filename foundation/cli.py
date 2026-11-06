@@ -533,8 +533,8 @@ def cmd_compat_inspect(client, args):
     return 0 if report["compatible"] else 1
 
 
-def cmd_compat_install(client, args):
-    report = inspect(client, args.rpm)
+def _install_rpm_file(client, args, path):
+    report = inspect(client, path)
     if not args.json:
         ui.title(f"Install {report['name']} as an extension")
         print_report(report)
@@ -546,11 +546,130 @@ def cmd_compat_install(client, args):
         raise UserError("this package does not fit the system as it is; add --force to install it anyway")
     if not sure(args, f"Install {report['name']}?"):
         return 1
-    fds, index = open_rpm(args.rpm)
+    fds, index = open_rpm(path)
     return run_job(client, args, "Compat", "Install", "(hb)", index, bool(args.force), fds=fds)[0]
 
 
+def _describe_result(job, args):
+    if job is None or not job.ok or args.json:
+        return
+    packages = job.result.get("packages", [])
+    ui.kv([("Bundle", job.result.get("name", "")), ("Packages", f"{len(packages)} ({job.result.get('files', 0)} files)")])
+    if job.result.get("skipped"):
+        ui.note("already in the base image, left out: " + ", ".join(job.result["skipped"]))
+    ui.note("Everything in a bundle is one system extension: remove it, or part of it, with `foundation compat remove`.")
+
+
+def _install_catalog_entry(client, args, name):
+    entries = {e["name"]: e for e in client.one("Compat", "ListCatalog")}
+    if name not in entries:
+        raise UserError(f"no catalog bundle named {name}; see: foundation compat catalog")
+    entry = entries[name]
+    if not args.json:
+        ui.title(f"Install {entry['title']}")
+        print(entry["description"])
+        print()
+        if entry["notice"]:
+            ui.warn(entry["notice"])
+            print()
+        ui.note(f"{len(entry['packages'])} packages from: {', '.join(entry['repos']) or 'the enabled repositories'}")
+        if entry["needs_enabling"]:
+            ui.warn("This turns on the repository " + ", ".join(entry["needs_enabling"]) + ".")
+        ui.note("Signed packages are downloaded and checked, unpacked without running their scriptlets, and "
+                "overlaid on /usr as one extension.")
+        print()
+    if not sure(args, f"Install {entry['title']}?"):
+        return 1
+    code, job = run_job(client, args, "Compat", "InstallCatalog", "(ssb)", name, args.into or "", True)
+    _describe_result(job, args)
+    return code
+
+
+def _install_packages(client, args, names):
+    bundle = args.into or "extras"
+    if not args.json:
+        ui.title(f"Install {', '.join(names)}")
+        ui.note(f"Into the bundle {bundle}: one system extension for many packages, built from the signed repositories.")
+        print()
+    if not sure(args, f"Add {', '.join(names)} to the bundle {bundle}?"):
+        return 1
+    code, job = run_job(client, args, "Compat", "InstallPackages", "(sasas)", bundle, names, [])
+    _describe_result(job, args)
+    return code
+
+
+def cmd_compat_install(client, args):
+    targets = args.targets
+    files = [t for t in targets if t.endswith(".rpm") or os.path.isfile(t)]
+    if files:
+        if len(targets) != 1:
+            raise UserError("install an RPM file on its own, or give package names; not both")
+        return _install_rpm_file(client, args, targets[0])
+    catalog = [t for t in targets if t.startswith("@")]
+    if catalog:
+        if len(targets) != 1:
+            raise UserError("install one catalog bundle at a time, for example: foundation compat install @codecs")
+        return _install_catalog_entry(client, args, targets[0][1:])
+    return _install_packages(client, args, targets)
+
+
+def cmd_compat_catalog(client, args):
+    entries = client.one("Compat", "ListCatalog")
+    if args.json:
+        emit_json(entries)
+        return 0
+    if not entries:
+        ui.note("The catalog is empty.")
+        return 0
+    ui.title("Ready-made bundles")
+    ui.table(["Install with", "What it is", "State"],
+             [[f"@{e['name']}", e["title"], ui.badge("ok", "installed") if e["installed"] else "-"] for e in entries])
+    print()
+    ui.note("foundation compat install @NAME shows what it contains and asks before installing.")
+    return 0
+
+
+def cmd_compat_bundles(client, args):
+    items = client.one("Compat", "ListBundles")
+    if args.json:
+        emit_json(items)
+        return 0
+    if not items:
+        ui.note("No bundles. Create one with: foundation compat install PACKAGE... or foundation compat install @codecs")
+        return 0
+    for item in items:
+        ui.title(f"{item['name']}" + (f"  (from the catalog: {item['catalog']})" if item["catalog"] else ""))
+        ui.kv([("Asked for", ", ".join(item["requested"])), ("Repositories", ", ".join(item["repos"])),
+               ("Packages", f"{len(item['packages'])}, {item['files']} files"),
+               ("State", ui.badge("ok", "enabled") if item["enabled"] else ui.badge("warn", "disabled"))])
+        print()
+    return 0
+
+
+def cmd_compat_update(client, args):
+    if not sure(args, "Update " + (f"the bundle {args.bundle}" if args.bundle else "all bundles") + " to the newest packages?"):
+        return 1
+    code, job = run_job(client, args, "Compat", "UpdateBundles", "(s)", args.bundle or "")
+    if job is not None and job.ok and not args.json:
+        for result in job.result.get("bundles", []):
+            if result.get("changed"):
+                ui.note(f"{result['name']}: updated " + ", ".join(result["changed"]))
+            else:
+                ui.note(f"{result['name']}: already up to date")
+        if not job.result.get("bundles"):
+            ui.note("There are no bundles to update.")
+    return code
+
+
 def cmd_compat_remove(client, args):
+    bundles = {b["name"] for b in client.one("Compat", "ListBundles")}
+    if args.name in bundles:
+        what = f"{', '.join(args.packages)} from the bundle {args.name}" if args.packages else f"the whole bundle {args.name}"
+        if not sure(args, f"Remove {what}?"):
+            return 1
+        return run_job(client, args, "Compat", "RemovePackages", "(sas)", args.name, args.packages)[0]
+    if args.packages:
+        raise UserError(f"{args.name} is not a bundle; packages can only be removed from a bundle")
     if not sure(args, f"Remove the extension {args.name}?"):
         return 1
     return run_job(client, args, "Compat", "Remove", "(s)", args.name)[0]
@@ -572,6 +691,90 @@ def cmd_compat_list(client, args):
     for item in items:
         for problem in item["problems"]:
             ui.warn(f"{item['name']}: {problem}")
+    print()
+    return 0
+
+
+# ----------------------------------------------------------------------------- repositories
+
+def _age(seconds):
+    if seconds < 0:
+        return "never"
+    if seconds < 60:
+        return f"{seconds} s ago"
+    if seconds < 3600:
+        return f"{seconds // 60} min ago"
+    if seconds < 86400:
+        return f"{seconds // 3600} h ago"
+    return f"{seconds // 86400} d ago"
+
+
+def cmd_repo_list(client, args):
+    items = client.one("Repos", "List")
+    if args.json:
+        emit_json(items)
+        return 0
+    ui.title("Package repositories")
+    ui.table(["Name", "Enabled", "Priority", "Signed", "Updated", "URL"],
+             [[r["alias"], ui.badge("ok", "yes") if r["enabled"] else "no", r["priority"], "yes" if r["signed"] else ui.badge("warn", "no"),
+               _age(r["refreshed_seconds_ago"]) if r["enabled"] else "-", r["url"]] for r in items])
+    print()
+    return 0
+
+
+def cmd_repo_refresh(client, args):
+    code, job = run_job(client, args, "Repos", "Refresh", "(asb)", args.aliases, bool(args.force))
+    if job is not None and job.ok and not args.json:
+        for result in job.result.get("repositories", []):
+            ui.note(f"{result['alias']}: " + ("updated" if result["changed"] else "already current"))
+    return code
+
+
+def _set_repo(client, args, enabled):
+    if enabled and not args.json:
+        ui.warn("Packages from a repository are only as trustworthy as that repository; they are checked against its own "
+                "signing key, but they are not part of the Ersa Compute Platform.")
+    if not sure(args, f"{'Enable' if enabled else 'Disable'} the repository {args.alias}?"):
+        return 1
+    return run_job(client, args, "Repos", "SetEnabled", "(sb)", args.alias, enabled)[0]
+
+
+def cmd_repo_enable(client, args):
+    return _set_repo(client, args, True)
+
+
+def cmd_repo_disable(client, args):
+    return _set_repo(client, args, False)
+
+
+def cmd_repo_search(client, args):
+    try:
+        results = client.one("Repos", "Search", "(s)", args.term, timeout=180_000)
+    except ClientError as error:
+        raise UserError(error.message) from error
+    if args.json:
+        emit_json(results)
+        return 0
+    if not results:
+        ui.note(f"No package matches '{args.term}'. Refresh the lists with: foundation repo refresh")
+        return 0
+    ui.title(f"Packages matching '{args.term}'")
+    ui.table(["Package", "Version", "Repository", "Summary"], [[r["name"], r["evr"], r["repo"], r["summary"]] for r in results])
+    print()
+    return 0
+
+
+def cmd_repo_info(client, args):
+    try:
+        results = client.one("Repos", "Info", "(s)", args.name, timeout=180_000)
+    except ClientError as error:
+        raise UserError(error.message) from error
+    if args.json:
+        emit_json(results)
+        return 0
+    ui.title(args.name)
+    ui.table(["Repository", "Version", "Size", "In the base image"],
+             [[r["repo"], r["evr"], ui.human_size(r["size"]), "yes" if r["installed"] else "no"] for r in results])
     print()
     return 0
 
@@ -830,12 +1033,30 @@ def build_parser():
 
     _, compat = group("compat", "run legacy RPMs as system extensions")
     add(compat, "inspect", cmd_compat_inspect, "check an RPM against this system").add_argument("rpm")
-    install = add(compat, "install", cmd_compat_install, "install an RPM as an extension", yes=True, wait=True)
-    install.add_argument("rpm")
-    install.add_argument("--force", action="store_true", help="install even if the check finds problems")
-    add(compat, "remove", cmd_compat_remove, "remove an extension", yes=True, wait=True).add_argument("name")
+    install = add(compat, "install", cmd_compat_install,
+                  "install packages from the repositories into a bundle, a catalog bundle (@codecs) or an RPM file", yes=True, wait=True)
+    install.add_argument("targets", nargs="+", metavar="PACKAGE", help="package names, @CATALOG-NAME, or one .rpm file")
+    install.add_argument("--into", metavar="BUNDLE", help="the bundle (one extension) to put the packages in (default: extras)")
+    install.add_argument("--force", action="store_true", help="for an RPM file: install even if the check finds problems")
+    remove = add(compat, "remove", cmd_compat_remove, "remove an extension, a bundle, or packages from a bundle", yes=True, wait=True)
+    remove.add_argument("name")
+    remove.add_argument("packages", nargs="*", metavar="PACKAGE", help="only these packages (of a bundle)")
     add(compat, "list", cmd_compat_list, "list installed extensions")
+    add(compat, "bundles", cmd_compat_bundles, "list the bundles and what is in them")
+    add(compat, "catalog", cmd_compat_catalog, "list ready-made bundles (@codecs, ...)")
+    update = add(compat, "update", cmd_compat_update, "update bundles to the newest packages", yes=True, wait=True)
+    update.add_argument("bundle", nargs="?", help="one bundle (default: all)")
     add(compat, "revalidate", cmd_compat_revalidate, "recheck extensions after a system update", wait=True)
+
+    _, repo = group("repo", "package repositories (signed openSUSE and Packman metadata)")
+    add(repo, "list", cmd_repo_list, "list the repositories")
+    refresh = add(repo, "refresh", cmd_repo_refresh, "download the newest package lists", wait=True)
+    refresh.add_argument("aliases", nargs="*", metavar="REPOSITORY", help="default: all enabled repositories")
+    refresh.add_argument("--force", action="store_true", help="download again even if nothing changed")
+    add(repo, "enable", cmd_repo_enable, "turn a repository on", yes=True, wait=True).add_argument("alias")
+    add(repo, "disable", cmd_repo_disable, "turn a repository off", yes=True, wait=True).add_argument("alias")
+    add(repo, "search", cmd_repo_search, "find packages by name").add_argument("term")
+    add(repo, "info", cmd_repo_info, "show the newest version of a package in each repository").add_argument("name")
 
     _, ext = group("ext", "manage system extension images (sysext and confext)")
     for name, help, method, question in (

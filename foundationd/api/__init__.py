@@ -1,6 +1,6 @@
 """API handlers, one module per interface group. Each has `register(service) -> {key: Method}`."""
 
-from . import apps, boot, compat, config, deploy, extensions, manager
+from . import apps, boot, compat, config, deploy, extensions, manager, repos
 
 # Capability name -> module. Clients see these names in Manager.GetStatus.
 MODULES = {
@@ -11,4 +11,5 @@ MODULES = {
     "compat": compat,
     "deploy": deploy,
     "extensions": extensions,
+    "repos": repos,
 }

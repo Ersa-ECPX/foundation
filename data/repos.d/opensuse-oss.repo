@@ -1,0 +1,8 @@
+# openSUSE Tumbleweed, the open-source repository: the packages the image itself is built from. Its metadata
+# is signed with the openSUSE Project Signing Key (data/keys/opensuse.asc).
+[opensuse-oss]
+name=openSUSE Tumbleweed (OSS)
+enabled=1
+baseurl=https://download.opensuse.org/tumbleweed/repo/oss/
+gpgkey=file:///usr/share/foundation/keys/opensuse.asc
+priority=99

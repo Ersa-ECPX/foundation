@@ -324,10 +324,93 @@
     <method name="List">
       <arg name="extensions" type="aa{sv}" direction="out"/>
     </method>
+    <!-- Bundles: many packages from the repositories in one system extension. Adding or removing a package
+         re-solves the whole bundle and rebuilds it; the other bundles count as installed. Every package is
+         checked against its repository's signature and checksum, scriptlets never run, files are labelled for
+         SELinux. -->
+    <!-- Fields: name, catalog (s: the catalog entry it came from, or empty), requested (as), packages (as, with
+         versions), repos (as), updated (x, unix time), files (i), enabled (b). -->
+    <method name="ListBundles">
+      <arg name="bundles" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- Ready-made bundles. Fields: name, title, description, notice (s: legal or trust remarks to show before
+         installing), repos (as), packages (as), installed (b), needs_enabling (as: disabled repositories that
+         installing would enable). -->
+    <method name="ListCatalog">
+      <arg name="entries" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- Add packages to the bundle (created if new). allow_repos names the disabled repositories the caller
+         agrees to enable for this. Requires org.ersa.foundation.compat. Result: name, packages (as), skipped
+         (as), files (i), merged (b). -->
+    <method name="InstallPackages">
+      <arg name="bundle" type="s" direction="in"/>
+      <arg name="packages" type="as" direction="in"/>
+      <arg name="allow_repos" type="as" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Install a catalog entry as a bundle (bundle: its own name if empty). enable_repos agrees to enabling
+         the repositories the entry needs. -->
+    <method name="InstallCatalog">
+      <arg name="entry" type="s" direction="in"/>
+      <arg name="bundle" type="s" direction="in"/>
+      <arg name="enable_repos" type="b" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Remove packages that were asked for from the bundle (their dependencies go with them), or the whole
+         bundle if packages is empty. Refused while another bundle uses its libraries. -->
+    <method name="RemovePackages">
+      <arg name="bundle" type="s" direction="in"/>
+      <arg name="packages" type="as" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Re-solve against the newest repository data and rebuild the bundles whose packages changed (all
+         bundles if the name is empty). Result: bundles (aa{sv}: name, packages, changed). -->
+    <method name="UpdateBundles">
+      <arg name="bundle" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
     <!-- Recheck every compat extension against the current base (after an OS update). Extensions
          that no longer fit are disabled (unlinked), never deleted. Result: checked, disabled (as),
          enabled (as). -->
     <method name="Revalidate">
+      <arg name="job" type="o" direction="out"/>
+    </method>
+  </interface>
+
+  <!--
+    Package repositories (zypp .repo format, in /usr/lib/foundation/repos.d and /etc/foundation/repos.d).
+    Metadata must carry a valid signature from the repository's pinned key; packages are checked against
+    checksums and signatures. Nothing is installed: bundles (Compat.InstallPackages) turn packages into extensions.
+  -->
+  <interface name="org.ersa.Foundation1.Repos">
+    <!-- Fields: alias, name, url, enabled (b), priority (i, lower wins), signed (b), shipped (b),
+         refreshed_seconds_ago (i, -1 if never). -->
+    <method name="List">
+      <arg name="repositories" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- Packages in the enabled repositories whose name contains the term. Fields: name, evr, arch, repo,
+         summary, size (x), location, checksum (as). -->
+    <method name="Search">
+      <arg name="term" type="s" direction="in"/>
+      <arg name="packages" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- The newest version of one package per repository, and whether the base has it installed. -->
+    <method name="Info">
+      <arg name="name" type="s" direction="in"/>
+      <arg name="packages" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- Enable or disable a repository (a local file replaces the shipped definition). Requires
+         org.ersa.foundation.repos. -->
+    <method name="SetEnabled">
+      <arg name="alias" type="s" direction="in"/>
+      <arg name="enabled" type="b" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Download the signed metadata of the named repositories (all enabled ones if empty). Result:
+         repositories (aa{sv}: alias, changed, revision). -->
+    <method name="Refresh">
+      <arg name="aliases" type="as" direction="in"/>
+      <arg name="force" type="b" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
   </interface>

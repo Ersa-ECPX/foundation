@@ -119,7 +119,7 @@ class ManagerAndReadTests(BusCase):
         (status,) = self.call(MANAGER, "GetStatus")
         self.assertIs(status["provisioned"], False)
         self.assertIs(status["developer"], False)
-        self.assertEqual(status["capabilities"], ["apps", "boot", "compat", "config", "deploy", "extensions", "jobs"])
+        self.assertEqual(status["capabilities"], ["apps", "boot", "compat", "config", "deploy", "extensions", "jobs", "repos"])
 
     def test_get_default(self):
         self.assertEqual(self.call(CONFIG, "Get", "(s)", "ota.channel"), ("stable",))
