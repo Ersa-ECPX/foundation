@@ -191,7 +191,7 @@ class Window(BootDaemon):
         self.assertEqual(self.page(), "language")
 
     def present(self):
-        self.window.set_default_size(900, 640)
+        self.window.set_default_size(880, 600)
         self.window.present()
         self.pump(lambda: self.window.get_mapped())
 

@@ -31,6 +31,7 @@ CSS = b"""
 flowboxchild { border-radius: 14px; transition: background-color 180ms ease; }
 .greeting { font-size: 64px; font-weight: 300; }
 .welcome-next { min-width: 56px; min-height: 56px; }
+.installer-footer > revealer > box { padding: 16px 32px 20px 32px; }
 flowboxchild:selected { background-color: alpha(@accent_bg_color, 0.25); outline: 2px solid @accent_bg_color; }
 """
 
@@ -205,7 +206,7 @@ class InstallerWindow(Adw.ApplicationWindow):
     FOOTER_PAGES = ("language", "timezone", "disks", "review", "done")   # the welcome page has its own round button
 
     def __init__(self, app, backend):
-        super().__init__(application=app, title=f"Install {model.PRODUCT}", default_width=900, default_height=640)
+        super().__init__(application=app, title=f"Install {model.PRODUCT}", default_width=880, default_height=600)
         self.backend = backend
         self.disks, self.selected, self.plan, self.installing = [], None, None, False
         self.version, self.started_at = "", 0.0
@@ -222,6 +223,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         view.add_top_bar(header)
         view.set_content(self.stack)
         self.footer = Gtk.ActionBar()
+        self.footer.add_css_class("installer-footer")
         self.back_btn = Gtk.Button(label="Go Back")
         self.back_btn.connect("clicked", lambda _b: self._back())
         self.next_btn = Gtk.Button(label="Continue")
