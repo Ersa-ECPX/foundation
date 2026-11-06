@@ -86,6 +86,7 @@ class Converter(unittest.TestCase):
         self.assertEqual(badge("**Status: scaffolding only.** The pieces\n")[1], "bad")
         self.assertEqual(badge("**Status:** the package list is built; the rest is not\n")[1], "ok")
         self.assertIsNone(badge("# No status here\n"))
+        self.assertIsNone(badge("**Status words.** *Tested* means a test proved it.\n"))
 
 
 class Site(unittest.TestCase):
@@ -110,12 +111,38 @@ class Site(unittest.TestCase):
         for target in targets:
             self.assertIn(target, ids)
 
-    def test_features_follow_the_order_of_the_overview_table(self):
-        features = [p for p, _s, g in self.wiki.page_list() if g == "Features"]
-        overview = open(os.path.join(HERE, "..", "..", "docs", "README.md"), encoding="utf-8").read()
-        table = overview.split("\n## Features", 1)[1].split("\n## ", 1)[0]
-        listed = list(dict.fromkeys(re.findall(r"\(features/([a-z0-9-]+)\.md\)", table)))
-        self.assertEqual(features[:len(listed)], [f"features/{n}" for n in listed])
+    def test_every_document_is_in_a_category_and_none_is_left_over(self):
+        nav = self.nav()
+        self.assertNotIn("Other", nav, "a document is missing from docs/wiki.json")
+        for expected in ("Architecture", "Foundation", "App support", "Installer"):
+            self.assertIn(expected, nav)
+        listed = [p["id"] for group in nav.values() for p in group["pages"]]
+        self.assertEqual(len(listed), len(set(listed)), "a page is in two categories")
+        self.assertEqual(sorted(listed), sorted(p for p, _s, _g in self.wiki.page_list()))
+
+    def test_the_sidebar_follows_the_order_of_the_data_file(self):
+        import json
+        with open(os.path.join(HERE, "..", "..", "docs", "wiki.json"), encoding="utf-8") as handle:
+            wanted = [c["title"] for c in json.load(handle)["categories"]]
+        self.assertEqual(list(self.nav()), wanted)
+
+    def test_short_labels_are_used_in_the_sidebar(self):
+        titles = [p["title"] for p in self.nav()["Foundation"]["pages"]]
+        self.assertIn("Command line (foundation)", titles)
+        self.assertTrue(all(len(t) <= 40 for group in self.nav().values() for t in [p["title"] for p in group["pages"]]))
+
+    def test_the_overview_links_to_every_page_of_the_wiki(self):
+        with open(os.path.join(HERE, "..", "..", "docs", "README.md"), encoding="utf-8") as handle:
+            overview = handle.read()
+        for _pid, src, _group in self.wiki.page_list():
+            if src == "docs/README.md":
+                continue
+            relative = src[len("docs/"):] if src.startswith("docs/") else "../" + src
+            self.assertIn(f"({relative}", overview, f"docs/README.md does not link to {src}")
+
+    def nav(self):
+        import json
+        return json.loads(re.search(r"const NAV = (\{.*?\});\nconst INDEX", self.document, re.S).group(1))
 
     def test_nothing_from_outside_the_site_is_loaded(self):
         self.assertNotRegex(self.document, r'(src|href)="https?://(?!github)[^"]*\.(js|css)')
