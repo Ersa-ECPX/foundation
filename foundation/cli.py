@@ -311,8 +311,70 @@ def cmd_reboot(client, args):
 
 # ----------------------------------------------------------------------------- updates
 
+def update_url_allowed(url):
+    """https from anywhere; plain http only from this machine or a private network (a test server). The update is
+    verified by its signature either way, but an unsigned one must not travel over the open internet unprotected."""
+    import ipaddress
+    import urllib.parse
+    parts = urllib.parse.urlparse(url)
+    if parts.scheme == "https" and parts.hostname:
+        return True
+    if parts.scheme != "http" or not parts.hostname:
+        return False
+    try:
+        address = ipaddress.ip_address(parts.hostname)
+    except ValueError:
+        return parts.hostname == "localhost"
+    return address.is_private or address.is_loopback
+
+
+def fetch_update(url, directory, limit=64 * 1024 ** 3, progress=None):
+    """Download an update archive to a new file in `directory`. Returns its path."""
+    import tempfile
+    import urllib.error
+    import urllib.request
+    try:
+        response = urllib.request.urlopen(url, timeout=60)
+    except (urllib.error.URLError, OSError, ValueError) as error:
+        raise UserError(f"cannot download {url}: {getattr(error, 'reason', error)}") from error
+    total = int(response.headers.get("Content-Length") or 0)
+    handle = tempfile.NamedTemporaryFile(dir=directory, prefix="update-", suffix=".tar.zst", delete=False)
+    done = 0
+    try:
+        with handle:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                done += len(chunk)
+                if done > limit:
+                    raise UserError("the update is larger than the allowed size")
+                handle.write(chunk)
+                if progress:
+                    progress(done, total)
+    except BaseException:
+        os.unlink(handle.name)
+        raise
+    return handle.name
+
+
 def cmd_update_install(client, args):
     path = args.archive
+    downloaded = None
+    if path.startswith(("http://", "https://")):
+        if not update_url_allowed(path):
+            raise UserError("an update is downloaded over https (plain http only from this computer or a private network)")
+        if not args.json:
+            ui.note(f"Downloading {path} ...")
+        downloaded = path = fetch_update(path, "/var/tmp")
+    try:
+        return _install_update_file(client, args, path)
+    finally:
+        if downloaded:
+            os.unlink(downloaded)
+
+
+def _install_update_file(client, args, path):
     if not args.json:
         ui.title("Install a system update")
         ui.kv([("Update file", path), ("Signature", "not checked (you said this image is your own)" if args.unsigned
