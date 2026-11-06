@@ -440,7 +440,7 @@ class InstallerWindow(Adw.ApplicationWindow):
     def _show_done(self):
         self._replace("done", _page("Installation complete",
                                     "Remove the installation medium, then restart to start the new system.",
-                                    "emblem-ok-symbolic"))
+                                    "object-select-symbolic"))
         self._nav(label="Restart", handler=self._restart)
         self.show("done")
 

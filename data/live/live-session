@@ -22,6 +22,14 @@ polkit.addRule(function(action, subject) {
 });
 RULE
 
+# SUSE's gdm reads DISPLAYMANAGER_AUTOLOGIN from /etc/sysconfig/displaymanager (empty in the image) and it
+# takes priority over custom.conf, so set it there as well.
+if grep -q '^DISPLAYMANAGER_AUTOLOGIN=' /etc/sysconfig/displaymanager 2>/dev/null; then
+    sed -i 's/^DISPLAYMANAGER_AUTOLOGIN=.*/DISPLAYMANAGER_AUTOLOGIN="liveuser"/' /etc/sysconfig/displaymanager
+else
+    echo 'DISPLAYMANAGER_AUTOLOGIN="liveuser"' >> /etc/sysconfig/displaymanager
+fi
+
 install -d -m 0755 /etc/gdm
 printf '%s\n' '[daemon]' 'AutomaticLoginEnable=True' 'AutomaticLogin=liveuser' > /etc/gdm/custom.conf
 

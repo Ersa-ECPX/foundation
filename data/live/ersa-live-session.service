@@ -1,15 +1,13 @@
 [Unit]
 Description=Ersa Compute Platform live session (installer medium only)
-# Part of the installer sysext, so it exists only on the installer medium; an installed system never
-# merges that extension.
-Before=display-manager.service
+# Part of the installer sysext, so it exists only on the installer medium. It is started by
+# systemd-sysext.service right after the merge (see the ersa-live.conf drop-in in the image), before
+# the display manager. DefaultDependencies=no: it runs inside the sysinit phase and must not wait for it.
+DefaultDependencies=no
 After=local-fs.target
-DefaultDependencies=yes
+Before=display-manager.service
 
 [Service]
 Type=oneshot
+RemainAfterExit=yes
 ExecStart=/usr/libexec/ecp/live-session
-
-[Install]
-WantedBy=graphical.target
-
