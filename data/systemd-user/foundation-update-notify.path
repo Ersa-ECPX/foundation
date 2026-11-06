@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch for an installed system update
+
+[Path]
+# foundationd writes this file when an update is installed and removes it once the new system runs.
+PathChanged=/var/lib/foundation/update-pending.json
+Unit=foundation-update-notify.service
+
+[Install]
+WantedBy=default.target

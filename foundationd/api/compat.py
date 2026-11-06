@@ -124,10 +124,17 @@ def register(service):
             validate.name(call.args[0])
         jobs.check_locks(LOCKS + ("repos",))
 
+    def check_bundle_update_all(call):
+        jobs.check_locks(LOCKS + ("repos",))
+
     def update_bundles(call):
         return service.start_job("bundles.update", {"bundle": call.args[0] and validate.name(call.args[0])}, LOCKS + ("repos",))
 
+    def refresh_bundles(call):
+        return service.start_job("bundles.refresh", {}, LOCKS + ("repos",))
+
     return {
+        (COMPAT, "RefreshBundles"): Method(refresh_bundles, ACTION_COMPAT, check_bundle_update_all),
         (COMPAT, "ListBundles"): Method(list_bundles),
         (COMPAT, "ListCatalog"): Method(list_catalog),
         (COMPAT, "InstallPackages"): Method(install_packages, ACTION_COMPAT, check_bundle_install),

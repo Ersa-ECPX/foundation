@@ -76,6 +76,11 @@ def list_bundles(ctx):
     return bundles.list_bundles(ctx.paths)
 
 
+@worker("bundles.refresh")
+def refresh_stale(ctx):
+    return bundles.refresh_stale(ctx.paths, ctx)
+
+
 @worker("bundles.catalog")
 def catalog(ctx):
     available = repos.load_repos(ctx.paths)

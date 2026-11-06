@@ -309,6 +309,48 @@ def cmd_reboot(client, args):
     return 0
 
 
+# ----------------------------------------------------------------------------- updates
+
+def cmd_update_install(client, args):
+    path = args.archive
+    if not args.json:
+        ui.title("Install a system update")
+        ui.kv([("Update file", path), ("Signature", "not checked (you said this image is your own)" if args.unsigned
+                                                     else "must be signed by a trusted image signing key")])
+        print()
+        ui.note("The new system is written to the spare slot; the running system is not changed and keeps working. Your "
+                "bundles are rebuilt for the new system, and it starts on the next restart. If it does not start properly, "
+                "the computer returns to the system that worked.")
+        print()
+    if not sure(args, "Install this update?"):
+        return 1
+    fds, index = open_rpm(path)
+    code, job = run_job(client, args, "Updates", "Install", "(hssbb)", index, args.slot or "", bool(args.unsigned), bool(args.force), fds=fds)
+    if job is not None and job.ok and not args.json:
+        result = job.result
+        ui.kv([("Version", result["version"]), ("Installed in", f"slot {result['slot']}"),
+               ("Bundles", ", ".join(result["bundles"]["ready"]) or "none to rebuild")])
+        for note in result.get("notes", []):
+            ui.warn(note)
+        print()
+        print(ui.badge("ok", f"update {result['version']} is ready"))
+        ui.note("Restart to start using it: foundation reboot")
+    return code
+
+
+def cmd_update_status(client, args):
+    waiting = client.one("Updates", "Pending")
+    if args.json:
+        emit_json(waiting)
+        return 0
+    if not waiting:
+        ui.note("No update is waiting for a restart.")
+        return 0
+    print(ui.badge("ok", f"update {waiting['version']} is installed"))
+    ui.note("Restart to start using it: foundation reboot")
+    return 0
+
+
 # ----------------------------------------------------------------------------- deploy
 
 def cmd_deploy_list(client, args):
@@ -658,6 +700,20 @@ def cmd_compat_update(client, args):
                 ui.note(f"{result['name']}: already up to date")
         if not job.result.get("bundles"):
             ui.note("There are no bundles to update.")
+    return code
+
+
+def cmd_compat_refresh(client, args):
+    code, job = run_job(client, args, "Compat", "RefreshBundles", None)
+    if job is not None and job.ok and not args.json:
+        for result in job.result.get("bundles", []):
+            ui.note(f"{result['name']}: rebuilt for this system")
+        for failure in job.result.get("failed", []):
+            ui.warn(f"{failure['name']}: {failure['error']}")
+        if not job.result.get("bundles") and not job.result.get("failed"):
+            ui.note("Every bundle already matches this system.")
+        if job.result.get("failed"):
+            return 1
     return code
 
 
@@ -1075,7 +1131,16 @@ def build_parser():
     add(compat, "catalog", cmd_compat_catalog, "list ready-made bundles (@codecs, ...)")
     update = add(compat, "update", cmd_compat_update, "update bundles to the newest packages", yes=True, wait=True)
     update.add_argument("bundle", nargs="?", help="one bundle (default: all)")
+    add(compat, "refresh", cmd_compat_refresh, "rebuild bundles that were built for a different system version", wait=True)
     add(compat, "revalidate", cmd_compat_revalidate, "recheck extensions after a system update", wait=True)
+
+    _, update = group("update", "install system updates")
+    install_update = add(update, "install", cmd_update_install, "install an update file (.tar.zst) into the spare slot", yes=True, wait=True)
+    install_update.add_argument("archive", metavar="FILE")
+    install_update.add_argument("--slot", help="install into this slot (default: the spare one)")
+    install_update.add_argument("--unsigned", action="store_true", help="skip the signature check, for an image you built yourself")
+    install_update.add_argument("--force", action="store_true", help="install again even if this version is already installed")
+    add(update, "status", cmd_update_status, "show whether an update is waiting for a restart")
 
     _, repo = group("repo", "package repositories (signed openSUSE and Packman metadata)")
     add(repo, "list", cmd_repo_list, "list the repositories")

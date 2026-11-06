@@ -1,0 +1,18 @@
+[Unit]
+Description=Rebuild bundles for the running system image
+Documentation=file:///usr/share/doc/foundation/README.md
+After=network-online.target foundationd.service
+Wants=network-online.target
+# Only when foundation-bundles-select found bundles that do not fit this image (an update normally rebuilt them
+# before the restart, so this is the fallback: no network at update time, or a package that was not available).
+ConditionPathExists=/var/lib/foundation/bundles/stale
+
+[Service]
+Type=oneshot
+# A leading "-": a failed rebuild (offline, a package gone) is not a failed boot. The marker stays and the next
+# boot tries again; `foundation compat refresh` does it on demand.
+ExecStart=-/usr/bin/foundation compat refresh --yes
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=multi-user.target

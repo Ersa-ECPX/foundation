@@ -369,6 +369,12 @@
       <arg name="bundle" type="s" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
+    <!-- Rebuild the bundles that were built for a different system image than the running one (after an
+         update or a rollback); bundles that fit are left alone. Result: bundles (aa{sv}), failed (aa{sv}:
+         name, error), skipped (as). -->
+    <method name="RefreshBundles">
+      <arg name="job" type="o" direction="out"/>
+    </method>
     <!-- Recheck every compat extension against the current base (after an OS update). Extensions
          that no longer fit are disabled (unlinked), never deleted. Result: checked, disabled (as),
          enabled (as). -->
@@ -435,6 +441,29 @@
       <arg name="aliases" type="as" direction="in"/>
       <arg name="force" type="b" direction="in"/>
       <arg name="job" type="o" direction="out"/>
+    </method>
+  </interface>
+
+  <!-- Installing a system image update into the standby slot. -->
+  <interface name="org.ersa.Foundation1.Updates">
+    <!-- Install an update archive (.tar.zst or .tar holding manifest.json, its signature, root.erofs and
+         uki.efi). The archive is a file descriptor. The image goes to the standby slot (named in `target`,
+         or chosen if empty), the user's bundles are rebuilt for it, and it becomes the next boot. The
+         signature must verify against an installed image signing key unless `unsigned` is true (an image
+         built locally). `force` allows reinstalling a version that is installed already. Requires
+         org.ersa.foundation.updates. Result: version, slot, entry, bytes, signed, bundles (ready, failed),
+         default_set, notes (as), reboot_required. -->
+    <method name="Install">
+      <arg name="archive" type="h" direction="in"/>
+      <arg name="target" type="s" direction="in"/>
+      <arg name="unsigned" type="b" direction="in"/>
+      <arg name="force" type="b" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- The update that is installed and waits for a restart; empty if none. Fields: version, slot,
+         default_set (b), bundles. -->
+    <method name="Pending">
+      <arg name="update" type="a{sv}" direction="out"/>
     </method>
   </interface>
 

@@ -1,0 +1,9 @@
+[Unit]
+Description=Tell the user that a system update waits for a restart
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/foundation-update-notify
+
+[Install]
+WantedBy=default.target

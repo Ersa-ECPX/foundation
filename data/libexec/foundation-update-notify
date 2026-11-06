@@ -1,0 +1,27 @@
+#!/usr/bin/python3 -I
+"""Tell the desktop user that an installed update waits for a restart (run by foundation-update-notify.service)."""
+import json
+import shutil
+import subprocess
+import sys
+
+PENDING = "/var/lib/foundation/update-pending.json"
+
+
+def main():
+    try:
+        with open(PENDING, encoding="utf-8") as handle:
+            version = str(json.load(handle).get("version", ""))
+    except (OSError, ValueError):
+        return 0                       # nothing waiting
+    program = shutil.which("notify-send")
+    if not program:
+        return 0
+    body = "Restart to start using version " + version + "." if version else "Restart to finish updating."
+    subprocess.run([program, "--app-name=Ersa Compute Platform", "--icon=system-software-update",
+                    "--urgency=normal", "Update ready", body], check=False)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

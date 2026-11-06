@@ -1,0 +1,18 @@
+[Unit]
+Description=Match bundles to the running system image
+Documentation=file:///usr/share/doc/foundation/README.md
+DefaultDependencies=no
+After=local-fs.target
+Before=systemd-sysext.service sysinit.target
+Conflicts=shutdown.target
+Before=shutdown.target
+ConditionPathExists=/var/lib/foundation
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/foundation-bundles select
+# Never let this hold up or fail the boot: the worst case is that a bundle stays off until it is rebuilt.
+SuccessExitStatus=0 1 2
+
+[Install]
+WantedBy=sysinit.target

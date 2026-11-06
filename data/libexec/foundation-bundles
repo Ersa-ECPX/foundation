@@ -1,0 +1,34 @@
+#!/usr/bin/python3 -I
+"""Early-boot housekeeping for bundles and updates (run by foundation-bundles-select.service).
+
+    foundation-bundles select
+
+Makes every bundle match the system image that just started: a bundle built for this image is put back, one that
+was only built for another image is switched off (never merged against a base it does not fit), and a restart
+notice for an update this system now runs is cleared. Only renames and small files: nothing here touches the network.
+"""
+import sys
+
+sys.path.insert(0, "/usr/lib/foundation")
+
+from foundationd.backends import bundles, updates  # noqa: E402
+from foundationd.paths import Paths  # noqa: E402
+
+
+def main(argv):
+    if argv != ["select"]:
+        print("usage: foundation-bundles select", file=sys.stderr)
+        return 2
+    paths = Paths().worker_view()
+    updates.clear_pending(paths)
+    result = bundles.select(paths)
+    for key in ("restored", "disabled"):
+        if result[key]:
+            print(f"bundles {key}: {', '.join(result[key])}")
+    if result["stale"]:
+        print("bundles that need rebuilding for this system: " + ", ".join(result["stale"]))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
