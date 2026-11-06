@@ -222,7 +222,7 @@ def installed_cmdline(text, root_uuid, data_uuid):
     drop = ("root=", "systemd.mount-extra=", "ecp.pad=")
     tokens = [token for token in text.split() if not token.startswith(drop)]
     tokens += [f"root=PARTUUID={root_uuid}",
-               f"systemd.mount-extra=PARTUUID={data_uuid}:/var:btrfs:subvol=var",
+               f"systemd.mount-extra=PARTUUID={data_uuid}:/var:btrfs:subvol=var,x-initrd.mount",
                f"systemd.mount-extra=PARTUUID={data_uuid}:/home:btrfs:subvol=home"]
     return " ".join(tokens)
 

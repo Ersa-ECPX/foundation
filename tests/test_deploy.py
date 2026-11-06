@@ -175,7 +175,7 @@ class Install(unittest.TestCase):
         cmdline = pe.read_cmdline(image).split()
         root, data = table["ecp-root_0.1.0"].uuid, table["ECP-DATA"].uuid
         self.assertIn(f"root=PARTUUID={root}", cmdline)
-        self.assertIn(f"systemd.mount-extra=PARTUUID={data}:/var:btrfs:subvol=var", cmdline)
+        self.assertIn(f"systemd.mount-extra=PARTUUID={data}:/var:btrfs:subvol=var,x-initrd.mount", cmdline)
         self.assertIn(f"systemd.mount-extra=PARTUUID={data}:/home:btrfs:subvol=home", cmdline)
         self.assertFalse([t for t in cmdline if "PARTLABEL" in t or t.startswith("ecp.pad=")], cmdline)
         self.assertIn("quiet", cmdline)       # the rest of the command line is kept
@@ -196,7 +196,7 @@ class Install(unittest.TestCase):
                 "systemd.mount-extra=LABEL=ECP-DATA:/home:btrfs:subvol=home ecp.pad=-----")
         out = deploy.installed_cmdline(text, "R", "D").split()
         self.assertEqual(out[:2], ["ro", "quiet"])
-        self.assertEqual(out[2:], ["root=PARTUUID=R", "systemd.mount-extra=PARTUUID=D:/var:btrfs:subvol=var",
+        self.assertEqual(out[2:], ["root=PARTUUID=R", "systemd.mount-extra=PARTUUID=D:/var:btrfs:subvol=var,x-initrd.mount",
                                    "systemd.mount-extra=PARTUUID=D:/home:btrfs:subvol=home"])
 
     def test_the_definitions_can_pin_the_root_and_data_uuids(self):
@@ -234,7 +234,7 @@ class Install(unittest.TestCase):
             self.assertLessEqual(len(new), len(text), f"{name}: {len(new)} > {len(text)}")
             self.assertNotIn("ecp.pad=", new)
         for name, text in images.items():             # every image, the installer medium included, mounts by label
-            self.assertIn("systemd.mount-extra=LABEL=ECP-DATA:/var:btrfs:subvol=var", text.split(), name)
+            self.assertIn("systemd.mount-extra=LABEL=ECP-DATA:/var:btrfs:subvol=var,x-initrd.mount", text.split(), name)
         self.assertIn("root=PARTLABEL=ecp-root_0.1.0", images["normal"].split())
         roots = [t for t in images["installer"].split() if t.startswith("root=")]
         self.assertEqual(roots[-1], "root=PARTLABEL=ecp-live_0.1.0", "the last root= wins")
