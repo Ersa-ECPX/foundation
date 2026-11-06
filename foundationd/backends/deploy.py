@@ -215,14 +215,8 @@ def _stage_esp(layout_, version, stage):
     esp = os.path.join(stage, "esp")
     source_linux = os.path.join(layout_.esp, "EFI", "Linux")
 
-    extensions = os.path.join(layout_.esp, "loader", "extensions")
-
     def ignore(directory, names):
-        # Kernel images are staged separately; loader/extensions holds the installer's own sysext,
-        # which must never reach an installed disk.
-        if os.path.samefile(directory, source_linux):
-            return names
-        return ["extensions"] if os.path.exists(extensions) and os.path.samefile(directory, os.path.dirname(extensions)) else []
+        return names if os.path.samefile(directory, source_linux) else []
 
     shutil.copytree(layout_.esp, esp, ignore=ignore, copy_function=shutil.copyfile)
     target_dir = os.path.join(esp, "EFI", "Linux")

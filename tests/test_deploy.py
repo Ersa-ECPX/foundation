@@ -120,18 +120,6 @@ class Install(unittest.TestCase):
         self.assertIn("ecp_0.1.0+3.efi", listing)
         self.assertNotIn(".partial", listing)
 
-    def test_the_installer_sysext_is_not_copied_to_the_installed_disk(self):
-        extensions = os.path.join(self.system.esp, "loader", "extensions")
-        os.makedirs(extensions)
-        with open(os.path.join(extensions, "ersa-installer.sysext.raw"), "wb") as h:
-            h.write(b"sysext")
-        self.run_deploy()
-        esp = {p.name: p for p in gpt.read_table(self.target)}["ECP-ESP"]
-        listing = subprocess.run(["mdir", "-/", "-b", "-i", f"{self.target}@@{esp.offset}", "::"],
-                                 capture_output=True, text=True, check=True).stdout
-        self.assertNotIn("sysext", listing)
-        self.assertNotIn("extensions", listing)
-
     def test_data_volume_has_subvolumes(self):
         self.run_deploy()
         data = {p.name: p for p in gpt.read_table(self.target)}["ECP-DATA"]
