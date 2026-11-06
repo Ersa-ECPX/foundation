@@ -256,6 +256,39 @@ class Refusing(Fixture):
         self.assertEqual(self.labels()[2], "ecp-root_0.3.0")
 
 
+@unittest.skipUnless(os.uname().machine == "x86_64" and shutil.which("zstd"), "needs x86_64 and zstd")
+class ArchiveScript(Fixture):
+    """The script that makes update archives produces what the installer reads."""
+
+    def make(self, *extra, env=None):
+        work = os.path.join(self.system.tmp, "mkarchive")
+        os.makedirs(os.path.join(work, "src"))
+        raw = os.path.join(work, "r.erofs")
+        with open(raw, "wb") as handle:
+            handle.write(self.root)
+        subprocess.run(["zstd", "-q", raw, "-o", os.path.join(work, "src/ecp_0.3.0.root-x86-64.raw.zst")], check=True)
+        with open(os.path.join(work, "src/ecp_0.3.0.efi"), "wb") as handle:
+            handle.write(support.build_pe(CMDLINE.encode(), raw_size=1024))
+        script = os.path.join(HERE, "..", "..", "scripts", "make-update-archive")
+        if not os.path.exists(script):
+            self.skipTest("scripts/ is not part of this checkout")
+        subprocess.run([sys.executable, script, "0.3.0", "--source", os.path.join(work, "src"), "--output", os.path.join(work, "out"), *extra],
+                       check=True, capture_output=True, env={**os.environ, **(env or {})})
+        return os.path.join(work, "out", "ecp_0.3.0-x86_64.tar.zst")
+
+    def test_an_unsigned_archive_installs_with_the_unsigned_flag(self):
+        result = self.install(self.make())
+        self.assertEqual((result["version"], result["signed"]), ("0.3.0", False))
+        self.assertEqual(self.partition_bytes(2, ROOT_BYTES), self.root)
+
+    @unittest.skipUnless(GPG, "needs gpg")
+    def test_a_signed_archive_verifies_against_the_installed_key(self):
+        self.trust(self.good_key)
+        archive = self.make("--sign", env={"ECP_SIGN_KEY": "good@example.org", "GNUPGHOME": os.path.join(self.keys, "good")})
+        result = self.install(archive, unsigned=False)
+        self.assertTrue(result["signed"])
+
+
 class Cmdline(unittest.TestCase):
     def test_the_new_slot_is_named_and_the_data_volume_of_this_install_is_kept(self):
         text = updates.update_cmdline("a b root=X systemd.mount-extra=LABEL=D:/var ecp.pad=--", "r root=Y systemd.mount-extra=PARTUUID=P:/var",
