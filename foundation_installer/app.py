@@ -30,6 +30,7 @@ CSS = b"""
 .disk-card.unusable { opacity: 0.5; }
 flowboxchild { border-radius: 14px; transition: background-color 180ms ease; }
 .greeting { font-size: 64px; font-weight: 300; }
+.welcome-next { min-width: 56px; min-height: 56px; -gtk-icon-size: 24px; }
 flowboxchild:selected { background-color: alpha(@accent_bg_color, 0.25); outline: 2px solid @accent_bg_color; }
 """
 
@@ -201,7 +202,7 @@ def _button(label, handler, style=None):
 class InstallerWindow(Adw.ApplicationWindow):
     """One centred page at a time with Go Back and Continue at the bottom right."""
 
-    FOOTER_PAGES = ("welcome", "language", "timezone", "disks", "review", "done")
+    FOOTER_PAGES = ("language", "timezone", "disks", "review", "done")   # the welcome page has its own round button
 
     def __init__(self, app, backend):
         super().__init__(application=app, title=f"Install {model.PRODUCT}", default_width=900, default_height=640)
@@ -266,6 +267,8 @@ class InstallerWindow(Adw.ApplicationWindow):
         parts = getattr(page, "parts", None) or _children(page)
         _reveal([part for part in parts if not isinstance(part, GreetingFlow)])
         self.footer.set_visible(name in self.FOOTER_PAGES)
+        if name == "welcome":
+            self.set_default_widget(self.welcome_next)       # Enter continues
         self.refresh_btn.set_visible(name == "disks")
         self.customize_btn.set_visible(name == "disks")
 
@@ -298,9 +301,13 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.welcome_title = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, css_classes=["title-3"])
         self.welcome_body = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, max_width_chars=60,
                                       css_classes=["dim-label"])
+        self.welcome_next = Gtk.Button(icon_name="go-next-symbolic", halign=Gtk.Align.CENTER, margin_top=18,
+                                       tooltip_text="Continue", css_classes=["circular", "suggested-action", "welcome-next"])
+        self.welcome_next.update_property([Gtk.AccessibleProperty.LABEL], ["Continue"])
+        self.welcome_next.connect("clicked", lambda _b: self._next())
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, valign=Gtk.Align.CENTER, vexpand=True,
                        margin_start=32, margin_end=32)
-        page.parts = [self.logo, self.greeting, self.welcome_title, self.welcome_body]
+        page.parts = [self.logo, self.greeting, self.welcome_title, self.welcome_body, self.welcome_next]
         for part in page.parts:
             page.append(part)
         self.stack.add_named(page, "welcome")
