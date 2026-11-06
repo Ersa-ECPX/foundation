@@ -23,6 +23,26 @@ def enable(ctx):
     return {"alias": repo.alias, "enabled": repo.enabled}
 
 
+@worker("repos.inspect_key")
+def inspect_key(ctx):
+    return repos.key_info(ctx.arg("key"))
+
+
+@worker("repos.add")
+def add(ctx):
+    ctx.step("add", "Adding the repository")
+    repo = repos.add_repo(ctx.paths, ctx.arg("alias"), ctx.arg("name"), ctx.arg("url"), ctx.arg("priority", int, 99), ctx.arg("key"))
+    return {"alias": repo.alias, "url": repo.baseurl}
+
+
+@worker("repos.remove")
+def remove(ctx):
+    alias = ctx.arg("alias")
+    used = {r for b in bundles.list_bundles(ctx.paths) for r in b["repos"]}
+    ctx.step("remove", "Removing the repository")
+    return repos.remove_repo(ctx.paths, alias, used)
+
+
 @worker("repos.refresh")
 def refresh(ctx):
     wanted = ctx.arg("aliases", list, [])

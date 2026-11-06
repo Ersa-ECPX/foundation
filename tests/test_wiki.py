@@ -39,6 +39,16 @@ class Converter(unittest.TestCase):
         self.assertIn("italic</em> and", out)
         self.assertIn("A second line.", out)
 
+    def test_images_become_figures_and_unresolved_ones_are_plain_text(self):
+        wiki = self.wiki
+        converter = wiki.Converter(lambda target: None)
+        converter.resolve_image = lambda target: "assets/" + target if target.endswith(".png") else None
+        out = converter.convert("![The welcome screen](shot.png)\n\nText with ![inline](icon.png) image and ![gone](x.gif).")
+        self.assertIn('<figure><img src="assets/shot.png" alt="The welcome screen" loading="lazy"><figcaption>The welcome screen</figcaption></figure>', out)
+        self.assertIn('<p>Text with <img src="assets/icon.png" alt="inline" loading="lazy"> image', out)
+        self.assertIn("[image: gone]", out)
+        self.assertNotIn("&lt;img", out)
+
     def test_html_in_the_text_is_escaped(self):
         out = self.md("A <script>alert(1)</script> and ecp-root_<version>.")
         self.assertNotIn("<script>", out)
@@ -152,6 +162,16 @@ class Site(unittest.TestCase):
     def test_the_unfinished_features_are_marked(self):
         section = self.document.split('data-page="features/updates"', 1)[1].split("</section>", 1)[0]
         self.assertIn('class="badge bad"', section)
+
+    def test_a_publishable_site_gets_nojekyll_a_cname_and_the_images_it_uses(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            self.wiki.build(os.path.join(directory, "index.html"), cname="compute.example.org")
+            with open(os.path.join(directory, "CNAME"), encoding="utf-8") as handle:
+                self.assertEqual(handle.read(), "compute.example.org\n")
+            self.assertTrue(os.path.exists(os.path.join(directory, ".nojekyll")))
+            for name in re.findall(r'<img src="assets/([^"]+)"', self.document):
+                self.assertTrue(os.path.exists(os.path.join(directory, "assets", name)), name)
 
     def test_the_site_is_written_to_the_requested_file(self):
         import tempfile

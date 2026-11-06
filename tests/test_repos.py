@@ -81,6 +81,63 @@ class Base(unittest.TestCase):
                           gpgcheck=True, repo_gpgcheck=True)
 
 
+class OwnRepositories(Base):
+    """Repositories a user adds themselves, with their own signing key."""
+
+    def key_text(self):
+        with open(self.good_key) as handle:
+            return handle.read()
+
+    def test_the_key_is_described_before_it_is_trusted(self):
+        (info,) = repos.key_info(self.key_text())
+        self.assertEqual(len(info["fingerprint"]), 40)
+        self.assertIn("good@example.org", info["owner"])
+
+    def test_something_that_is_not_a_public_key_is_refused(self):
+        for text in ("", "hello", "-----BEGIN PGP PRIVATE KEY BLOCK-----\n-----END PGP PRIVATE KEY BLOCK-----\n"):
+            with self.assertRaises(InvalidArgument):
+                repos.key_info(text)
+
+    def test_adding_a_repository_writes_its_definition_and_key_locally(self):
+        repo = repos.add_repo(self.paths, "mine", "My repository", "https://example.org/repo/", 80, self.key_text())
+        self.assertEqual((repo.alias, repo.priority, repo.enabled), ("mine", 80, True))
+        self.assertTrue(repo.gpgcheck and repo.repo_gpgcheck)
+        loaded = repos.load_repos(self.paths)["mine"]
+        self.assertTrue(os.path.isfile(loaded.keys[0]))
+        self.assertFalse(loaded.vendor)
+
+    def test_an_existing_name_and_unsafe_addresses_are_refused(self):
+        repos.add_repo(self.paths, "mine", "", "https://example.org/repo/", 99, self.key_text())
+        with self.assertRaises(InvalidArgument):
+            repos.add_repo(self.paths, "mine", "", "https://example.org/other/", 99, self.key_text())
+        for url in ("http://example.org/repo/", "ftp://example.org/"):
+            with self.assertRaises(InvalidArgument):
+                repos.add_repo(self.paths, "bad", "", url, 99, self.key_text())
+        self.assertNotIn("bad", repos.load_repos(self.paths))
+        root = self.paths["root"]
+        self.assertFalse(os.path.exists(os.path.join(root, "etc/foundation/keys/bad.asc")))
+
+    def test_removing_deletes_the_definition_key_and_cache_but_not_shipped_ones(self):
+        repos.add_repo(self.paths, "mine", "", "https://example.org/repo/", 99, self.key_text())
+        os.makedirs(repos.cache_dir(self.paths, "mine"))
+        self.assertEqual(repos.remove_repo(self.paths, "mine")["alias"], "mine")
+        self.assertNotIn("mine", repos.load_repos(self.paths))
+        self.assertFalse(os.path.exists(repos.cache_dir(self.paths, "mine")))
+        vendor = os.path.join(self.paths["root"], repos.VENDOR_DIR)
+        os.makedirs(vendor)
+        with open(os.path.join(vendor, "v.repo"), "w") as handle:
+            handle.write("[vend]\nbaseurl=https://example.org/v/\ngpgkey=file:///usr/share/foundation/keys/v.asc\n")
+        with self.assertRaisesRegex(InvalidArgument, "comes with the system"):
+            repos.remove_repo(self.paths, "vend")
+        with self.assertRaises(NotFound):
+            repos.remove_repo(self.paths, "nothing")
+
+    def test_a_repository_in_use_by_a_bundle_cannot_be_removed(self):
+        repos.add_repo(self.paths, "mine", "", "https://example.org/repo/", 99, self.key_text())
+        with self.assertRaisesRegex(InvalidArgument, "bundles contain"):
+            repos.remove_repo(self.paths, "mine", {"mine"})
+
+
 class Definitions(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()

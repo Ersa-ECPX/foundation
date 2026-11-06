@@ -192,6 +192,8 @@ extension** overlaid on `/usr` and `/opt`.
 ```
 foundation repo list                          # the repositories, whether each is on, how fresh its lists are
 foundation repo refresh                       # download the signed package lists
+foundation repo add NAME URL --key FILE.asc   # your own repository (shows the key fingerprint first)
+foundation repo remove NAME                   # remove one you added
 foundation repo search vlc                    # find packages in the enabled repositories
 foundation repo info ffmpeg                   # the newest version in each repository
 

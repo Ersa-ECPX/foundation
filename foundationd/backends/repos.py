@@ -6,6 +6,7 @@ so the files are familiar:
 
     /usr/lib/foundation/repos.d/*.repo     shipped with the image (read-only)
     /etc/foundation/repos.d/*.repo         local changes; a section with the same alias replaces the shipped one
+    /etc/foundation/keys/*.asc             signing keys of repositories added with `foundation repo add`
 
 What is trusted, and how:
   * Every repository names its signing key(s) by file (`gpgkey=file:///usr/share/foundation/keys/...`); keys
@@ -153,6 +154,111 @@ def set_enabled(paths, alias, enabled):
     os.replace(handle.name, target)
     repo.enabled = enabled
     return repo
+
+
+KEY_DIR = "etc/foundation/keys"
+MAX_KEY = 256 * 1024
+
+
+def _shipped_aliases(paths):
+    found = set()
+    directory = _under(paths["root"], VENDOR_DIR)
+    try:
+        names = sorted(n for n in os.listdir(directory) if n.endswith(".repo"))
+    except OSError:
+        return found
+    for name in names:
+        try:
+            found.update(r.alias for r in parse_repo_file(os.path.join(directory, name), paths["root"], True))
+        except InvalidArgument:
+            pass
+    return found
+
+
+def key_info(text, runner=run):
+    """The fingerprints and owners in an armoured public key. Raises InvalidArgument if it is not one."""
+    if not isinstance(text, str) or not text.strip() or len(text) > MAX_KEY or "\0" in text:
+        raise InvalidArgument("the signing key is missing or too large")
+    if "-----BEGIN PGP PUBLIC KEY BLOCK-----" not in text or "PRIVATE KEY" in text:
+        raise InvalidArgument("the signing key must be an armoured PGP public key (.asc)")
+    code, out, error = runner(["gpg", "--batch", "--no-tty", "--with-colons", "--show-keys", "-"], 30,
+                              input_bytes=text.encode())
+    if code != 0:
+        raise InvalidArgument(f"cannot read the signing key: {error.strip()[:200]}")
+    keys, current = [], None
+    for line in out.splitlines():
+        fields = line.split(":")
+        if fields[0] == "pub":
+            current = {"fingerprint": "", "owner": "", "expires": int(fields[6]) if len(fields) > 6 and fields[6].isdigit() else 0}
+            keys.append(current)
+        elif fields[0] == "fpr" and current is not None and not current["fingerprint"]:
+            current["fingerprint"] = fields[9]
+        elif fields[0] == "uid" and current is not None and not current["owner"]:
+            current["owner"] = fields[9]
+    if not keys:
+        raise InvalidArgument("the file holds no public key")
+    return keys
+
+
+def _write_atomic(directory, target, body):
+    os.makedirs(directory, mode=0o755, exist_ok=True)
+    with tempfile.NamedTemporaryFile("w", dir=directory, suffix=".tmp", delete=False, encoding="utf-8") as handle:
+        handle.write(body)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.chmod(handle.name, 0o644)
+    os.replace(handle.name, target)
+
+
+def add_repo(paths, alias, name, url, priority, key_text, runner=run):
+    """Add a repository of the user's own: its definition and signing key go to /etc/foundation. It starts enabled."""
+    if not ALIAS.match(alias or ""):
+        raise InvalidArgument(f"unusable repository name: {alias!r}")
+    if alias in load_repos(paths):
+        raise InvalidArgument(f"a repository named {alias} already exists")
+    if not isinstance(priority, int) or not 1 <= priority <= 999:
+        raise InvalidArgument("the priority must be a number from 1 to 999")
+    name = (name or alias).strip()
+    if not name or len(name) > 120 or "\n" in name or "\0" in name:
+        raise InvalidArgument("unusable repository description")
+    key_info(key_text, runner)
+    root = paths["root"]
+    key_path = os.path.join(_under(root, KEY_DIR), f"{alias}.asc")
+    repo_path = os.path.join(_under(root, LOCAL_DIR), f"{alias}.repo")
+    key_url = "file:///" + KEY_DIR + f"/{alias}.asc"
+    body = (f"[{alias}]\nname={name}\nenabled=1\nbaseurl={url}\npriority={priority}\ngpgcheck=1\nrepo_gpgcheck=1\n"
+            f"gpgkey={key_url}\n")
+    _write_atomic(os.path.dirname(key_path), key_path, key_text if key_text.endswith("\n") else key_text + "\n")
+    try:
+        _write_atomic(os.path.dirname(repo_path), repo_path, body)
+        (repo,) = parse_repo_file(repo_path, root)
+    except BaseException:
+        for path in (repo_path, key_path):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+        raise
+    return repo
+
+
+def remove_repo(paths, alias, in_use=()):
+    """Remove a repository added with add_repo. Shipped repositories can only be disabled."""
+    repos = load_repos(paths)
+    if alias not in repos:
+        raise NotFound(f"no repository named {alias}")
+    if alias in _shipped_aliases(paths):
+        raise InvalidArgument(f"{alias} comes with the system and cannot be removed; turn it off with: foundation repo disable {alias}")
+    if alias in in_use:
+        raise InvalidArgument(f"bundles contain packages from {alias}; remove or rebuild them first")
+    root = paths["root"]
+    for path in (os.path.join(_under(root, LOCAL_DIR), f"{alias}.repo"), os.path.join(_under(root, KEY_DIR), f"{alias}.asc")):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    shutil.rmtree(cache_dir(paths, alias), ignore_errors=True)
+    return {"alias": alias, "removed": True}
 
 
 # -- fetching ----------------------------------------------------------------------------------

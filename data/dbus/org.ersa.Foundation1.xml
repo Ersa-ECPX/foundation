@@ -406,6 +406,29 @@
       <arg name="enabled" type="b" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
+    <!-- What an armoured public key (the text of a .asc file) contains: fingerprint, owner, expires (x, 0 =
+         never). Shown to the user before they trust the key. -->
+    <method name="InspectKey">
+      <arg name="key" type="s" direction="in"/>
+      <arg name="keys" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- Add a repository of the user's own (enabled): it must be https (or a file path) and signed, and the
+         signing key is passed in as text, never fetched. Stored in /etc/foundation. Requires
+         org.ersa.foundation.repos. Shipped repositories cannot be replaced. -->
+    <method name="Add">
+      <arg name="alias" type="s" direction="in"/>
+      <arg name="description" type="s" direction="in"/>
+      <arg name="url" type="s" direction="in"/>
+      <arg name="priority" type="i" direction="in"/>
+      <arg name="key" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Remove a repository added with Add. Refused for a shipped repository and while a bundle
+         contains packages from it. -->
+    <method name="Remove">
+      <arg name="alias" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
     <!-- Download the signed metadata of the named repositories (all enabled ones if empty). Result:
          repositories (aa{sv}: alias, changed, revision). -->
     <method name="Refresh">

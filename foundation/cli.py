@@ -739,6 +739,35 @@ def _set_repo(client, args, enabled):
     return run_job(client, args, "Repos", "SetEnabled", "(sb)", args.alias, enabled)[0]
 
 
+def cmd_repo_add(client, args):
+    try:
+        with open(args.key, encoding="utf-8") as handle:
+            key = handle.read(256 * 1024 + 1)
+    except (OSError, UnicodeDecodeError) as error:
+        ui.error(f"Cannot read the key file {args.key}: {error}")
+        return 1
+    keys = client.one("Repos", "InspectKey", "(s)", key)
+    if not args.json:
+        ui.title(f"Add the repository {args.alias}")
+        ui.kv([("Address", args.url), ("Signing key", ", ".join(k["fingerprint"] for k in keys)),
+               ("Key owner", ", ".join(k["owner"] or "-" for k in keys))])
+        print()
+        ui.warn("Packages from this repository will be trusted if they are signed by that key. Check the fingerprint with the "
+                "repository's publisher. They are not part of the Ersa Compute Platform.")
+    if not sure(args, f"Trust this key and add {args.alias}?"):
+        return 1
+    code, job = run_job(client, args, "Repos", "Add", "(sssis)", args.alias, args.name or args.alias, args.url, args.priority, key)
+    if job is not None and job.ok and not args.json:
+        ui.note(f"Added. Fetch its package list with: foundation repo refresh {args.alias}")
+    return code
+
+
+def cmd_repo_remove(client, args):
+    if not sure(args, f"Remove the repository {args.alias} and its key?"):
+        return 1
+    return run_job(client, args, "Repos", "Remove", "(s)", args.alias)[0]
+
+
 def cmd_repo_enable(client, args):
     return _set_repo(client, args, True)
 
@@ -1053,6 +1082,13 @@ def build_parser():
     refresh = add(repo, "refresh", cmd_repo_refresh, "download the newest package lists", wait=True)
     refresh.add_argument("aliases", nargs="*", metavar="REPOSITORY", help="default: all enabled repositories")
     refresh.add_argument("--force", action="store_true", help="download again even if nothing changed")
+    add_repo = add(repo, "add", cmd_repo_add, "add a repository of your own (https, signed)", yes=True, wait=True)
+    add_repo.add_argument("alias", help="a short name, for example myrepo")
+    add_repo.add_argument("url", help="the repository's address (https://...); its repodata/ must be signed")
+    add_repo.add_argument("--key", required=True, metavar="FILE", help="the publisher's armoured public key (.asc)")
+    add_repo.add_argument("--name", help="a description to show in lists")
+    add_repo.add_argument("--priority", type=int, default=99, help="1-999; lower wins (default 99)")
+    add(repo, "remove", cmd_repo_remove, "remove a repository you added", yes=True, wait=True).add_argument("alias")
     add(repo, "enable", cmd_repo_enable, "turn a repository on", yes=True, wait=True).add_argument("alias")
     add(repo, "disable", cmd_repo_disable, "turn a repository off", yes=True, wait=True).add_argument("alias")
     add(repo, "search", cmd_repo_search, "find packages by name").add_argument("term")

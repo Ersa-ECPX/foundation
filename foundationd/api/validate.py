@@ -105,3 +105,22 @@ def aliases(values, maximum=32):
     if not isinstance(values, list) or len(values) > maximum:
         raise InvalidArgument("too many repository names")
     return [alias(v) for v in values]
+
+
+def key_text(value):
+    if not isinstance(value, str) or not value.strip() or len(value) > 256 * 1024 or "\0" in value:
+        raise InvalidArgument("the signing key must be 1 byte to 256 KiB of armoured text")
+    return value
+
+
+def repo_url(value):
+    if not isinstance(value, str) or len(value) > 2048 or not value.startswith(("https://", "file:///")) \
+            or any(c.isspace() or ord(c) < 32 for c in value):
+        raise InvalidArgument("a repository address must be an https:// URL (or a file:/// path)")
+    return value
+
+
+def description(value):
+    if not isinstance(value, str) or len(value) > 120 or "\n" in value or "\0" in value:
+        raise InvalidArgument("the description must be one line of up to 120 characters")
+    return value
