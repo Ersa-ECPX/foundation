@@ -55,13 +55,14 @@ def _button(label, handler, style=None):
 class InstallerWindow(Adw.ApplicationWindow):
     """One centred page at a time with Go Back and Continue at the bottom right."""
 
-    FOOTER_PAGES = ("welcome", "disks", "review", "done")
+    FOOTER_PAGES = ("welcome", "language", "timezone", "disks", "review", "done")
 
     def __init__(self, app, backend):
         super().__init__(application=app, title=f"Install {model.PRODUCT}", default_width=900, default_height=640)
         self.backend = backend
         self.disks, self.selected, self.plan, self.installing = [], None, None, False
         self.version, self.started_at = "", 0.0
+        self.language, self.timezone = model.DEFAULT_LANGUAGE, model.current_timezone()
         self._back_target, self._next_handler = None, None
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
@@ -93,6 +94,8 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.set_content(view)
         self.connect("close-request", lambda _w: self.installing)  # never close in the middle of a write
         self._build_welcome()
+        self._build_language()
+        self._build_timezone()
         self._build_disks()
         self._build_review()
         self._build_progress()
@@ -151,6 +154,52 @@ class InstallerWindow(Adw.ApplicationWindow):
         outer.append(hint_label)
         return outer
 
+    def _chooser(self, title, hint, items, current, on_pick):
+        """A page with a search box and a list; items are (name, detail, value)."""
+        outer = self._heading(title, hint)
+        search = Gtk.SearchEntry(placeholder_text="Search", halign=Gtk.Align.CENTER, width_request=360)
+        outer.append(search)
+        listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE, margin_top=6, margin_bottom=6,
+                              margin_start=6, margin_end=6, width_request=480, halign=Gtk.Align.CENTER)
+        listbox.add_css_class("boxed-list")
+        rows = []
+        for name, detail, value in items:
+            row = Adw.ActionRow(title=GLib.markup_escape_text(name), subtitle=GLib.markup_escape_text(detail))
+            row.value, row.search = value, f"{name} {detail}".lower()
+            listbox.append(row)
+            rows.append(row)
+            if value == current:
+                listbox.select_row(row)
+        listbox.set_filter_func(lambda row: search.get_text().lower() in row.search)
+        search.connect("search-changed", lambda _e: listbox.invalidate_filter())
+        listbox.connect("row-selected", lambda _l, row: on_pick(row.value) if row is not None else None)
+        scroll = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        scroll.set_child(listbox)
+        outer.append(scroll)
+        return outer, listbox, rows
+
+    def _build_language(self):
+        items = [(name, code.split(".")[0], code) for name, code in model.LANGUAGES]
+        outer, self.language_list, self.language_rows = self._chooser(
+            "Select your language", "This sets the language of the installed system.", items, self.language,
+            lambda value: setattr(self, "language", value))
+        self.stack.add_named(outer, "language")
+
+    def _build_timezone(self):
+        items = []
+        for zone in model.timezones():
+            region, _slash, city = zone.partition("/")
+            items.append((city.replace("_", " ") if city else zone, region if city else "", zone))
+        outer, self.timezone_list, self.timezone_rows = self._chooser(
+            "Select your time zone", "This sets the clock of the installed system.", items, self.timezone,
+            lambda value: setattr(self, "timezone", value))
+        self.stack.add_named(outer, "timezone")
+
+    def _reveal_selected(self, listbox):
+        row = listbox.get_selected_row()
+        if row is not None:
+            GLib.idle_add(lambda: row.grab_focus() and False)
+
     def _build_disks(self):
         outer = self._heading("Select the disk where you want to install",
                               f"{model.PRODUCT} is installed on the whole disk. Nothing is changed until you confirm.")
@@ -172,7 +221,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.problem_label = Gtk.Label(xalign=0, wrap=True, visible=False)
         self.problem_label.add_css_class("error")
         outer.append(self.problem_label)
-        self.partition_group = Adw.PreferencesGroup(title="Partitions that will be created")
+        self.partition_group = Adw.PreferencesGroup(title="What will be installed")
         scroll = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         scroll.set_child(self.partition_group)
         outer.append(scroll)
@@ -214,7 +263,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.welcome_text.set_description(
             "This installs the system on a disk in this computer. You choose the disk next, and you see "
             "exactly what will be erased before anything is changed.")
-        self._nav(handler=self._go_disks)
+        self._nav(handler=self._go_language)
         self.show("welcome")
 
     def _fatal(self, message):
@@ -226,13 +275,23 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.show("loading")
         self._probe()
 
+    def _go_language(self):
+        self._nav(back=self._go_welcome, handler=self._go_timezone)
+        self.show("language")
+        self._reveal_selected(self.language_list)
+
+    def _go_timezone(self):
+        self._nav(back=self._go_language, handler=self._go_disks)
+        self.show("timezone")
+        self._reveal_selected(self.timezone_list)
+
     def _go_disks(self):
-        self._nav(back=self._go_welcome, label="Install", handler=self._go_review, sensitive=False)
+        self._nav(back=self._go_timezone, label="Install", handler=self._go_review, sensitive=False)
         self.show("disks")
         self._load_disks()
 
     def _go_welcome(self):
-        self._nav(handler=self._go_disks)
+        self._nav(handler=self._go_language)
         self.show("welcome")
 
     def _load_disks(self):
@@ -316,6 +375,11 @@ class InstallerWindow(Adw.ApplicationWindow):
         for row in self._partition_rows:
             self.partition_group.remove(row)
         self._partition_rows = []
+        for title, value in (("Language", model.language_name(self.language)), ("Time zone", self.timezone)):
+            row = Adw.ActionRow(title=title)
+            row.add_suffix(Gtk.Label(label=value, css_classes=["dim-label"]))
+            self.partition_group.add(row)
+            self._partition_rows.append(row)
         for part in plan["partitions"]:
             row = Adw.ActionRow(title=model.partition_title(part["label"]), subtitle=part["note"])
             row.add_suffix(Gtk.Label(label=model.partition_size(part), css_classes=["dim-label"]))
@@ -326,7 +390,7 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     def _go_disks_keep(self):
         """Back from the review page to the disk list, keeping the choice."""
-        self._nav(back=self._go_welcome, label="Install", handler=self._go_review, sensitive=self.selected is not None)
+        self._nav(back=self._go_timezone, label="Install", handler=self._go_review, sensitive=self.selected is not None)
         self.show("disks")
 
     def _confirm(self):
@@ -352,7 +416,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         def start(callback):
             def got(values, error):
                 callback(values[0] if error is None else None, error)
-            self.backend.call("Deploy", "Deploy", "(ss)", (disk, disk), got, 600_000)
+            self.backend.call("Deploy", "Deploy", "(ssss)", (disk, disk, self.language, self.timezone), got, 600_000)
 
         self.backend.follow(start, self._event, self._finished)
 

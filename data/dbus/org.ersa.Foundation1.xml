@@ -176,7 +176,9 @@
       <arg name="plan" type="a{sv}" direction="out"/>
     </method>
     <!--
-      Install to the disk, erasing everything on it. confirm must equal disk exactly. Refused for the
+      Install to the disk, erasing everything on it. confirm must equal disk exactly. language (s, a
+      locale such as de_DE.UTF-8) and timezone (s, such as Europe/Berlin) are written into the
+      installed system's /etc as locale.conf and localtime; an empty string leaves that unset. Refused for the
       disk that holds the running system, a disk with mounted partitions, a read-only or too small
       disk. Requires org.ersa.foundation.deploy (always asks). Result: disk, version,
       root_partition, bytes, partitions.
@@ -184,6 +186,8 @@
     <method name="Deploy">
       <arg name="disk" type="s" direction="in"/>
       <arg name="confirm" type="s" direction="in"/>
+      <arg name="language" type="s" direction="in"/>
+      <arg name="timezone" type="s" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
   </interface>

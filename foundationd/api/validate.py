@@ -58,3 +58,21 @@ def device_path(value):
             or ".." in value.split("/"):
         raise InvalidArgument(f"not a valid disk path: {value!r}")
     return value
+
+
+_LOCALE = re.compile(r"^([A-Za-z]{2,3}(_[A-Za-z0-9]{2,8})?|C|POSIX)(\.[A-Za-z0-9-]+)?(@[A-Za-z0-9]+)?$")
+_ZONE = re.compile(r"^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+){0,2}$")
+
+
+def locale_name(value):
+    """A locale such as de_DE.UTF-8, or empty for none."""
+    if not isinstance(value, str) or (value and not _LOCALE.match(value)):
+        raise InvalidArgument(f"not a valid locale: {value!r}")
+    return value
+
+
+def timezone_name(value):
+    """A tz database name such as Europe/Berlin, or empty for none. Whether it exists is checked by the worker."""
+    if not isinstance(value, str) or (value and not _ZONE.match(value)):
+        raise InvalidArgument(f"not a valid time zone: {value!r}")
+    return value

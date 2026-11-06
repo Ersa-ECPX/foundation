@@ -1,6 +1,8 @@
 """The installer's text helpers, and its window driven against a real foundationd (needs a display)."""
 
 import os
+import tempfile
+import shutil
 import time
 import unittest
 
@@ -59,6 +61,22 @@ class Text(unittest.TestCase):
         self.assertEqual(model.remaining_text(20, 0.5), "Less than a minute remaining")
         self.assertEqual(model.remaining_text(100, 1.0), "")
 
+    def test_language_and_time_zone_lists(self):
+        self.assertIn(("Deutsch", "de_DE.UTF-8"), model.LANGUAGES)
+        self.assertEqual(model.language_name("de_DE.UTF-8"), "Deutsch")
+        self.assertEqual(model.language_name("xx_XX.UTF-8"), "xx_XX.UTF-8")
+        zones = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, zones)
+        for name in ("Europe/Berlin", "America/Argentina/Buenos_Aires", "Etc/GMT+5", "posix/Europe/Berlin", "zone.tab"):
+            path = os.path.join(zones, name)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, "w").close()
+        self.assertEqual(model.timezones(zones), ["America/Argentina/Buenos_Aires", "Europe/Berlin", "UTC"])
+        link = os.path.join(zones, "lt")
+        os.symlink("/usr/share/zoneinfo/Asia/Kolkata", link)
+        self.assertEqual(model.current_timezone(link), "Asia/Kolkata")
+        self.assertEqual(model.current_timezone(os.path.join(zones, "missing")), "UTC")
+
     def test_no_internal_acronym_in_user_text(self):
         for text in (model.PRODUCT, *model.PARTITION_TITLES.values()):
             self.assertNotIn("ECP", text)
@@ -112,6 +130,8 @@ class Window(BootDaemon):
 
     def test_plan_then_install_then_done(self):
         self.pump(lambda: self.page() == "welcome")
+        self.window.language = "fr_FR.UTF-8"
+        self.window.timezone = "UTC" if os.path.isfile("/usr/share/zoneinfo/UTC") else ""
         self.window.selected = self.target
         self.window._go_review()
         self.pump(lambda: self.window.plan is not None)
@@ -146,9 +166,29 @@ class Window(BootDaemon):
         self.window._go_review(review=True)
         self.pump(lambda: self.page() == "review")
         labels = [row.get_title() for row in self.window._partition_rows]
-        self.assertEqual(labels[0], "Boot")
+        self.assertEqual(labels[:2], ["Language", "Time zone"])
+        self.assertIn("Boot", labels)
         self.assertIn("System slot A", labels)
         self.assertEqual(self.window.next_btn.get_label(), "Install")
+
+    def test_language_and_time_zone_are_separate_screens_before_the_disks(self):
+        self.pump(lambda: self.page() == "welcome")
+        self.window._next()
+        self.assertEqual(self.page(), "language")
+        self.assertEqual(self.window.language, "en_US.UTF-8")
+        self.window.language_list.select_row(self.window.language_rows[2])      # Deutsch
+        self.assertEqual(self.window.language, "de_DE.UTF-8")
+        self.window._next()
+        self.assertEqual(self.page(), "timezone")
+        berlin = [r for r in self.window.timezone_rows if r.value == "Europe/Berlin"][0]
+        self.window.timezone_list.select_row(berlin)
+        self.assertEqual(self.window.timezone, "Europe/Berlin")
+        self.window._next()
+        self.assertEqual(self.page(), "disks")
+        self.window._back()
+        self.assertEqual(self.page(), "timezone")
+        self.window._back()
+        self.assertEqual(self.page(), "language")
 
     def test_the_window_cannot_be_closed_while_installing(self):
         self.pump(lambda: self.page() == "welcome")

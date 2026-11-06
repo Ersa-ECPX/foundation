@@ -30,11 +30,14 @@ def register(service):
     def check_install(call):
         validate.device_path(call.args[0])
         validate.device_path(call.args[1])
+        validate.locale_name(call.args[2])
+        validate.timezone_name(call.args[3])
         jobs.check_locks(LOCKS)
 
     def install(call):
-        disk, confirm = call.args
-        return service.start_job("deploy.run", {"disk": disk, "confirm": confirm}, LOCKS)
+        disk, confirm, language, timezone = call.args
+        return service.start_job("deploy.run", {"disk": disk, "confirm": confirm, "language": language,
+                                                "timezone": timezone}, LOCKS)
 
     return {
         (DEPLOY, "ListDisks"): Method(disks),

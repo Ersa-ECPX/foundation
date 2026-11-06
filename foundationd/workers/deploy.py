@@ -21,4 +21,5 @@ def plan(ctx):
 @worker("deploy.run")
 def run(ctx):
     disk = ctx.arg("disk")
-    return deploy.deploy(ctx.paths, disk, ctx.arg("confirm"), ctx, allow_file=_allow_file(ctx))
+    return deploy.deploy(ctx.paths, disk, ctx.arg("confirm"), ctx, allow_file=_allow_file(ctx),
+                         language=ctx.arg("language") or "", timezone=ctx.arg("timezone") or "")

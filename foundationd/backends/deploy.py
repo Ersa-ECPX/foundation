@@ -233,9 +233,20 @@ def _write_definitions(directory, version, esp, seed):
             handle.write(text)
 
 
-def _make_seed(stage):
+ZONEINFO = "/usr/share/zoneinfo"
+
+
+def _label(path, context):
+    try:
+        os.setxattr(path, "security.selinux", context.encode() + b"\0", follow_symlinks=False)
+    except OSError:
+        pass  # no SELinux on this host (tests)
+
+
+def _make_seed(stage, language="", timezone="", zoneinfo=ZONEINFO):
     """The initial contents of the data volume: the /etc overlay directories (labelled etc_t, as the
-    image build does, so SELinux accepts the overlay) and an empty /home."""
+    image build does, so SELinux accepts the overlay), an empty /home, and the chosen language and time
+    zone as files in the overlay's upper layer, which is what /etc is: /etc/locale.conf and /etc/localtime."""
     seed = os.path.join(stage, "seed")
     upper = os.path.join(seed, "var/lib/ecp/etc/upper")
     work = os.path.join(seed, "var/lib/ecp/etc/work")
@@ -243,16 +254,25 @@ def _make_seed(stage):
     os.makedirs(work, mode=0o700)
     os.makedirs(os.path.join(seed, "home"), mode=0o755)
     for path in (upper, work):
-        try:
-            os.setxattr(path, "security.selinux", b"system_u:object_r:etc_t:s0\0")
-        except OSError:
-            pass  # no SELinux on this host (tests); the first-boot relabel is not relied on
+        _label(path, "system_u:object_r:etc_t:s0")
+    if language:
+        conf = os.path.join(upper, "locale.conf")
+        with open(conf, "w") as handle:
+            handle.write(f"LANG={language}\n")
+        _label(conf, "system_u:object_r:locale_t:s0")
+    if timezone:
+        link = os.path.join(upper, "localtime")
+        os.symlink(f"../usr/share/zoneinfo/{timezone}", link)
+        _label(link, "system_u:object_r:locale_t:s0")
     return seed
 
 
-def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=False):
+def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=False, language="", timezone="",
+           zoneinfo=ZONEINFO):
     if confirm != target:
         raise InvalidArgument("the confirmation must repeat the disk path exactly")
+    if timezone and not os.path.isfile(os.path.join(zoneinfo, timezone)):
+        raise InvalidArgument(f"unknown time zone: {timezone}")
     info = describe_target(paths, target, allow_file)
     if info["problems"]:
         raise InvalidArgument(f"cannot install to {target}: " + "; ".join(info["problems"]))
@@ -274,7 +294,7 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
         if length > layout.ROOT_SLOT:
             raise InvalidArgument(f"the root image ({length} bytes) does not fit a {layout.ROOT_SLOT}-byte slot")
         definitions = os.path.join(stage, "repart.d")
-        _write_definitions(definitions, version, esp, _make_seed(stage))
+        _write_definitions(definitions, version, esp, _make_seed(stage, language, timezone, zoneinfo))
         ctx.log(f"installing version {version} ({length} bytes of root image) to {target}")
 
         ctx.commit()

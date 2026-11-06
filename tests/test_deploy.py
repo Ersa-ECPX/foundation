@@ -120,6 +120,50 @@ class Install(unittest.TestCase):
         self.assertIn("ecp_0.1.0+3.efi", listing)
         self.assertNotIn(".partial", listing)
 
+    def test_seed_holds_the_chosen_language_and_time_zone(self):
+        stage = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, stage)
+        zones = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, zones)
+        seed = deploy._make_seed(stage, "de_DE.UTF-8", "Europe/Berlin", zones)
+        upper = os.path.join(seed, "var/lib/ecp/etc/upper")
+        with open(os.path.join(upper, "locale.conf")) as handle:
+            self.assertEqual(handle.read(), "LANG=de_DE.UTF-8\n")
+        self.assertEqual(os.readlink(os.path.join(upper, "localtime")), "../usr/share/zoneinfo/Europe/Berlin")
+
+    def test_seed_without_choices_has_neither_file(self):
+        stage = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, stage)
+        upper = os.path.join(deploy._make_seed(stage), "var/lib/ecp/etc/upper")
+        self.assertEqual(os.listdir(upper), [])
+
+    def test_an_unknown_time_zone_is_refused_before_anything_is_written(self):
+        with self.assertRaises(deploy.InvalidArgument):
+            self.run_deploy(timezone="Mars/Olympus_Mons")
+        self.assertEqual(os.path.getsize(self.target), layout.MIN_DISK + 64 * MIB)
+        with open(self.target, "rb") as h:
+            self.assertEqual(h.read(4096), bytes(4096))
+
+    def test_install_with_language_and_time_zone(self):
+        zones = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, zones)
+        open(os.path.join(zones, "UTC"), "w").close()
+        result, _ctx = self.run_deploy(language="fr_FR.UTF-8", timezone="UTC", zoneinfo=zones)
+        self.assertEqual(result["version"], "0.1.0")
+
+    def test_locale_and_time_zone_names_are_validated(self):
+        from foundationd.api import validate
+        for good in ("", "en_US.UTF-8", "de_DE", "sr_RS@latin", "C.UTF-8"):
+            validate.locale_name(good)
+        for bad in ("../x", "en US", "x;y", "a" * 5 + "_" * 3, 5):
+            with self.assertRaises(InvalidArgument):
+                validate.locale_name(bad)
+        for good in ("", "UTC", "Europe/Berlin", "America/Argentina/Buenos_Aires", "Etc/GMT+5"):
+            validate.timezone_name(good)
+        for bad in ("../etc/passwd", "/etc/passwd", "Europe/../x", "a b", "A/B/C/D"):
+            with self.assertRaises(InvalidArgument):
+                validate.timezone_name(bad)
+
     def test_data_volume_has_subvolumes(self):
         self.run_deploy()
         data = {p.name: p for p in gpt.read_table(self.target)}["ECP-DATA"]

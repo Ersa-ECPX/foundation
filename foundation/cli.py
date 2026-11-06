@@ -354,7 +354,8 @@ def cmd_deploy_install(client, args):
         return 0
     if not sure(args, f"Erase {plan['disk']} and install {PRODUCT}?", expected=plan["disk"]):
         return 1
-    code, job = run_job(client, args, "Deploy", "Deploy", "(ss)", plan["disk"], plan["disk"])
+    code, job = run_job(client, args, "Deploy", "Deploy", "(ssss)", plan["disk"], plan["disk"],
+                        args.language or "", args.timezone or "")
     if job is not None and job.ok and not args.json:
         ui.kv([("Installed", f"version {job.result.get('version')} ({ui.human_size(job.result.get('bytes', 0))})")])
         ui.note("Remove the installation medium and restart the computer to start the new system.")
@@ -815,6 +816,8 @@ def build_parser():
     inst = add(deploy, "install", cmd_deploy_install, "erase a disk and install this system on it", yes=True, wait=True)
     inst.add_argument("disk", help="the whole disk, such as /dev/sdb")
     inst.add_argument("--dry-run", action="store_true", help="show what would happen and change nothing")
+    inst.add_argument("--language", metavar="LOCALE", help="the installed system's language, such as de_DE.UTF-8")
+    inst.add_argument("--timezone", metavar="ZONE", help="the installed system's time zone, such as Europe/Berlin")
 
     _, apps = group("apps", "manage applications (Flatpak, system-wide)")
     add(apps, "list", cmd_apps_list, "list installed applications")

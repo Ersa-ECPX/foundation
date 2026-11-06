@@ -1,5 +1,7 @@
 """Text and small decisions for the installer, with no GTK in it so they can be tested anywhere."""
 
+import os
+
 from foundation.ui import human_size  # noqa: F401  (re-exported for the windows)
 
 PRODUCT = "Ersa Compute Platform"
@@ -67,3 +69,57 @@ def remaining_text(elapsed, fraction):
         return "Less than a minute remaining"
     minutes = round(left / 60)
     return f"About {minutes} minute{'s' if minutes != 1 else ''} remaining"
+
+
+# Languages offered by the installer: (name in that language, locale). The installed system gets the locale
+# in /etc/locale.conf; whether its translations are installed is up to the image.
+LANGUAGES = (
+    ("English (United States)", "en_US.UTF-8"), ("English (United Kingdom)", "en_GB.UTF-8"),
+    ("Deutsch", "de_DE.UTF-8"), ("Fran\u00e7ais", "fr_FR.UTF-8"), ("Espa\u00f1ol", "es_ES.UTF-8"),
+    ("Espa\u00f1ol (M\u00e9xico)", "es_MX.UTF-8"), ("Italiano", "it_IT.UTF-8"),
+    ("Portugu\u00eas (Brasil)", "pt_BR.UTF-8"), ("Portugu\u00eas (Portugal)", "pt_PT.UTF-8"),
+    ("Nederlands", "nl_NL.UTF-8"), ("Svenska", "sv_SE.UTF-8"), ("Norsk bokm\u00e5l", "nb_NO.UTF-8"),
+    ("Dansk", "da_DK.UTF-8"), ("Suomi", "fi_FI.UTF-8"), ("Polski", "pl_PL.UTF-8"),
+    ("\u010ce\u0161tina", "cs_CZ.UTF-8"), ("Magyar", "hu_HU.UTF-8"), ("Rom\u00e2n\u0103", "ro_RO.UTF-8"),
+    ("\u0420\u0443\u0441\u0441\u043a\u0438\u0439", "ru_RU.UTF-8"),
+    ("\u0423\u043a\u0440\u0430\u0457\u043d\u0441\u044c\u043a\u0430", "uk_UA.UTF-8"),
+    ("T\u00fcrk\u00e7e", "tr_TR.UTF-8"), ("\u0395\u03bb\u03bb\u03b7\u03bd\u03b9\u03ba\u03ac", "el_GR.UTF-8"),
+    ("\u05e2\u05d1\u05e8\u05d9\u05ea", "he_IL.UTF-8"), ("\u0627\u0644\u0639\u0631\u0628\u064a\u0629", "ar_EG.UTF-8"),
+    ("\u0641\u0627\u0631\u0633\u06cc", "fa_IR.UTF-8"), ("\u0939\u093f\u0928\u094d\u0926\u0940", "hi_IN.UTF-8"),
+    ("\u09ac\u09be\u0982\u09b2\u09be", "bn_BD.UTF-8"), ("\u0e44\u0e17\u0e22", "th_TH.UTF-8"),
+    ("Ti\u1ebfng Vi\u1ec7t", "vi_VN.UTF-8"), ("Bahasa Indonesia", "id_ID.UTF-8"),
+    ("\u65e5\u672c\u8a9e", "ja_JP.UTF-8"), ("\ud55c\uad6d\uc5b4", "ko_KR.UTF-8"),
+    ("\u4e2d\u6587 (\u7b80\u4f53)", "zh_CN.UTF-8"), ("\u4e2d\u6587 (\u7e41\u9ad4)", "zh_TW.UTF-8"),
+)
+DEFAULT_LANGUAGE = "en_US.UTF-8"
+
+
+def language_name(locale):
+    for name, code in LANGUAGES:
+        if code == locale:
+            return name
+    return locale or "Default"
+
+
+def timezones(zoneinfo_dir="/usr/share/zoneinfo"):
+    """Every region/city zone the system knows, plus UTC, sorted. Read from the tz database on disk."""
+    found = {"UTC"}
+    for base, _dirs, files in os.walk(zoneinfo_dir):
+        relative = os.path.relpath(base, zoneinfo_dir)
+        if relative.split(os.sep)[0] in ("posix", "right", "Etc", ".") and relative != ".":
+            continue
+        for name in files:
+            if relative == "." or name.startswith(".") or name[0].islower():
+                continue
+            found.add(f"{relative}/{name}")
+    return sorted(found)
+
+
+def current_timezone(localtime="/etc/localtime"):
+    """The zone the running system uses (from the /etc/localtime link), or UTC."""
+    try:
+        target = os.readlink(localtime)
+    except OSError:
+        return "UTC"
+    marker = "zoneinfo/"
+    return target.split(marker, 1)[1] if marker in target else "UTC"
