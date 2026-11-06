@@ -17,7 +17,7 @@ import support  # noqa: E402
 from test_foundationd_boot import BootDaemon  # noqa: E402
 from test_foundationd_jobs import JobCase  # noqa: E402
 
-RPM = next(iter(sorted(glob.glob(os.path.join(HERE, "../../mkosi.packages/foundationd-*.rpm")))), None)
+RPM = next(iter(sorted(glob.glob(os.path.join(os.environ.get("ECP_MKOSI_DIR", "/nonexistent"), "mkosi.packages/foundationd-*.rpm")))), None)
 
 
 class Cli:

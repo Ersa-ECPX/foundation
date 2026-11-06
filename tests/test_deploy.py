@@ -210,9 +210,9 @@ class Install(unittest.TestCase):
     def test_the_rewritten_command_line_fits_in_every_image_that_can_be_deployed(self):
         """ecp.pad= in the mkosi configuration reserves the room; this fails if it ever stops being enough."""
         import re
-        root = os.path.join(os.path.dirname(__file__), "..", "..")
+        root = os.environ.get("ECP_MKOSI_DIR", "")        # a checkout of the ecp-mkosi repository
         if not os.path.isfile(os.path.join(root, "mkosi.conf.d", "10-x86-64.conf")):
-            self.skipTest("not in the source tree")        # the RPM build only has the foundation/ directory
+            self.skipTest("set ECP_MKOSI_DIR to an ecp-mkosi checkout")
 
         def cmdline(*files):
             text = ""
@@ -270,9 +270,9 @@ class Install(unittest.TestCase):
 
 class LayoutDrift(unittest.TestCase):
     def test_matches_build_layout(self):
-        root = os.path.join(os.path.dirname(__file__), "..", "..", "mkosi.repart.system")
-        if not os.path.isdir(root):
-            self.skipTest("not in the source tree")
+        root = os.path.join(os.environ.get("ECP_MKOSI_DIR", ""), "mkosi.repart.system")
+        if not os.environ.get("ECP_MKOSI_DIR") or not os.path.isdir(root):
+            self.skipTest("set ECP_MKOSI_DIR to an ecp-mkosi checkout")
         built = {}
         for name in sorted(os.listdir(root)):
             with open(os.path.join(root, name)) as handle:

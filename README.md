@@ -4,6 +4,13 @@
 service behind it. Together they are the single supported way to inspect and change the operating
 system: boot slots, applications, compatibility packages, system extensions and settings.
 
+This repository holds the sources of `foundation`, `foundationd` and the graphical installer
+(`foundation_installer`). It is one of three repositories of the Ersa Compute Platform:
+`ecp-mkosi` (the image build, architecture documentation and scripts), `packages` (RPM specs and
+the CI that builds the RPM repository) and this one. The rest of this document is unchanged from
+before the split: it describes the whole of foundation, and its "Repository map" is relative to this
+repository's root.
+
 ```
  foundation (CLI)   installer app   recovery UI   settings app        <- clients, no policy
         \                |              |              /
@@ -303,7 +310,7 @@ Two ways to latch it:
   `AlreadyProvisioned`.
 
 `foundation status` shows it. Design and the MDM/first-boot front-end discussion are in
-[docs/provisioning.md](../docs/provisioning.md).
+[docs/provisioning.md](https://github.com/Ersa-ECPX/ecp-mkosi/blob/main/docs/provisioning.md).
 
 ## Applications
 
@@ -432,13 +439,22 @@ Worked example: a hypothetical `Boot.Ping` job. Follow the same order for anythi
 7. **Tests**: the backend against a fake system, the whole path through `scripted_worker.py` or the
    real worker on a fake system, and the CLI.
 8. **Packaging**: new files under existing directories are picked up by the spec's globs; a new
-   directory needs a line in `packages/foundation/foundation.spec`.
+   directory needs a line in `foundation.spec` (in the `packages` repository, `foundation/foundation.spec`).
 
 ## Packaging and the image
 
-`scripts/build-foundation-package` builds two RPMs from `packages/foundation/foundation.spec`:
-`foundation` (the CLI) and `foundationd` (the service); `scripts/prepare-build` runs it and mkosi
-installs both from `mkosi.packages/`. The spec's `%check` runs this test suite.
+This repository is the source of the RPMs `foundation` (the CLI), `foundationd` (the service) and
+`foundation-installer`. The spec lives in the `packages` repository (`foundation/foundation.spec`);
+its `Source0` is the GitHub archive of a version tag (`v<Version>`) of this repository, so a release
+needs the tag `v<Version>` here before the RPMs can be built. The spec's `%check` runs this test suite.
+The image repository (`ecp-mkosi`) installs the RPMs from `mkosi.packages/`.
+
+Some tests need files from other repositories: the kernel command line in `mkosi.conf.d`, the
+`mkosi.repart.system` layout, `scripts/build-wiki`, `docs/` or a built RPM (all in `ecp-mkosi`), and the
+boot splash sources (in `packages`). They are skipped unless `ECP_MKOSI_DIR` points at an `ecp-mkosi`
+checkout (for the wiki test, one that has this repository checked out as `foundation/`) and
+`ECP_PACKAGES_DIR` at a `packages` checkout. `ecp-mkosi` is where they are expected to run, so a
+change to the layout or the command line is caught there.
 
 `foundationd.service` is a `Type=dbus` unit with `StateDirectory=foundation` and
 `ConfigurationDirectory=foundation`. It deliberately uses **no mount-namespace sandboxing**

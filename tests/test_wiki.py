@@ -8,13 +8,14 @@ import sys
 import unittest
 
 HERE = os.path.dirname(__file__)
-SCRIPT = os.path.join(HERE, "..", "..", "scripts", "build-wiki")
+MKOSI = os.environ.get("ECP_MKOSI_DIR", "")        # a checkout of the ecp-mkosi repository
+SCRIPT = os.path.join(MKOSI, "scripts", "build-wiki")
 sys.path.insert(0, HERE)
 
 
 def load():
-    if not os.path.isfile(SCRIPT):
-        raise unittest.SkipTest("not in the source tree")          # the RPM build has only the foundation/ directory
+    if not MKOSI or not os.path.isfile(SCRIPT):
+        raise unittest.SkipTest("set ECP_MKOSI_DIR to an ecp-mkosi checkout")
     loader = importlib.machinery.SourceFileLoader("build_wiki", SCRIPT)
     spec = importlib.util.spec_from_loader("build_wiki", loader)
     module = importlib.util.module_from_spec(spec)
@@ -132,7 +133,7 @@ class Site(unittest.TestCase):
 
     def test_the_sidebar_follows_the_order_of_the_data_file(self):
         import json
-        with open(os.path.join(HERE, "..", "..", "docs", "wiki.json"), encoding="utf-8") as handle:
+        with open(os.path.join(MKOSI, "docs", "wiki.json"), encoding="utf-8") as handle:
             wanted = [c["title"] for c in json.load(handle)["categories"]]
         self.assertEqual(list(self.nav()), wanted)
 
@@ -142,7 +143,7 @@ class Site(unittest.TestCase):
         self.assertTrue(all(len(t) <= 40 for group in self.nav().values() for t in [p["title"] for p in group["pages"]]))
 
     def test_the_overview_links_to_every_page_of_the_wiki(self):
-        with open(os.path.join(HERE, "..", "..", "docs", "README.md"), encoding="utf-8") as handle:
+        with open(os.path.join(MKOSI, "docs", "README.md"), encoding="utf-8") as handle:
             overview = handle.read()
         for _pid, src, _group in self.wiki.page_list():
             if src == "docs/README.md":

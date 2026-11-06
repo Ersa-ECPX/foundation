@@ -193,7 +193,7 @@ class CpioTests(unittest.TestCase):
 
     def test_unpacks_a_real_rpm_like_rpm_lists_it(self):
         import glob
-        rpms = sorted(glob.glob(os.path.join(HERE, "../../mkosi.packages/foundationd-*.rpm")))
+        rpms = sorted(glob.glob(os.path.join(os.environ.get("ECP_MKOSI_DIR", "/nonexistent"), "mkosi.packages/foundationd-*.rpm")))
         if not rpms or not support.tool_available("rpm2cpio") or not support.tool_available("rpm"):
             self.skipTest("needs a built foundationd RPM and rpm tools")
         from foundationd.backends import compat

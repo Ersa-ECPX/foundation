@@ -17,7 +17,7 @@ from foundationd.backends import compat, elf, extensions  # noqa: E402
 from foundationd.backends.runner import run  # noqa: E402
 from foundationd.errors import Failed, InvalidArgument, NotFound  # noqa: E402
 
-RPM = next(iter(sorted(glob.glob(os.path.join(HERE, "../../mkosi.packages/foundationd-*.rpm")))), None)
+RPM = next(iter(sorted(glob.glob(os.path.join(os.environ.get("ECP_MKOSI_DIR", "/nonexistent"), "mkosi.packages/foundationd-*.rpm")))), None)
 
 
 def _requirements():

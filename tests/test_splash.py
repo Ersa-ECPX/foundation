@@ -13,10 +13,11 @@ import support  # noqa: E402
 from foundationd.backends import pe, splash  # noqa: E402
 from foundationd.errors import Failed, InvalidArgument  # noqa: E402
 
-SOURCES = os.path.join(HERE, "..", "..", "packages", "ersa-boot-splash", "SOURCES")
+SOURCES = os.path.join(os.environ.get("ECP_PACKAGES_DIR", "/nonexistent"), "ersa-boot-splash", "SOURCES")   # a checkout of the packages repository
 
 
 @unittest.skipUnless(os.path.isdir(SOURCES), "the theme sources are not part of this checkout (an RPM build tree)")
+@unittest.skipUnless(os.path.isdir(SOURCES), "set ECP_PACKAGES_DIR to a packages checkout")
 class Scripts(unittest.TestCase):
     def read(self, name):
         with open(os.path.join(SOURCES, name), encoding="utf-8") as handle:
