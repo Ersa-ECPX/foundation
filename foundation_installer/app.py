@@ -30,7 +30,7 @@ CSS = b"""
 .disk-card.unusable { opacity: 0.5; }
 flowboxchild { border-radius: 14px; transition: background-color 180ms ease; }
 .greeting { font-size: 64px; font-weight: 300; }
-.welcome-next { min-width: 56px; min-height: 56px; -gtk-icon-size: 24px; }
+.welcome-next { min-width: 56px; min-height: 56px; }
 flowboxchild:selected { background-color: alpha(@accent_bg_color, 0.25); outline: 2px solid @accent_bg_color; }
 """
 
@@ -301,8 +301,10 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.welcome_title = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, css_classes=["title-3"])
         self.welcome_body = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, max_width_chars=60,
                                       css_classes=["dim-label"])
-        self.welcome_next = Gtk.Button(icon_name="go-next-symbolic", halign=Gtk.Align.CENTER, margin_top=18,
-                                       tooltip_text="Continue", css_classes=["circular", "suggested-action", "welcome-next"])
+        self.welcome_next = Gtk.Button(halign=Gtk.Align.CENTER, margin_top=18, tooltip_text="Continue",
+                                       css_classes=["circular", "suggested-action", "welcome-next"])
+        arrow = Gdk.Texture.new_from_filename(os.path.join(HERE, "arrow-next.svg"))
+        self.welcome_next.set_child(Gtk.Image(paintable=arrow, pixel_size=30))
         self.welcome_next.update_property([Gtk.AccessibleProperty.LABEL], ["Continue"])
         self.welcome_next.connect("clicked", lambda _b: self._next())
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, valign=Gtk.Align.CENTER, vexpand=True,
