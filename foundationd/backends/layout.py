@@ -16,6 +16,7 @@ OVERHEAD = 16 * MIB              # partition tables and alignment
 MIN_DISK = ESP + RECOVERY + 2 * ROOT_SLOT + DATA_MIN + OVERHEAD
 
 LABEL_PREFIX = "ecp-root_"
+LIVE_PREFIX = "ecp-live_"        # the root of the installer medium; never the label of an installed slot
 EMPTY_LABEL = "_empty"
 MAX_LABEL = 36                   # a GPT partition name holds 36 UTF-16 characters
 
@@ -31,9 +32,12 @@ def rows(version):
     ]
 
 
-def definitions(version, esp_source, seed_source):
+def definitions(version, esp_source, seed_source, uuids=None):
     """The repart.d files (name -> text). `esp_source` and `seed_source` are directories holding what
-    the ESP and the data volume start with."""
+    the ESP and the data volume start with. `uuids` ({"root": ..., "data": ...}) pins the partition UUIDs of
+    root slot A and the data volume, so the kernel command line can name them (see deploy.py)."""
+    uuids = uuids or {}
+    uuid_line = lambda key: f"UUID={uuids[key]}\n" if key in uuids else ""
     label = LABEL_PREFIX + version
     return {
         "00-esp.conf": f"""[Partition]
@@ -53,7 +57,7 @@ SizeMaxBytes={RECOVERY}
         "10-root-a.conf": f"""[Partition]
 Type=root
 Label={label}
-ReadOnly=yes
+{uuid_line('root')}ReadOnly=yes
 SizeMinBytes={ROOT_SLOT}
 SizeMaxBytes={ROOT_SLOT}
 """,
@@ -67,7 +71,7 @@ SizeMaxBytes={ROOT_SLOT}
         "30-data.conf": f"""[Partition]
 Type=linux-generic
 Label=ECP-DATA
-Format=btrfs
+{uuid_line('data')}Format=btrfs
 Subvolumes=/var /home
 CopyFiles={seed_source}/var:/var
 CopyFiles={seed_source}/home:/home

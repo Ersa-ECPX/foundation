@@ -25,6 +25,7 @@ from . import efi, gpt, osinfo, pe
 from .runner import check, run
 
 LABEL_PREFIX = "ecp-root_"
+LIVE_PREFIX = "ecp-live_"         # the installer medium's root (see layout.py)
 EMPTY_LABEL = "_empty"
 ENTRY = re.compile(r"^ecp_(?P<name>.+?)(?:\+(?P<left>\d+)(?:-(?P<done>\d+))?)?\.efi$")
 ESP_CANDIDATES = ("/efi", "/boot", "/boot/efi")
@@ -172,6 +173,8 @@ def discover(paths, machine=None):
             continue
         if part.name.startswith(LABEL_PREFIX):
             name = part.name[len(LABEL_PREFIX):]
+        elif part.name.startswith(LIVE_PREFIX):
+            name = part.name[len(LIVE_PREFIX):]
         elif part.name == EMPTY_LABEL:
             name = f"empty{part.number}"
         else:
@@ -385,7 +388,14 @@ def copy(paths, source_name, target_name, force, ctx, runner=run, opener=open):
     uki_path = os.path.join(layout.uki_dir, source.entry.file)
     with open(uki_path, "rb") as handle:
         uki = handle.read()
-    patched = pe.replace_cmdline(uki, f"root=PARTLABEL={LABEL_PREFIX}{source.name}", f"root=PARTLABEL={new_label}")
+    def point_at_new_slot(text):
+        # An installed system's kernel image names its root by PARTUUID, a built one by label; either way the
+        # copy must boot the new partition, which is found by its label.
+        tokens = text.split(" ")
+        if sum(token.startswith("root=") for token in tokens) != 1:
+            raise InvalidArgument("the kernel command line does not contain root= exactly once")
+        return " ".join(f"root=PARTLABEL={new_label}" if token.startswith("root=") else token for token in tokens)
+    patched = pe.rewrite_cmdline(uki, point_at_new_slot)
     with opener(source.device, "rb") as probe:
         length = filesystem_length(probe, source.size)
     if length > target.size:

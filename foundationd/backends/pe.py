@@ -32,11 +32,11 @@ def _headers(data):
     return optional + optional_size, sections, cert_size
 
 
-def replace_cmdline(data, old, new):
-    """Return a copy of the UKI `data` with the token `old` replaced by `new` in `.cmdline`.
+def rewrite_cmdline(data, transform):
+    """Return a copy of the UKI `data` whose `.cmdline` text is `transform(text)`.
 
-    `old` must occur exactly once as a whole whitespace-separated token. Raises Failed if the image
-    is signed, has no `.cmdline`, the token is not found exactly once, or the result does not fit.
+    `transform` gets the current command line as a str and returns the new one. Raises Failed if the
+    image is signed, has no `.cmdline`, or the result does not fit in the section's file space.
     """
     table, count, cert_size = _headers(data)
     if cert_size:
@@ -49,12 +49,7 @@ def replace_cmdline(data, old, new):
         virtual_size, _address, raw_size, raw_pointer = struct.unpack_from("<IIII", data, base + 8)
         text = bytes(data[raw_pointer:raw_pointer + min(virtual_size, raw_size)])
         had_nul = text.endswith(b"\0")
-        tokens = text.rstrip(b"\0").split(b" ")
-        old_b, new_b = old.encode(), new.encode()
-        if tokens.count(old_b) != 1:
-            raise Failed(f"the kernel command line does not contain '{old}' exactly once")
-        tokens[tokens.index(old_b)] = new_b
-        replaced = b" ".join(tokens) + (b"\0" if had_nul else b"")
+        replaced = transform(text.rstrip(b"\0").decode()).encode() + (b"\0" if had_nul else b"")
         if len(replaced) > raw_size:
             raise Failed("the new kernel command line does not fit in the image's .cmdline section")
         out = bytearray(data)
@@ -62,6 +57,21 @@ def replace_cmdline(data, old, new):
         struct.pack_into("<I", out, base + 8, len(replaced))
         return bytes(out)
     raise Failed("the kernel image has no .cmdline section")
+
+
+def replace_cmdline(data, old, new):
+    """Return a copy of the UKI `data` with the token `old` replaced by `new` in `.cmdline`.
+
+    `old` must occur exactly once as a whole whitespace-separated token. Raises Failed if the image
+    is signed, has no `.cmdline`, the token is not found exactly once, or the result does not fit.
+    """
+    def transform(text):
+        tokens = text.split(" ")
+        if tokens.count(old) != 1:
+            raise Failed(f"the kernel command line does not contain '{old}' exactly once")
+        tokens[tokens.index(old)] = new
+        return " ".join(tokens)
+    return rewrite_cmdline(data, transform)
 
 
 def read_cmdline(data):

@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import uuid
 
 import support  # noqa: F401  (puts the package on sys.path)
 from foundationd.backends import deploy, gpt, layout
@@ -163,6 +164,77 @@ class Install(unittest.TestCase):
         for bad in ("../etc/passwd", "/etc/passwd", "Europe/../x", "a b", "A/B/C/D"):
             with self.assertRaises(InvalidArgument):
                 validate.timezone_name(bad)
+
+    def test_installed_kernel_image_names_this_installs_partuuids(self):
+        self.run_deploy()
+        table = {p.name: p for p in gpt.read_table(self.target)}
+        esp = table["ECP-ESP"]
+        image = subprocess.run(["mtype", "-i", f"{self.target}@@{esp.offset}", "::EFI/Linux/ecp_0.1.0+3.efi"],
+                               capture_output=True, check=True).stdout
+        from foundationd.backends import pe
+        cmdline = pe.read_cmdline(image).split()
+        root, data = table["ecp-root_0.1.0"].uuid, table["ECP-DATA"].uuid
+        self.assertIn(f"root=PARTUUID={root}", cmdline)
+        self.assertIn(f"systemd.mount-extra=PARTUUID={data}:/var:btrfs:subvol=var", cmdline)
+        self.assertIn(f"systemd.mount-extra=PARTUUID={data}:/home:btrfs:subvol=home", cmdline)
+        self.assertFalse([t for t in cmdline if "PARTLABEL" in t or t.startswith("ecp.pad=")], cmdline)
+        self.assertIn("quiet", cmdline)       # the rest of the command line is kept
+
+    def test_each_install_gets_its_own_uuids(self):
+        self.run_deploy()
+        first = {p.name: p.uuid for p in gpt.read_table(self.target)}
+        with open(self.target, "wb") as h:
+            h.truncate(0)
+            h.truncate(layout.MIN_DISK + 64 * MIB)
+        self.run_deploy()
+        second = {p.name: p.uuid for p in gpt.read_table(self.target)}
+        self.assertNotEqual(first["ecp-root_0.1.0"], second["ecp-root_0.1.0"])
+        self.assertNotEqual(first["ECP-DATA"], second["ECP-DATA"])
+
+    def test_installed_cmdline_drops_the_installers_own_arguments(self):
+        text = ("root=PARTLABEL=ecp-live_0.1.0 ro quiet systemd.mount-extra=tmpfs:/var:tmpfs:size=1G "
+                "systemd.mount-extra=tmpfs:/home:tmpfs ecp.pad=-----")
+        out = deploy.installed_cmdline(text, "R", "D").split()
+        self.assertEqual(out[:2], ["ro", "quiet"])
+        self.assertEqual(out[2:], ["root=PARTUUID=R", "systemd.mount-extra=PARTUUID=D:/var:btrfs:subvol=var",
+                                   "systemd.mount-extra=PARTUUID=D:/home:btrfs:subvol=home"])
+
+    def test_the_definitions_can_pin_the_root_and_data_uuids(self):
+        plain = layout.definitions("0.1.0", "/e", "/s")
+        self.assertNotIn("UUID=", "".join(plain.values()))
+        pinned = layout.definitions("0.1.0", "/e", "/s", {"root": "r-uuid", "data": "d-uuid"})
+        self.assertIn("UUID=r-uuid\n", pinned["10-root-a.conf"])
+        self.assertIn("UUID=d-uuid\n", pinned["30-data.conf"])
+        self.assertNotIn("UUID=", pinned["15-root-b.conf"])
+
+    def test_the_rewritten_command_line_fits_in_every_image_that_can_be_deployed(self):
+        """ecp.pad= in the mkosi configuration reserves the room; this fails if it ever stops being enough."""
+        import re
+        root = os.path.join(os.path.dirname(__file__), "..", "..")
+
+        def cmdline(*files):
+            text = ""
+            for name in files:
+                with open(os.path.join(root, name), encoding="utf-8") as handle:
+                    body = handle.read()
+                match = re.search(r"^KernelCommandLine=(.*?)(?=^\S|\Z)", body, re.S | re.M)
+                if match:
+                    text += " " + match.group(1)
+            return " ".join(text.replace("%v", "0.1.0").split())
+
+        images = {
+            "normal": cmdline("mkosi.conf.d/10-x86-64.conf", "mkosi.conf.d/30-data-mounts.conf"),
+            "installer": cmdline("mkosi.conf.d/10-x86-64.conf", "mkosi.profiles/installer/mkosi.conf"),
+        }
+        for name, text in images.items():
+            self.assertIn("ecp.pad=", text, name)
+            new = deploy.installed_cmdline(text, uuid.uuid4(), uuid.uuid4())
+            self.assertLessEqual(len(new), len(text), f"{name}: {len(new)} > {len(text)}")
+            self.assertNotIn("ecp.pad=", new)
+        self.assertIn("ecp.live", images["installer"])
+        self.assertIn("root=PARTLABEL=ecp-live_0.1.0", images["installer"].split())
+        self.assertNotIn("LABEL=ECP-DATA", images["installer"])
+        self.assertNotIn("ecp.live", images["normal"])
 
     def test_data_volume_has_subvolumes(self):
         self.run_deploy()

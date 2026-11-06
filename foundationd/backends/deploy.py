@@ -24,9 +24,10 @@ import os
 import shutil
 import stat
 import tempfile
+import uuid
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
-from . import gpt, layout, osinfo, slots
+from . import gpt, layout, osinfo, pe, slots
 from .runner import check, run
 
 SKIP_PREFIXES = ("loop", "ram", "zram", "dm-", "md", "sr", "nbd", "fd", "sg")
@@ -210,8 +211,25 @@ class Window:
         return self._f.fileno()
 
 
-def _stage_esp(layout_, version, stage):
-    """Copy the running ESP into a staging tree, with the kernel image under a name nothing boots."""
+def installed_cmdline(text, root_uuid, data_uuid):
+    """The kernel command line of the installed system, from the running one's.
+
+    The root and the data volume are named by the PARTUUIDs this install created, never by label, so a second
+    disk with the same labels (the installer medium, another install) cannot be mounted by mistake. Everything
+    else (quiet, selinux, console and so on) is kept; the installer's own root=, its tmpfs and live mounts and
+    the padding that makes room for this rewrite are dropped.
+    """
+    drop = ("root=", "systemd.mount-extra=", "ecp.pad=")
+    tokens = [token for token in text.split() if not token.startswith(drop)]
+    tokens += [f"root=PARTUUID={root_uuid}",
+               f"systemd.mount-extra=PARTUUID={data_uuid}:/var:btrfs:subvol=var",
+               f"systemd.mount-extra=PARTUUID={data_uuid}:/home:btrfs:subvol=home"]
+    return " ".join(tokens)
+
+
+def _stage_esp(layout_, version, stage, rewrite):
+    """Copy the running ESP into a staging tree, with the kernel image under a name nothing boots.
+    `rewrite` turns the running kernel command line into the installed system's."""
     esp = os.path.join(stage, "esp")
     source_linux = os.path.join(layout_.esp, "EFI", "Linux")
 
@@ -222,13 +240,16 @@ def _stage_esp(layout_, version, stage):
     target_dir = os.path.join(esp, "EFI", "Linux")
     os.makedirs(target_dir, exist_ok=True)
     running = layout_.running
-    shutil.copyfile(os.path.join(source_linux, running.entry.file), os.path.join(target_dir, f"ecp_{version}+3.efi{PARTIAL}"))
+    with open(os.path.join(source_linux, running.entry.file), "rb") as handle:
+        image = pe.rewrite_cmdline(handle.read(), rewrite)
+    with open(os.path.join(target_dir, f"ecp_{version}+3.efi{PARTIAL}"), "wb") as handle:
+        handle.write(image)
     return esp
 
 
-def _write_definitions(directory, version, esp, seed):
+def _write_definitions(directory, version, esp, seed, uuids):
     os.makedirs(directory)
-    for name, text in layout.definitions(version, esp, seed).items():
+    for name, text in layout.definitions(version, esp, seed, uuids).items():
         with open(os.path.join(directory, name), "w", encoding="utf-8") as handle:
             handle.write(text)
 
@@ -288,13 +309,15 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
     os.makedirs(os.path.join(paths["state"], "staging"), mode=0o700, exist_ok=True)
     stage = tempfile.mkdtemp(dir=os.path.join(paths["state"], "staging"), prefix="deploy.")
     try:
-        esp = _stage_esp(layout_, version, stage)
+        uuids = {"root": uuid.uuid4(), "data": uuid.uuid4()}
+        esp = _stage_esp(layout_, version, stage,
+                         lambda text: installed_cmdline(text, uuids["root"], uuids["data"]))
         with opener(running.device, "rb") as probe:
             length = slots.filesystem_length(probe, running.size)
         if length > layout.ROOT_SLOT:
             raise InvalidArgument(f"the root image ({length} bytes) does not fit a {layout.ROOT_SLOT}-byte slot")
         definitions = os.path.join(stage, "repart.d")
-        _write_definitions(definitions, version, esp, _make_seed(stage, language, timezone, zoneinfo))
+        _write_definitions(definitions, version, esp, _make_seed(stage, language, timezone, zoneinfo), uuids)
         ctx.log(f"installing version {version} ({length} bytes of root image) to {target}")
 
         ctx.commit()
@@ -311,6 +334,8 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
             if label not in by_label:
                 raise Failed(f"the partition {label} was not created")
         root_a, esp_part = by_label[layout.LABEL_PREFIX + version], by_label["ECP-ESP"]
+        if root_a.uuid != uuids["root"] or by_label["ECP-DATA"].uuid != uuids["data"]:
+            raise Failed("the partitions were created with other UUIDs than the kernel command line names")
 
         ctx.step("copy", "Copying the operating system")
         with opener(running.device, "rb") as src, open(target, "r+b") as disk:
