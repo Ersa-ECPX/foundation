@@ -16,6 +16,7 @@ from foundationd.errors import Failed, InvalidArgument  # noqa: E402
 SOURCES = os.path.join(HERE, "..", "..", "packages", "ersa-boot-splash", "SOURCES")
 
 
+@unittest.skipUnless(os.path.isdir(SOURCES), "the theme sources are not part of this checkout (an RPM build tree)")
 class Scripts(unittest.TestCase):
     def read(self, name):
         with open(os.path.join(SOURCES, name), encoding="utf-8") as handle:
