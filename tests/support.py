@@ -91,7 +91,7 @@ class FakeSystem:
             handle.truncate(64 * MIB)
         script = "label: gpt\nfirst-lba: 2048\n\n"
         for name in slot_names:
-            label = "_empty" if name == "empty" else f"ecp-root_{name}"
+            label = "_empty" if name == "empty" else (f"ecp-live_{name[5:]}" if name.startswith("live:") else f"ecp-root_{name}")
             script += f'size={root_mib}M, type={ROOT_TYPE}, name="{label}"\n'
         script += f'size=8M, type={ESP_TYPE}, name="ECP-ESP"\n'
         sfdisk(self.image, script)

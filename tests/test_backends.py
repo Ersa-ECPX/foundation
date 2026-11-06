@@ -230,6 +230,16 @@ class SlotDiscoveryTests(unittest.TestCase):
     def discover(self):
         return slots.discover(self.system.paths, machine="x86_64")
 
+    def test_the_installer_mediums_root_counts_as_the_running_slot(self):
+        """Its root is labelled ecp-live_<version> so an installed disk's ecp-root_<version> cannot be mistaken for it."""
+        system = support.FakeSystem(("live:0.3.0",), running=1)
+        self.addCleanup(shutil.rmtree, system.tmp, True)
+        system.uki("0.3.0")
+        layout = slots.discover(system.paths, machine="x86_64")
+        self.assertEqual([(s.name, s.label, s.running) for s in layout.slots], [("0.3.0", "ecp-live_0.3.0", True)])
+        self.assertIs(layout.running, layout.slots[0])
+        self.assertEqual(layout.running.entry.file, "ecp_0.3.0.efi")
+
     def test_finds_slots_running_and_empty(self):
         self.system.uki("0.2.0", tries=None)
         layout = self.discover()

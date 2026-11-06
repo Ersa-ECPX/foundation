@@ -191,9 +191,9 @@ class Install(unittest.TestCase):
         self.assertNotEqual(first["ecp-root_0.1.0"], second["ecp-root_0.1.0"])
         self.assertNotEqual(first["ECP-DATA"], second["ECP-DATA"])
 
-    def test_installed_cmdline_drops_the_installers_own_arguments(self):
-        text = ("root=PARTLABEL=ecp-live_0.1.0 ro quiet systemd.mount-extra=tmpfs:/var:tmpfs:size=1G "
-                "systemd.mount-extra=tmpfs:/home:tmpfs ecp.pad=-----")
+    def test_installed_cmdline_drops_the_label_arguments_and_the_padding(self):
+        text = ("root=PARTLABEL=ecp-root_0.1.0 ro quiet systemd.mount-extra=LABEL=ECP-DATA:/var:btrfs:subvol=var "
+                "systemd.mount-extra=LABEL=ECP-DATA:/home:btrfs:subvol=home ecp.pad=-----")
         out = deploy.installed_cmdline(text, "R", "D").split()
         self.assertEqual(out[:2], ["ro", "quiet"])
         self.assertEqual(out[2:], ["root=PARTUUID=R", "systemd.mount-extra=PARTUUID=D:/var:btrfs:subvol=var",
@@ -226,17 +226,18 @@ class Install(unittest.TestCase):
 
         images = {
             "normal": cmdline("mkosi.conf.d/10-x86-64.conf", "mkosi.conf.d/30-data-mounts.conf"),
-            "installer": cmdline("mkosi.conf.d/10-x86-64.conf", "mkosi.profiles/installer/mkosi.conf"),
+            "installer": cmdline("mkosi.conf.d/10-x86-64.conf", "mkosi.conf.d/30-data-mounts.conf", "mkosi.profiles/installer/mkosi.conf"),
         }
         for name, text in images.items():
             self.assertIn("ecp.pad=", text, name)
             new = deploy.installed_cmdline(text, uuid.uuid4(), uuid.uuid4())
             self.assertLessEqual(len(new), len(text), f"{name}: {len(new)} > {len(text)}")
             self.assertNotIn("ecp.pad=", new)
-        self.assertIn("ecp.live", images["installer"])
-        self.assertIn("root=PARTLABEL=ecp-live_0.1.0", images["installer"].split())
-        self.assertNotIn("LABEL=ECP-DATA", images["installer"])
-        self.assertNotIn("ecp.live", images["normal"])
+        for name, text in images.items():             # every image, the installer medium included, mounts by label
+            self.assertIn("systemd.mount-extra=LABEL=ECP-DATA:/var:btrfs:subvol=var", text.split(), name)
+        self.assertIn("root=PARTLABEL=ecp-root_0.1.0", images["normal"].split())
+        roots = [t for t in images["installer"].split() if t.startswith("root=")]
+        self.assertEqual(roots[-1], "root=PARTLABEL=ecp-live_0.1.0", "the last root= wins")
 
     def test_data_volume_has_subvolumes(self):
         self.run_deploy()
