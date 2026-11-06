@@ -117,7 +117,7 @@ class Window(BootDaemon):
 
     def test_welcome_names_the_product(self):
         self.pump(lambda: self.page() == "welcome")
-        self.assertIn("Ersa Compute Platform", self.window.welcome_text.get_title())
+        self.assertIn("Ersa Compute Platform", self.window.welcome_title.get_label())
 
     def test_the_disk_list_marks_the_running_disk_unusable(self):
         self.pump(lambda: self.page() == "welcome")
@@ -189,6 +189,42 @@ class Window(BootDaemon):
         self.assertEqual(self.page(), "timezone")
         self.window._back()
         self.assertEqual(self.page(), "language")
+
+    def present(self):
+        self.window.set_default_size(900, 640)
+        self.window.present()
+        self.pump(lambda: self.window.get_mapped())
+
+    def test_the_greeting_cycles_through_languages(self):
+        self.present()
+        self.pump(lambda: self.page() == "welcome")
+        seen = {self.window.greeting.label.get_label()}
+        self.pump(lambda: seen.add(self.window.greeting.label.get_label()) or len(seen) >= 2, timeout=20)
+        self.assertEqual(model.GREETINGS[0], "Welcome")
+        self.assertTrue(seen <= set(model.GREETINGS))
+
+    def test_pages_fade_in_and_end_fully_visible(self):
+        self.present()
+        self.pump(lambda: self.page() == "welcome")
+        self.window._go_language()
+        page = self.window.stack.get_child_by_name("language")
+        parts = [child for child in __import__("foundation_installer.app", fromlist=["x"])._children(page)]
+        self.pump(lambda: all(part.get_opacity() == 1 for part in parts))
+
+    def test_the_progress_bar_eases_to_each_value(self):
+        self.present()
+        self.pump(lambda: self.page() == "welcome")
+        self.window._event("progress", 0.5)
+        self.pump(lambda: abs(self.window.progress_bar.get_fraction() - 0.5) < 1e-6)
+
+    def test_the_tick_draws_itself_to_the_end(self):
+        from foundation_installer.app import CheckMark
+        self.present()
+        check = CheckMark()
+        self.window.stack.add_named(check, "check-test")
+        self.window.stack.set_visible_child_name("check-test")
+        check.play(0)
+        self.pump(lambda: check.progress == 1.0)
 
     def test_the_window_cannot_be_closed_while_installing(self):
         self.pump(lambda: self.page() == "welcome")

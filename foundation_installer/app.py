@@ -6,13 +6,14 @@ Pages are plain Gtk.Stack children so the flow is easy to follow in one file. No
 whether a disk is allowed; the service says so (`usable`, `reason`, `possible`, `problems`).
 """
 
+import math
 import os
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import Adw, Gdk, GLib, Graphene, Gsk, Gtk  # noqa: E402
 
 from . import __version__, model  # noqa: E402
 from .backend import Backend, ClientError  # noqa: E402
@@ -27,20 +28,165 @@ CSS = b"""
 .install-progress progress { min-height: 6px; }
 .disk-card { padding: 18px 12px; border-radius: 12px; }
 .disk-card.unusable { opacity: 0.5; }
-flowboxchild { border-radius: 14px; }
+flowboxchild { border-radius: 14px; transition: background-color 180ms ease; }
+.greeting { font-size: 64px; font-weight: 300; }
 flowboxchild:selected { background-color: alpha(@accent_bg_color, 0.25); outline: 2px solid @accent_bg_color; }
 """
 
 
-def _page(title, description, icon, *widgets):
-    """A centred status page with optional extra widgets under the description."""
-    status = Adw.StatusPage(title=title, description=description, icon_name=icon, vexpand=True)
-    if widgets:
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, halign=Gtk.Align.CENTER)
-        for widget in widgets:
-            box.append(widget)
-        status.set_child(box)
-    return status
+def _tween(widget, setter, start, end, duration=420, delay=0, easing=Adw.Easing.EASE_OUT_CUBIC, done=None):
+    """Animate a number from start to end, calling setter(value) every frame. Adw skips straight to the end
+    when the user has turned animations off. Returns the animation."""
+    animation = Adw.TimedAnimation.new(widget, start, end, duration, Adw.CallbackAnimationTarget.new(setter))
+    animation.set_easing(easing)
+    if done is not None:
+        animation.connect("done", lambda _a: done())
+    if delay:
+        GLib.timeout_add(delay, lambda: animation.play() and False)
+    else:
+        animation.play()
+    return animation
+
+
+def _reveal(widgets, step=70, duration=450):
+    """Fade widgets in one after another."""
+    for index, widget in enumerate(widgets):
+        widget.set_opacity(0)
+        _tween(widget, widget.set_opacity, 0.0, 1.0, duration, index * step, done=lambda w=widget: w.set_opacity(1))
+
+
+def _children(widget):
+    child, found = widget.get_first_child(), []
+    while child is not None:
+        found.append(child)
+        child = child.get_next_sibling()
+    return found
+
+
+class CheckMark(Gtk.Widget):
+    """A circle that draws itself, then a tick; `progress` runs from 0 to 1. Drawn with GTK's own path API,
+    so it needs no cairo bindings."""
+    __gtype_name__ = "ErsaCheckMark"
+
+    def __init__(self, size=112):
+        super().__init__(halign=Gtk.Align.CENTER, width_request=size, height_request=size)
+        self.progress = 0.0
+
+    def set_progress(self, value):
+        self.progress = value
+        self.queue_draw()
+
+    def play(self, delay=150):
+        self.set_progress(0.0)
+        _tween(self, self.set_progress, 0.0, 1.0, 1000, delay, Adw.Easing.EASE_IN_OUT_CUBIC,
+               done=lambda: self.set_progress(1.0))
+
+    def do_snapshot(self, snapshot):
+        width, height = self.get_width(), self.get_height()
+        centre_x, centre_y, radius = width / 2, height / 2, min(width, height) / 2 - 6
+        colour = Adw.StyleManager.get_default().get_accent_color_rgba()
+        stroke = Gsk.Stroke.new(6.0)
+        stroke.set_line_cap(Gsk.LineCap.ROUND)
+        stroke.set_line_join(Gsk.LineJoin.ROUND)
+        circle = min(1.0, self.progress / 0.65)
+        if circle > 0:
+            builder = Gsk.PathBuilder.new()
+            steps = max(2, int(96 * circle))
+            for step in range(steps + 1):
+                angle = -math.pi / 2 + 2 * math.pi * circle * step / steps
+                point = (centre_x + radius * math.cos(angle), centre_y + radius * math.sin(angle))
+                (builder.move_to if step == 0 else builder.line_to)(*point)
+            snapshot.append_stroke(builder.to_path(), stroke, colour)
+        tick = max(0.0, (self.progress - 0.55) / 0.45)
+        if tick > 0:
+            points = [(centre_x - radius * 0.38, centre_y + radius * 0.02),
+                      (centre_x - radius * 0.10, centre_y + radius * 0.30),
+                      (centre_x + radius * 0.42, centre_y - radius * 0.28)]
+            first, second = 0.4, 0.6          # share of the tick's length drawn by each stroke
+            builder = Gsk.PathBuilder.new()
+            builder.move_to(*points[0])
+            share = min(1.0, tick / first)
+            builder.line_to(points[0][0] + (points[1][0] - points[0][0]) * share,
+                            points[0][1] + (points[1][1] - points[0][1]) * share)
+            if tick > first:
+                share = min(1.0, (tick - first) / second)
+                builder.line_to(points[1][0] + (points[2][0] - points[1][0]) * share,
+                                points[1][1] + (points[2][1] - points[1][1]) * share)
+            snapshot.append_stroke(builder.to_path(), stroke, colour)
+
+
+class GreetingFlow(Gtk.Fixed):
+    """The macOS-style welcome: a greeting drifts in from the left, rests, drifts out to the right, and the
+    next language follows. Runs only while the widget is on screen."""
+
+    DRIFT = 150  # pixels travelled while fading in and out
+
+    def __init__(self, greetings):
+        super().__init__(height_request=110, hexpand=True)
+        self.greetings, self.index, self.timer, self.animation = greetings, 0, 0, None
+        self.label = Gtk.Label(label=greetings[0])
+        self.label.add_css_class("greeting")
+        self.put(self.label, 0, 0)
+        self.label.set_opacity(0)
+        self.connect("map", lambda _w: self.start())
+        self.connect("unmap", lambda _w: self.stop())
+
+    def _place(self, offset):
+        """offset -1 (arriving, left), 0 (centred), +1 (leaving, right)."""
+        natural = self.label.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
+        width = self.get_width() or 640
+        self.move(self.label, (width - natural) / 2 + offset * self.DRIFT, (self.get_height() - 80) / 2 or 10)
+        self.label.set_opacity(max(0.0, 1.0 - abs(offset) ** 1.6))
+
+    def start(self):
+        self.stop()
+        self._place(-1)
+        self._arrive()
+
+    def stop(self):
+        if self.timer:
+            GLib.source_remove(self.timer)
+            self.timer = 0
+        if self.animation is not None:
+            self.animation.pause()
+            self.animation = None
+
+    def _arrive(self):
+        self.label.set_label(self.greetings[self.index % len(self.greetings)])
+        self._place(-1)
+        self.animation = _tween(self, self._place, -1.0, 0.0, 900, easing=Adw.Easing.EASE_OUT_CUBIC,
+                                done=lambda: self._rest())
+
+    def _rest(self):
+        self._place(0.0)
+        self.timer = GLib.timeout_add(1500, self._leave)
+
+    def _leave(self):
+        self.timer = 0
+        self.animation = _tween(self, self._place, 0.0, 1.0, 700, easing=Adw.Easing.EASE_IN_CUBIC,
+                                done=lambda: self._next())
+        return False
+
+    def _next(self):
+        self.index += 1
+        self._arrive()
+
+
+def _page(title, description, icon, *widgets, visual=None):
+    """A centred status page: an icon (or `visual`), the title, the description and extra widgets. The
+    parts are exposed as .parts so the window can reveal them one by one."""
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, valign=Gtk.Align.CENTER, vexpand=True,
+                  halign=Gtk.Align.CENTER, margin_start=32, margin_end=32)
+    mark = visual or Gtk.Image(icon_name=icon, pixel_size=96, css_classes=["dim-label"], margin_bottom=12)
+    heading = Gtk.Label(label=title, wrap=True, justify=Gtk.Justification.CENTER, css_classes=["title-1"])
+    text = Gtk.Label(label=description, wrap=True, justify=Gtk.Justification.CENTER, max_width_chars=60)
+    parts = [mark, heading, text]
+    for widget in widgets:
+        parts.append(widget)
+    for part in parts:
+        box.append(part)
+    box.parts, box.mark, box.heading, box.text = parts, mark, heading, text
+    return box
 
 
 def _button(label, handler, style=None):
@@ -104,8 +250,21 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     # -- navigation ----------------------------------------------------------------------------
 
+    ORDER = ("loading", "welcome", "language", "timezone", "disks", "review", "progress", "done")
+
     def show(self, name):
+        previous = self.stack.get_visible_child_name()
+        if previous in self.ORDER and name in self.ORDER and previous != name:
+            forward = self.ORDER.index(name) > self.ORDER.index(previous)
+            self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT if forward
+                                           else Gtk.StackTransitionType.SLIDE_RIGHT)
+        else:
+            self.stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        self.stack.set_transition_duration(320)
         self.stack.set_visible_child_name(name)
+        page = self.stack.get_child_by_name(name)
+        parts = getattr(page, "parts", None) or _children(page)
+        _reveal([part for part in parts if not isinstance(part, GreetingFlow)])
         self.footer.set_visible(name in self.FOOTER_PAGES)
         self.refresh_btn.set_visible(name == "disks")
         self.customize_btn.set_visible(name == "disks")
@@ -132,15 +291,25 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     def _build_welcome(self):
         spinner = Gtk.Spinner(spinning=True, halign=Gtk.Align.CENTER, width_request=32, height_request=32)
-        self.stack.add_named(_page(model.PRODUCT, "Starting…", "system-software-install-symbolic", spinner), "loading")
-        self.welcome_text = Adw.StatusPage(vexpand=True)
-        self.stack.add_named(self.welcome_text, "welcome")
+        self.stack.add_named(_page(model.PRODUCT, "Starting\u2026", "system-software-install-symbolic", spinner),
+                             "loading")
+        self.logo = Gtk.Image(pixel_size=96, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        self.greeting = GreetingFlow(model.GREETINGS)
+        self.welcome_title = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, css_classes=["title-3"])
+        self.welcome_body = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, max_width_chars=60,
+                                      css_classes=["dim-label"])
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, valign=Gtk.Align.CENTER, vexpand=True,
+                       margin_start=32, margin_end=32)
+        page.parts = [self.logo, self.greeting, self.welcome_title, self.welcome_body]
+        for part in page.parts:
+            page.append(part)
+        self.stack.add_named(page, "welcome")
         self._set_logo()
         Adw.StyleManager.get_default().connect("notify::dark", lambda *_: self._set_logo())
 
     def _set_logo(self):
         name = "ersa-mark-dark.svg" if Adw.StyleManager.get_default().get_dark() else "ersa-mark-light.svg"
-        self.welcome_text.set_paintable(Gdk.Texture.new_from_filename(os.path.join(HERE, name)))
+        self.logo.set_from_paintable(Gdk.Texture.new_from_filename(os.path.join(HERE, name)))
 
     def _heading(self, title_text, hint):
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, margin_top=24, margin_bottom=12,
@@ -234,9 +403,34 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.progress_step = Gtk.Label(label="Preparing…")
         self.progress_left = Gtk.Label(label="")
         self.progress_left.add_css_class("dim-label")
+        self.progress_icon = Gtk.Image(icon_name="drive-harddisk-symbolic", pixel_size=96, margin_bottom=12,
+                                       css_classes=["dim-label"])
+        self._breath = self._bar_anim = None
         self.stack.add_named(_page(f"Installing {model.PRODUCT}", "Do not turn off the computer or remove the disk.",
-                                   "drive-harddisk-symbolic", self.progress_bar, self.progress_step,
-                                   self.progress_left), "progress")
+                                   None, self.progress_bar, self.progress_step, self.progress_left,
+                                   visual=self.progress_icon), "progress")
+
+    def _start_breathing(self):
+        """The disk icon gently pulses while the install runs."""
+        self._stop_breathing()
+        animation = Adw.TimedAnimation.new(self.progress_icon, 0.45, 1.0, 1400,
+                                           Adw.CallbackAnimationTarget.new(self.progress_icon.set_opacity))
+        animation.set_easing(Adw.Easing.EASE_IN_OUT_SINE)
+        animation.set_repeat_count(0)
+        animation.set_alternate(True)
+        animation.play()
+        self._breath = animation
+
+    def _breathe_if_installing(self):
+        if self.installing:
+            self._start_breathing()
+        return False
+
+    def _stop_breathing(self):
+        if self._breath is not None:
+            self._breath.pause()
+            self._breath = None
+        self.progress_icon.set_opacity(1)
 
     # -- flow ----------------------------------------------------------------------------------
 
@@ -259,8 +453,8 @@ class InstallerWindow(Adw.ApplicationWindow):
             self._fatal("This system's management service cannot install to a disk.")
             return
         version = f" {self.version}" if self.version else ""
-        self.welcome_text.set_title(f"Install {model.PRODUCT}{version}")
-        self.welcome_text.set_description(
+        self.welcome_title.set_label(f"Install {model.PRODUCT}{version}")
+        self.welcome_body.set_label(
             "This installs the system on a disk in this computer. You choose the disk next, and you see "
             "exactly what will be erased before anything is changed.")
         self._nav(handler=self._go_language)
@@ -332,6 +526,7 @@ class InstallerWindow(Adw.ApplicationWindow):
             self.flow.append(self._disk_card(disk))
             self.flow.get_child_at_index(self.flow.get_last_child().get_index()).set_sensitive(disk["usable"])
         self.disks_empty.set_visible(not disks)
+        _reveal([self.flow.get_child_at_index(i) for i in range(len(self.disks))], step=90)
 
     def _picked(self):
         chosen = self.flow.get_selected_children()
@@ -408,10 +603,16 @@ class InstallerWindow(Adw.ApplicationWindow):
         disk = self.plan["disk"]
         self.installing = True
         self.started_at = GLib.get_monotonic_time() / 1e6
+        if self._bar_anim is not None:
+            self._bar_anim.pause()
+        if self._bar_anim is not None:
+            self._bar_anim.pause()
         self.progress_bar.set_fraction(0)
-        self.progress_step.set_label("Preparing…")
+        self.progress_step.set_label("Preparing\u2026")
         self.progress_left.set_label("")
         self.show("progress")
+        GLib.timeout_add(700, self._breathe_if_installing)
+        GLib.timeout_add(700, lambda: self.installing and self._start_breathing() and False)
 
         def start(callback):
             def got(values, error):
@@ -425,11 +626,15 @@ class InstallerWindow(Adw.ApplicationWindow):
             self.progress_step.set_label(args[1])
         elif kind == "progress":
             fraction = max(0.0, min(1.0, args[0]))
-            self.progress_bar.set_fraction(fraction)
+            if self._bar_anim is not None:
+                self._bar_anim.pause()
+            self._bar_anim = _tween(self.progress_bar, self.progress_bar.set_fraction, self.progress_bar.get_fraction(),
+                                    fraction, 700, done=lambda f=fraction: self.progress_bar.set_fraction(f))
             self.progress_left.set_label(model.remaining_text(GLib.get_monotonic_time() / 1e6 - self.started_at, fraction))
 
     def _finished(self, job, error):
         self.installing = False
+        self._stop_breathing()
         if error is not None:
             self._show_failure(model.failure_text(error), None)
         elif job.ok:
@@ -438,11 +643,13 @@ class InstallerWindow(Adw.ApplicationWindow):
             self._show_failure(model.failure_text(job), job.path)
 
     def _show_done(self):
+        check = CheckMark()
         self._replace("done", _page("Installation complete",
                                     "Remove the installation medium, then restart to start the new system.",
-                                    "object-select-symbolic"))
+                                    None, visual=check))
         self._nav(label="Restart", handler=self._restart)
         self.show("done")
+        check.play(350)
 
     def _show_failure(self, message, job_path):
         details = Gtk.Label(label="", xalign=0, wrap=True, selectable=True, visible=False)

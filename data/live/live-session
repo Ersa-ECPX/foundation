@@ -39,7 +39,7 @@ cat > /etc/xdg/autostart/org.ersa.Installer.desktop <<'DESK'
 Type=Application
 Name=Install Ersa Compute Platform
 Exec=/usr/bin/ersa-installer
-Icon=system-software-install
+Icon=org.ersa.Installer
 Terminal=false
 X-GNOME-Autostart-enabled=true
 DESK

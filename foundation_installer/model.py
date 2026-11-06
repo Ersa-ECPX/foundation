@@ -123,3 +123,16 @@ def current_timezone(localtime="/etc/localtime"):
         return "UTC"
     marker = "zoneinfo/"
     return target.split(marker, 1)[1] if marker in target else "UTC"
+
+
+# "Welcome" in many languages, shown one after another on the welcome page.
+GREETINGS = (
+    "Welcome", "Willkommen", "Bienvenue", "Bienvenido", "Benvenuto", "Bem-vindo", "Welkom", "V\u00e4lkommen",
+    "Velkommen", "Tervetuloa", "Witamy", "V\u00edtejte", "\u00dcdv\u00f6zl\u00fcnk",
+    "\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c",
+    "\u039a\u03b1\u03bb\u03ce\u03c2 \u03aE\u03c1\u03b8\u03b1\u03c4\u03b5", "Ho\u015f geldiniz",
+    "\u05d1\u05e8\u05d5\u05db\u05d9\u05dd \u05d4\u05d1\u05d0\u05d9\u05dd", "\u0645\u0631\u062d\u0628\u0627\u064b",
+    "\u0938\u094d\u0935\u093e\u0917\u0924 \u0939\u0948", "\u0e22\u0e34\u0e19\u0e14\u0e35\u0e15\u0e49\u0e2d\u0e19\u0e23\u0e31\u0e1a",
+    "Ch\u00e0o m\u1eebng", "Selamat datang", "\u3088\u3046\u3053\u305d", "\ud658\uc601\ud569\ub2c8\ub2e4",
+    "\u6b22\u8fce", "\u6b61\u8fce",
+)
