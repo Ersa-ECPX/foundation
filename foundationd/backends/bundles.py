@@ -171,7 +171,8 @@ def list_bundles(paths):
                        "repos": sorted({p["repo"] for p in bundle.get("packages", [])}),
                        "updated": bundle.get("updated", 0), "files": meta.get("files", 0),
                        "enabled": os.path.isdir(compat._enabled_dir(paths, meta["name"])),
-                       "state": state_of(paths, meta), "built_for": bundle.get("built_for", "")})
+                       "state": state_of(paths, meta), "built_for": bundle.get("built_for", ""),
+                       "notes": [n["text"] for n in meta.get("scriptlet_notes", [])]})
     return result
 
 
@@ -220,7 +221,10 @@ def _assemble(paths, name, files, runner):
         os.mkdir(tree)
         for index, path in enumerate(files):
             compat.extract(path, tree)
-        dropped = compat.apply_usrmerge(tree)
+        dropped = compat.apply_usrmerge(tree, name)
+        done = compat.apply_scriptlets(tree, name, list(files), runner)
+        done["etc"] = compat.stage_etc(tree, name)
+        compat.touch_icon_themes(tree)
         release_dir = os.path.join(tree, compat.RELEASE_DIR)
         os.makedirs(release_dir, exist_ok=True)
         with open(os.path.join(release_dir, f"extension-release.{name}"), "w", encoding="utf-8") as handle:
@@ -228,7 +232,7 @@ def _assemble(paths, name, files, runner):
         contexts = sellabel.Contexts.load(paths["root"])
         if contexts is not None:
             sellabel.label_tree(tree, contexts)
-        return scratch, tree, dropped
+        return scratch, tree, dropped, done
     except BaseException:
         shutil.rmtree(scratch, ignore_errors=True)
         raise
@@ -287,7 +291,10 @@ def build(paths, ctx, name, specs, catalog_name="", allow_repos=(), force_refres
     ctx.progress(0.6)
 
     ctx.step("build", "Building the extension")
-    scratch, tree, dropped = _assemble(paths, name, [p["file"] for p in downloaded], runner)
+    scratch, tree, dropped, done = _assemble(paths, name, [p["file"] for p in downloaded], runner)
+    notes = done["notes"]
+    for note in notes:
+        ctx.log("scriptlets not run: " + note["text"])
     try:
         required, _optional, provided = compat.scan_libraries(tree)
         files = _count_files(tree)
@@ -305,7 +312,7 @@ def build(paths, ctx, name, specs, catalog_name="", allow_repos=(), force_refres
             os.rename(destination, previous)
         os.rename(tree, destination)
         meta = {"name": name, "version": f"{len(downloaded)} packages", "release": "", "arch": os.uname().machine,
-                "files": files, "installed": int(time.time()), "scriptlets": False, "dropped": dropped,
+                "files": files, "installed": int(time.time()), "scriptlets": bool(notes), "scriptlet_notes": notes, "units": done["units"], "etc_copies": done["etc"], "dropped": dropped,
                 "forced": False, "problems": [], "requires": [], "provides": [],
                 "needed_libs": sorted(lib for lib in required if lib not in provided),
                 "optional_libs": [], "provides_libs": sorted(provided),
@@ -318,7 +325,7 @@ def build(paths, ctx, name, specs, catalog_name="", allow_repos=(), force_refres
 
         ctx.step("merge", "Merging the extension")
         try:
-            extensions.operate("sysext", "refresh", runner)
+            compat.refresh_extensions(paths, runner)
         except Failed as error:
             shutil.rmtree(destination, ignore_errors=True)
             if previous is not None:
@@ -333,7 +340,7 @@ def build(paths, ctx, name, specs, catalog_name="", allow_repos=(), force_refres
             if archived:
                 _restore(paths, name, (existing["bundle"] or {}).get("built_for"))
             try:
-                extensions.operate("sysext", "refresh", runner)
+                compat.refresh_extensions(paths, runner)
             except Failed:
                 pass
             raise Failed(f"the extension could not be merged; the previous state was restored: {error}") from error
@@ -341,7 +348,7 @@ def build(paths, ctx, name, specs, catalog_name="", allow_repos=(), force_refres
         shutil.rmtree(scratch, ignore_errors=True)
     repos.forget(cache, [p["file"] for p in downloaded])
     return {"name": name, "packages": [f"{p['name']}-{p['evr']}" for p in downloaded], "skipped": skipped,
-            "files": files, "merged": True}
+            "files": files, "merged": True, "notes": [n["text"] for n in notes]}
 
 
 def add_packages(paths, ctx, name, wanted, **kwargs):
@@ -437,6 +444,8 @@ def select(paths):
             os.rename(compat._enabled_dir(paths, name), compat._disabled_dir(paths, name))
             disabled.append(name)
         stale.append(name)
+    from . import postmerge
+    postmerge.apply(paths)
     marker = os.path.join(paths["state"], "bundles", "stale")
     if stale:
         os.makedirs(os.path.dirname(marker), exist_ok=True)
@@ -524,8 +533,9 @@ def prebuild(paths, ctx, new_root, runner=run, pool_factory=None, fetcher=None, 
                 raise Failed("everything in the bundle is now part of the new image")
             downloaded = repos.download(todo, enabled, _rpm_dir(paths, name), runner,
                                         **({"file_fetcher": file_fetcher} if file_fetcher else {}))
-            scratch, tree, dropped = _assemble(base, name, [p["file"] for p in downloaded], runner)
+            scratch, tree, dropped, done = _assemble(base, name, [p["file"] for p in downloaded], runner)
             required, _optional, provided = compat.scan_libraries(tree)
+            notes = done["notes"]
             others = {lib for m in metas if m is not meta for lib in m.get("provides_libs", [])}
             missing = sorted(lib for lib in required if lib not in provided and lib not in sonames and lib not in others)
             if missing:
@@ -538,7 +548,7 @@ def prebuild(paths, ctx, new_root, runner=run, pool_factory=None, fetcher=None, 
             updated["bundle"].update({"built_for": identity, "updated": int(time.time()),
                                       "packages": [{"name": p["name"], "evr": p["evr"], "arch": p["arch"], "repo": p["repo"],
                                                     "file": p["file"]} for p in downloaded]})
-            updated.update({"files": _count_files(target), "dropped": dropped,
+            updated.update({"files": _count_files(target), "dropped": dropped, "scriptlets": bool(notes), "scriptlet_notes": notes, "units": done["units"], "etc_copies": done["etc"],
                             "needed_libs": sorted(lib for lib in required if lib not in provided),
                             "provides_libs": sorted(provided), "installed": int(time.time())})
             compat._write_json(os.path.join(_images_dir(paths, identity), f"{name}.json"), updated)

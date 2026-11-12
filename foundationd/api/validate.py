@@ -124,3 +124,31 @@ def description(value):
     if not isinstance(value, str) or len(value) > 120 or "\n" in value or "\0" in value:
         raise InvalidArgument("the description must be one line of up to 120 characters")
     return value
+
+
+_USERNAME = re.compile(r"^[a-z_][a-z0-9_.-]{0,31}$")
+_FINGERPRINT = re.compile(r"^SHA256:[A-Za-z0-9+/]{43}$")
+
+
+def username(value):
+    if not isinstance(value, str) or not _USERNAME.match(value):
+        raise InvalidArgument(f"not a valid user name: {value!r}")
+    return value
+
+
+def optional_username(value):
+    return username(value) if value else ""
+
+
+def public_key(value):
+    """One line of at most 8 KiB with no control characters; whether it is a real key is checked by the worker."""
+    if not isinstance(value, str) or not value.strip() or len(value) > 8192 or "\n" in value.strip() \
+            or any(ord(c) < 32 for c in value.strip()):
+        raise InvalidArgument("give one public key on a single line")
+    return value.strip()
+
+
+def fingerprint(value):
+    if not isinstance(value, str) or not _FINGERPRINT.match(value):
+        raise InvalidArgument("give the key's fingerprint (SHA256:...)")
+    return value

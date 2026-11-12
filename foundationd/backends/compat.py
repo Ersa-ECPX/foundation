@@ -16,6 +16,7 @@ dropped (and reported); files that would shadow a file of the base are reported 
 """
 
 import json
+import logging
 import os
 import re
 import shutil
@@ -24,13 +25,16 @@ import tempfile
 import time
 
 from ..errors import Failed, InvalidArgument, NotFound
-from . import cpio, elf, extensions, osinfo, richdeps, sellabel
+from . import cpio, elf, extensions, osinfo, richdeps, scriptlets, sellabel
 from .runner import check, run
+
+log = logging.getLogger(__name__)
 
 USRMERGE = {"bin": "usr/bin", "sbin": "usr/sbin", "lib": "usr/lib", "lib64": "usr/lib64"}
 HIERARCHIES = ("usr", "opt")
 ARCH = {"x86_64": "x86-64", "aarch64": "arm64"}
 RELEASE_DIR = "usr/lib/extension-release.d"
+ETC_FACTORY = "usr/share/foundation/etc"
 
 
 # -- paths -------------------------------------------------------------------------------------
@@ -130,6 +134,136 @@ def provided_by_base(capability, runner=run):
     return runner(["rpm", "-q", "--whatprovides", capability], 15)[0] == 0
 
 
+# -- scriptlets --------------------------------------------------------------------------------
+#
+# An RPM's scriptlets are never run: a shell script from a package, as root, on an immutable system, is exactly what an
+# extension avoids. What they do is read from their text (scriptlets.py): users and groups become a sysusers.d file in the
+# extension and services are preset after the merge, as the scripts did; anything else is reported, so a person knows
+# what will be missing.
+
+EFFECT_TEXT = {
+    "users": "creates users or groups it could not translate, which are not created here",
+    "services": "enables or starts services, which are not enabled here (start one with systemctl)",
+    "caches": "rebuilds caches (the application list, MIME types, fonts or certificates), which are not rebuilt here, so a "
+              "new file type or font may not be recognised until the next start",
+    "alternatives": "sets up alternatives, which are not set up here",
+    "other": "runs other commands, which are not run here",
+}
+
+
+def inspect_scriptlets(files, runner=run):
+    """scriptlets.analyse() of each RPM file, plus its "package" name. A file rpm cannot read is left out."""
+    results = []
+    for path in files:
+        code, out, _err = runner(["rpm", "-qp", "--nosignature", "--nodigest", "--queryformat",
+                                  "NAME:%{NAME}-%{VERSION}-%{RELEASE}\\n", "--scripts", path], 30)
+        if code != 0:
+            continue
+        lines = out.splitlines()
+        name = os.path.basename(path)
+        if lines and lines[0].startswith("NAME:"):
+            name, out = lines[0][5:], "\n".join(lines[1:])
+        results.append({"package": name, "file": path, **scriptlets.analyse(out)})
+    return results
+
+
+def apply_scriptlets(tree, name, files, runner=run):
+    """Carry out what can be carried out of the RPM files' scriptlets in the extension `tree`: write their accounts as
+    usr/lib/sysusers.d/foundation-<name>.conf. Returns {"notes": [...what is not done], "units": [...to preset],
+    "accounts": n}."""
+    results = inspect_scriptlets(files, runner)
+    lines = []
+    for kind in ("g ", "u ", "m "):
+        for result in results:
+            for line in result["sysusers"]:
+                if line.startswith(kind) and line not in lines:
+                    lines.append(line)
+    if lines:
+        target = os.path.join(tree, "usr/lib/sysusers.d")
+        os.makedirs(target, exist_ok=True)
+        with open(os.path.join(target, f"foundation-{name}.conf"), "w", encoding="utf-8") as handle:
+            handle.write("# Users and groups the packages' scriptlets would have created, translated by foundation.\n"
+                         + "\n".join(lines) + "\n")
+    units, homes = [], []
+    for result in results:
+        units += [u for u in result["units"] if u not in units]
+        homes += [h for h in result.get("homes", []) if h not in homes]
+        if result.get("link_share"):
+            code, listing, _err = runner(["rpm", "-qpl", "--nosignature", "--nodigest", result["file"]], 30)
+            if code == 0:
+                scriptlets.link_libreoffice_share(tree, listing)
+    if homes:
+        target = os.path.join(tree, "usr/lib/tmpfiles.d")
+        os.makedirs(target, exist_ok=True)
+        with open(os.path.join(target, f"foundation-{name}-homes.conf"), "w", encoding="utf-8") as handle:
+            handle.write("# Home directories of the users the packages' scriptlets would have created with useradd -m.\n"
+                         + "".join(f"d {home} 0755 {user} {group} -\n" for user, group, home in homes))
+    notes = [{"package": r["package"], "effects": r["effects"],
+              "text": f"{r['package']}: " + "; ".join(EFFECT_TEXT[e] for e in r["effects"])} for r in results if r["effects"]]
+    return {"notes": notes, "units": units, "accounts": len([line for line in lines if line[0] == "u"])}
+
+
+def touch_icon_themes(tree):
+    """Make GTK and GNOME Shell look at the icons an extension brings.
+
+    The base image has an icon cache (`icon-theme.cache`) in each icon theme, and GTK trusts it for as long as it is not
+    older than the theme's directory. The directory a merged system shows is the extension's one, whose time is when the
+    package was built, usually before the base image's cache was made, so the old cache looked current and every icon the
+    extension adds was "missing" (LibreOffice in the launcher had none). Giving the extension's theme directories the
+    time of the build makes the cache look out of date, so GTK reads the directories instead."""
+    icons = os.path.join(tree, "usr/share/icons")
+    try:
+        names = os.listdir(icons)
+    except OSError:
+        return 0
+    touched = 0
+    for name in names:
+        path = os.path.join(icons, name)
+        if os.path.isdir(path) and not os.path.islink(path):
+            os.utime(path, None)
+            touched += 1
+    return touched
+
+
+def tree_has(tree, directory, suffix):
+    path = os.path.join(tree, directory)
+    try:
+        return any(n.endswith(suffix) for n in os.listdir(path))
+    except OSError:
+        return False
+
+
+def apply_system_config(paths, runner=run, systemd=None):
+    """After a merge: create the users and groups of sysusers.d files, the directories of tmpfiles.d files and enable the
+    services (as `systemctl preset` would, honouring the preset files) that the enabled extensions brought. All of it
+    is idempotent. A failure is logged, not raised: the merge itself worked."""
+    sysusers = tmpfiles = False
+    units = []
+    for meta in installed_metas(paths):
+        tree = _enabled_dir(paths, meta["name"])
+        if os.path.isdir(tree):
+            sysusers = sysusers or tree_has(tree, "usr/lib/sysusers.d", ".conf")
+            tmpfiles = tmpfiles or tree_has(tree, "usr/lib/tmpfiles.d", ".conf")
+            units += [u for u in meta.get("units", []) if u not in units]
+    for wanted, command in ((sysusers, ["systemd-sysusers"]), (tmpfiles, ["systemd-tmpfiles", "--create"])):
+        if wanted:
+            code, _out, err = runner(command, 60)
+            if code not in (0, 127):
+                log.warning("%s failed: %s", command[0], (err or "").strip().splitlines()[-1:] or code)
+    if units:
+        from . import remote
+        systemd = systemd or remote.System(paths.get("bus", "system"))
+        for unit in units:
+            try:
+                systemd.preset(unit)
+            except Failed as error:
+                log.warning("could not preset %s: %s", unit, error)
+        try:
+            systemd.reload()
+        except Failed as error:
+            log.warning("could not reload systemd: %s", error)
+
+
 # -- extraction --------------------------------------------------------------------------------
 
 def extract(rpm_path, destination):
@@ -151,9 +285,36 @@ def extract(rpm_path, destination):
     return count
 
 
-def apply_usrmerge(root):
-    """Move /bin, /sbin, /lib and /lib64 of an unpacked payload under /usr, and report what is left
-    outside /usr and /opt (which is deleted: a sysext can only overlay those)."""
+def tmpfiles_for_var(root):
+    """The directories a payload had under /var, as tmpfiles.d lines. /var is machine state and nothing can be
+    merged over it, so a package's empty state directories are created at boot instead. Files under /var are not
+    carried (they would be state, not part of the package). Returns (lines, dropped_files)."""
+    lines, files = [], 0
+    top = os.path.join(root, "var")
+    if os.path.islink(top) or not os.path.isdir(top):
+        return [], 0
+    for directory, subdirs, names in os.walk(top):
+        subdirs.sort()
+        files += len(names)
+        relative = "/" + os.path.relpath(directory, root)
+        if os.path.islink(directory):
+            continue
+        mode = os.stat(directory).st_mode & 0o7777
+        if " " in relative or "%" in relative:
+            continue
+        lines.append(f"d {relative} {mode:04o} - - -")
+    return lines, files
+
+
+def apply_usrmerge(root, name=None):
+    """Move /bin, /sbin, /lib and /lib64 of an unpacked payload under /usr. What is left is sorted out:
+
+    - /usr and /opt stay (the sysext);
+    - /etc stays where it is for now: `stage_etc` turns it into defaults that are copied into the writable /etc;
+    - /var becomes tmpfiles.d lines inside the sysext (when `name` is given);
+    - everything else is deleted and reported.
+    Returns the list of what was dropped.
+    """
     for old, new in USRMERGE.items():
         source = os.path.join(root, old)
         if os.path.isdir(source) and not os.path.islink(source):
@@ -162,13 +323,93 @@ def apply_usrmerge(root):
         elif os.path.lexists(source):
             os.unlink(source)
     dropped = []
+    if name:
+        lines, files = tmpfiles_for_var(root)
+        if lines:
+            target = os.path.join(root, "usr/lib/tmpfiles.d")
+            os.makedirs(target, exist_ok=True)
+            with open(os.path.join(target, f"foundation-{name}.conf"), "w", encoding="utf-8") as handle:
+                handle.write("# Created from the package's /var directories by foundation.\n" + "\n".join(lines) + "\n")
+        if files:
+            dropped.append(f"{files} file(s) under /var")
     for entry in sorted(os.listdir(root)):
-        if entry in HIERARCHIES:
+        if entry in HIERARCHIES or entry == "etc":
             continue
-        dropped.append("/" + entry)
+        if entry == "var" and name:
+            pass
+        elif entry == "var":
+            dropped.append("/var")
+        else:
+            dropped.append("/" + entry)
         full = os.path.join(root, entry)
         shutil.rmtree(full) if os.path.isdir(full) and not os.path.islink(full) else os.unlink(full)
     return dropped
+
+
+def stage_etc(tree, name):
+    """Turn the package's /etc files into defaults, and leave /etc itself empty.
+
+    A system extension cannot carry /etc: only /usr and /opt are merged. A configuration extension (confext) would, but it
+    needs the layer below it writable, and the kernel does not accept an overlay (our /etc is one) as that layer. So the files
+    move to usr/share/foundation/etc/<name>/ inside the extension, and a tmpfiles.d file makes systemd-tmpfiles copy each one
+    into the real, writable /etc **only if nothing is there yet** (`C`). What you edited, or the image ships, is never
+    replaced; a file you leave alone is removed again with the extension (see `remove_etc_copies`).
+    Returns the paths, relative to /etc, of the files that will be copied."""
+    etc = os.path.join(tree, "etc")
+    if not os.path.lexists(etc):
+        return []
+    if os.path.islink(etc) or not os.path.isdir(etc):
+        os.unlink(etc)
+        return []
+    found = []
+    for directory, subdirs, names in os.walk(etc):
+        subdirs.sort()
+        for entry in sorted(names + [d for d in subdirs if os.path.islink(os.path.join(directory, d))]):
+            relative = os.path.relpath(os.path.join(directory, entry), etc)
+            if any(c in relative for c in ' %\t\n"\\'):
+                continue
+            found.append(relative)
+    factory = os.path.join(tree, ETC_FACTORY, name)
+    os.makedirs(os.path.dirname(factory), exist_ok=True)
+    shutil.move(etc, factory)
+    if found:
+        target = os.path.join(tree, "usr/lib/tmpfiles.d")
+        os.makedirs(target, exist_ok=True)
+        with open(os.path.join(target, f"foundation-{name}-etc.conf"), "w", encoding="utf-8") as handle:
+            handle.write("# Defaults from the package's /etc files: copied only where nothing exists yet. Written by foundation.\n")
+            for relative in found:
+                handle.write(f"C /etc/{relative} - - - - /{ETC_FACTORY}/{name}/{relative}\n")
+    return found
+
+
+def remove_etc_copies(paths, name, copies, tree):
+    """Remove the copies of an extension's /etc defaults that nobody changed (same content as the default); a file that was
+    edited stays. `tree` is the extension's directory, which still holds the defaults. Returns the number removed."""
+    import filecmp
+    removed = 0
+    for relative in copies:
+        default = os.path.join(tree, ETC_FACTORY, name, relative)
+        copy = os.path.join(paths["root"], "etc", relative)
+        try:
+            if os.path.islink(default):
+                same = os.path.islink(copy) and os.readlink(copy) == os.readlink(default)
+            else:
+                same = os.path.isfile(copy) and not os.path.islink(copy) and filecmp.cmp(default, copy, shallow=False)
+            if same:
+                os.unlink(copy)
+                removed += 1
+        except OSError:
+            continue
+    return removed
+
+
+def refresh_extensions(paths, runner=run, systemd=None):
+    """Bring the merged system in line: refresh the extensions, then create what they need (users, directories, /etc
+    defaults, services) and generate what has to be generated."""
+    extensions.operate("sysext", "refresh", runner)
+    apply_system_config(paths, runner, systemd)
+    from . import postmerge
+    postmerge.apply(paths, runner)
 
 
 def scan_libraries(tree):
@@ -310,7 +551,8 @@ def analyse(rpm_path, paths, runner=run):
         notes.append(f"{len(optional_libraries)} librar{'y' if len(optional_libraries) == 1 else 'ies'} used only by "
                      "plugins are not available; those features will not work")
     if outside:
-        notes.append(f"{len(outside)} file(s) outside /usr and /opt will not be installed (configuration, cron jobs, ...)")
+        notes.append(f"{len(outside)} file(s) outside /usr and /opt: those in /etc become defaults that are copied into /etc "
+                     "where nothing exists yet, directories in /var are created at boot, and anything else (such as /srv) is not installed")
     if rpm["scriptlets"]:
         notes.append("the package has scriptlets; they are not run")
 
@@ -390,7 +632,10 @@ def install(rpm_path, force, paths, ctx, runner=run):
         tree = os.path.join(scratch, name)
         os.mkdir(tree)
         extract(rpm_path, tree)
-        dropped = apply_usrmerge(tree)
+        dropped = apply_usrmerge(tree, name)
+        done = apply_scriptlets(tree, name, [rpm_path], runner)
+        done["etc"] = stage_etc(tree, name)
+        touch_icon_themes(tree)
         release_dir = os.path.join(tree, RELEASE_DIR)
         os.makedirs(release_dir, exist_ok=True)
         with open(os.path.join(release_dir, f"extension-release.{name}"), "w", encoding="utf-8") as handle:
@@ -412,13 +657,14 @@ def install(rpm_path, force, paths, ctx, runner=run):
 
     meta = {"name": name, "version": report["version"], "release": report["release"], "arch": report["arch"],
             "files": report["files"], "installed": int(time.time()), "scriptlets": report["scriptlets"],
+            "scriptlet_notes": done["notes"], "units": done["units"], "etc_copies": done["etc"],
             "dropped": dropped, "forced": bool(report["problems"]), "problems": report["problems"], **extras}
     _write_json(_meta_path(paths, name), meta)
 
     ctx.step("merge", "Merging the extension")
     ctx.progress(0.8)
     try:
-        extensions.operate("sysext", "refresh", runner)
+        refresh_extensions(paths, runner)
     except Failed as error:
         # Do not leave a broken extension behind: remove it and restore the previous merge.
         shutil.rmtree(_enabled_dir(paths, name), ignore_errors=True)
@@ -427,11 +673,12 @@ def install(rpm_path, force, paths, ctx, runner=run):
         except OSError:
             pass
         try:
-            extensions.operate("sysext", "refresh", runner)
+            refresh_extensions(paths, runner)
         except Failed:
             pass
         raise Failed(f"the extension could not be merged and was removed again: {error}") from error
-    return {"name": name, "version": report["version"], "merged": True, "dropped": dropped}
+    return {"name": name, "version": report["version"], "merged": True, "dropped": dropped,
+            "notes": [n["text"] for n in done["notes"]]}
 
 
 def remove(name, paths, ctx, runner=run):
@@ -441,11 +688,24 @@ def remove(name, paths, ctx, runner=run):
         raise NotFound(f"{name} is not an installed compat extension")
     ctx.step("remove", f"Removing {name}")
     ctx.commit()
+    with open(meta, encoding="utf-8") as handle:
+        recorded = json.load(handle)
+    units = recorded.get("units", [])
+    for tree in (enabled, disabled):
+        if os.path.isdir(tree):
+            remove_etc_copies(paths, name, recorded.get("etc_copies", []), tree)
+            break
+    if units:
+        from . import remote
+        try:
+            remote.System(paths.get("bus", "system")).disable_units(units)
+        except Failed as error:
+            log.warning("could not disable the services of %s: %s", name, error)
     shutil.rmtree(enabled, ignore_errors=True)
     shutil.rmtree(disabled, ignore_errors=True)
     os.unlink(meta)
     ctx.step("merge", "Updating the merged system")
-    extensions.operate("sysext", "refresh", runner)
+    refresh_extensions(paths, runner)
     return {"name": name, "removed": True}
 
 
@@ -501,5 +761,5 @@ def revalidate(paths, ctx, runner=run):
         ctx.progress((index + 1) / max(1, len(metas)))
     if changed:
         ctx.step("merge", "Updating the merged system")
-        extensions.operate("sysext", "refresh", runner)
+        refresh_extensions(paths, runner)
     return {"checked": len(metas), "disabled": disabled, "enabled": enabled}

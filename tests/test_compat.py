@@ -6,6 +6,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 import unittest
 
 HERE = os.path.dirname(__file__)
@@ -47,6 +48,7 @@ class CompatCase(unittest.TestCase):
         self.libs = {"libc.so.6"}
         self.refresh_fails = False
         self.sysext_calls = []
+        self.confext_calls = []
         self.ctx = support.Recorder()
 
     def runner(self, cmd, timeout=60, input_bytes=None):
@@ -54,6 +56,9 @@ class CompatCase(unittest.TestCase):
             return (0 if cmd[3] in self.provided else 1), "", ""
         if cmd[0] == "ldconfig":
             return 0, "".join(f"\t{lib} (libc6,x86-64) => /usr/lib64/{lib}\n" for lib in self.libs), ""
+        if cmd[0] == "systemd-confext":
+            self.confext_calls.append(cmd[1:])
+            return 0, json.dumps([]), ""
         if cmd[0] == "systemd-sysext":
             self.sysext_calls.append(cmd[1])
             if cmd[1] == "status":
@@ -372,7 +377,7 @@ echo installed
         self.addCleanup(setattr, sellabel, "label_tree", real)
 
         def runner(cmd, timeout=60, input_bytes=None):
-            if cmd[0] == "systemd-sysext":
+            if cmd[0] in ("systemd-sysext", "systemd-confext"):
                 return 0, json.dumps([{"hierarchy": "/usr", "extensions": ["probe"]}]), ""
             return self.runner(cmd, timeout, input_bytes)
         compat.install(self.rpm, False, self.paths, support.Recorder(), runner)
@@ -382,14 +387,20 @@ echo installed
         ctx = support.Recorder()
 
         def runner(cmd, timeout=60, input_bytes=None):
-            if cmd[0] == "systemd-sysext":
+            if cmd[0] in ("systemd-sysext", "systemd-confext"):
                 return 0, json.dumps([{"hierarchy": "/usr", "extensions": ["probe"]}]), ""
             return self.runner(cmd, timeout, input_bytes)
         result = compat.install(self.rpm, False, self.paths, ctx, runner)
         self.assertEqual(result["name"], "probe")
         self.assertTrue(os.path.isfile(os.path.join(self.paths["root"], "var/lib/extensions/probe/usr/bin/probe")))
-        self.assertFalse(os.path.exists(os.path.join(self.paths["root"], "var/lib/extensions/probe/etc")))
-        self.assertEqual(result["dropped"], ["/etc"])
+        self.assertEqual(result["dropped"], [])
+        # the /etc files of the package become defaults inside the extension, copied into /etc by tmpfiles
+        tree = os.path.join(self.paths["root"], "var/lib/extensions/probe")
+        self.assertFalse(os.path.exists(os.path.join(tree, "etc")))
+        self.assertTrue(os.path.isfile(os.path.join(tree, "usr/share/foundation/etc/probe/cron.daily/probe")))
+        with open(os.path.join(tree, "usr/lib/tmpfiles.d/foundation-probe-etc.conf")) as handle:
+            self.assertIn("C /etc/cron.daily/probe - - - - /usr/share/foundation/etc/probe/cron.daily/probe", handle.read())
+        self.assertFalse(os.path.exists(os.path.join(self.paths["root"], "var/lib/confexts")))
 
 
 class RemapTests(unittest.TestCase):
@@ -403,13 +414,163 @@ class RemapTests(unittest.TestCase):
 
     def test_apply_usrmerge_moves_and_drops(self):
         with tempfile.TemporaryDirectory() as tree:
-            for path in ("bin/a", "usr/bin/b", "etc/c.conf", "opt/d", "lib64/e"):
+            for path in ("bin/a", "usr/bin/b", "etc/c.conf", "opt/d", "lib64/e", "srv/f"):
                 os.makedirs(os.path.dirname(os.path.join(tree, path)), exist_ok=True)
                 open(os.path.join(tree, path), "w").close()
             dropped = compat.apply_usrmerge(tree)
-            self.assertEqual(dropped, ["/etc"])
+            self.assertEqual(dropped, ["/srv"])
+            self.assertTrue(os.path.exists(os.path.join(tree, "etc/c.conf")), "etc is kept for the confext")
             self.assertTrue(all(os.path.exists(os.path.join(tree, p)) for p in ("usr/bin/a", "usr/bin/b", "opt/d", "usr/lib64/e")))
             self.assertFalse(os.path.exists(os.path.join(tree, "bin")))
+
+
+class ScriptletTests(unittest.TestCase):
+    def test_only_what_is_not_handled_produces_a_note_and_accounts_become_sysusers(self):
+        outputs = {
+            "a.rpm": "NAME:a-1-1\npostinstall scriptlet (using /bin/sh):\n/sbin/ldconfig\n",
+            "b.rpm": "NAME:b-1-1\npostinstall scriptlet (using /bin/sh):\nupdate-mime-database /usr/share/mime\n",
+            "c.rpm": "NAME:c-1-1\npreinstall scriptlet (using /bin/sh):\ngroupadd -r cgrp\nuseradd -r -g cgrp -s /sbin/nologin cuser\n"
+                     "postinstall scriptlet (using /bin/sh):\nsystemctl preset c.service\n",
+        }
+
+        def runner(cmd, timeout=60, input_bytes=None):
+            return (0, outputs[os.path.basename(cmd[-1])], "") if cmd[0] == "rpm" else (1, "", "")
+        with tempfile.TemporaryDirectory() as tree:
+            done = compat.apply_scriptlets(tree, "demo", ["/x/a.rpm", "/x/b.rpm", "/x/c.rpm"], runner)
+            with open(os.path.join(tree, "usr/lib/sysusers.d/foundation-demo.conf")) as handle:
+                text = handle.read()
+        self.assertEqual([n["package"] for n in done["notes"]], ["b-1-1"])
+        self.assertIn("rebuilds caches", done["notes"][0]["text"])
+        self.assertIn("g cgrp -\n", text)
+        self.assertIn('u cuser -:cgrp "" - /sbin/nologin', text)
+        self.assertEqual(done["units"], ["c.service"])
+        self.assertEqual(done["accounts"], 1)
+
+    def test_a_home_directory_is_created_by_tmpfiles_with_the_users_ownership(self):
+        def runner(cmd, timeout=60, input_bytes=None):
+            return (0, "NAME:h-1-1\npreinstall scriptlet (using /bin/sh):\nuseradd -r -m -g hg -d /var/lib/h h\n", "") \
+                if cmd[0] == "rpm" else (1, "", "")
+        with tempfile.TemporaryDirectory() as tree:
+            done = compat.apply_scriptlets(tree, "demo", ["/x/h.rpm"], runner)
+            with open(os.path.join(tree, "usr/lib/tmpfiles.d/foundation-demo-homes.conf")) as handle:
+                self.assertIn("d /var/lib/h 0755 h hg -\n", handle.read())
+        self.assertEqual(done["notes"], [])
+
+    def test_an_rpm_that_cannot_be_read_gives_no_note(self):
+        with tempfile.TemporaryDirectory() as tree:
+            done = compat.apply_scriptlets(tree, "demo", ["/x/a.rpm"], lambda cmd, timeout=60, input_bytes=None: (1, "", "bad"))
+        self.assertEqual(done, {"notes": [], "units": [], "accounts": 0})
+
+    def test_services_are_preset_after_a_merge_and_a_failure_is_only_logged(self):
+        class Systemd:
+            def __init__(self):
+                self.calls = []
+
+            def preset(self, unit):
+                self.calls.append(unit)
+                if unit == "bad.service":
+                    from foundationd.errors import Failed
+                    raise Failed("no such unit")
+
+            def reload(self):
+                self.calls.append("reload")
+        with tempfile.TemporaryDirectory() as root:
+            paths = {"root": root, "state": os.path.join(root, "var/lib/foundation"), "os_release": ""}
+            compat._write_json(compat._meta_path(paths, "svc"), {"name": "svc", "units": ["a.service", "bad.service"]})
+            os.makedirs(compat._enabled_dir(paths, "svc"))
+            compat._write_json(compat._meta_path(paths, "off"), {"name": "off", "units": ["off.service"]})   # not enabled
+            systemd = Systemd()
+            with self.assertLogs("foundationd.backends.compat", "WARNING"):
+                compat.apply_system_config(paths, lambda cmd, timeout=60, input_bytes=None: (0, "", ""), systemd)
+            self.assertEqual(systemd.calls, ["a.service", "bad.service", "reload"])
+
+    def test_sysusers_and_tmpfiles_run_only_for_extensions_that_bring_them(self):
+        with tempfile.TemporaryDirectory() as root:
+            paths = {"root": root, "state": os.path.join(root, "var/lib/foundation"), "os_release": ""}
+            calls = []
+
+            def runner(cmd, timeout=60, input_bytes=None):
+                calls.append(cmd)
+                return 0, "", ""
+            compat._write_json(compat._meta_path(paths, "plain"), {"name": "plain"})
+            os.makedirs(os.path.join(compat._enabled_dir(paths, "plain"), "usr/bin"))
+            compat.apply_system_config(paths, runner)
+            self.assertEqual(calls, [])
+            compat._write_json(compat._meta_path(paths, "svc"), {"name": "svc"})
+            os.makedirs(os.path.join(compat._enabled_dir(paths, "svc"), "usr/lib/sysusers.d"))
+            open(os.path.join(compat._enabled_dir(paths, "svc"), "usr/lib/sysusers.d/svc.conf"), "w").close()
+            compat.apply_system_config(paths, runner)
+            self.assertEqual(calls, [["systemd-sysusers"]])
+
+
+class IconTests(unittest.TestCase):
+    def test_icon_theme_directories_get_the_time_of_the_build_so_the_base_cache_looks_old(self):
+        with tempfile.TemporaryDirectory() as tree:
+            hicolor = os.path.join(tree, "usr/share/icons/hicolor")
+            os.makedirs(os.path.join(hicolor, "48x48/apps"))
+            os.makedirs(os.path.join(tree, "usr/share/icons/plain"))
+            open(os.path.join(tree, "usr/share/icons/not-a-theme"), "w").close()
+            os.utime(hicolor, (1_000_000, 1_000_000))
+            self.assertEqual(compat.touch_icon_themes(tree), 2)
+            self.assertGreater(os.stat(hicolor).st_mtime, time.time() - 60)
+
+    def test_an_extension_without_icons_is_left_alone(self):
+        with tempfile.TemporaryDirectory() as tree:
+            self.assertEqual(compat.touch_icon_themes(tree), 0)
+
+
+class VarAndEtcTests(unittest.TestCase):
+    def test_var_directories_become_tmpfiles_lines_and_var_files_are_dropped(self):
+        with tempfile.TemporaryDirectory() as tree:
+            os.makedirs(os.path.join(tree, "var/lib/app/cache"), mode=0o750)
+            os.chmod(os.path.join(tree, "var/lib/app"), 0o750)
+            open(os.path.join(tree, "var/lib/app/state.db"), "w").close()
+            dropped = compat.apply_usrmerge(tree, "app")
+            self.assertEqual(dropped, ["1 file(s) under /var"])
+            self.assertFalse(os.path.exists(os.path.join(tree, "var")))
+            with open(os.path.join(tree, "usr/lib/tmpfiles.d/foundation-app.conf")) as handle:
+                text = handle.read()
+            self.assertIn("d /var/lib/app 0750 - - -", text)
+            self.assertIn("d /var/lib/app/cache 0750 - - -", text)
+
+    def test_etc_files_become_defaults_copied_only_where_nothing_exists(self):
+        with tempfile.TemporaryDirectory() as tree:
+            os.makedirs(os.path.join(tree, "etc/web/conf.d"))
+            for relative in ("etc/web/web.conf", "etc/web/conf.d/site.conf", "etc/odd name.conf"):
+                with open(os.path.join(tree, relative), "w") as handle:
+                    handle.write(relative)
+            os.symlink("web.conf", os.path.join(tree, "etc/web/link.conf"))
+            found = compat.stage_etc(tree, "web")
+            self.assertEqual(sorted(found), ["web/conf.d/site.conf", "web/link.conf", "web/web.conf"])     # the odd name is not carried
+            self.assertFalse(os.path.exists(os.path.join(tree, "etc")))
+            self.assertTrue(os.path.isfile(os.path.join(tree, "usr/share/foundation/etc/web/web/web.conf")))
+            with open(os.path.join(tree, "usr/lib/tmpfiles.d/foundation-web-etc.conf")) as handle:
+                lines = [line for line in handle.read().splitlines() if not line.startswith("#")]
+            self.assertIn("C /etc/web/web.conf - - - - /usr/share/foundation/etc/web/web/web.conf", lines)
+            self.assertEqual(len(lines), 3)
+
+    def test_without_an_etc_directory_nothing_is_made(self):
+        with tempfile.TemporaryDirectory() as tree:
+            self.assertEqual(compat.stage_etc(tree, "web"), [])
+            self.assertFalse(os.path.exists(os.path.join(tree, "usr")))
+
+    def test_removing_an_extension_removes_only_the_copies_nobody_changed(self):
+        with tempfile.TemporaryDirectory() as root:
+            paths = {"root": root, "state": os.path.join(root, "var/lib/foundation"), "os_release": ""}
+            tree = os.path.join(root, "ext")
+            default = os.path.join(tree, "usr/share/foundation/etc/web")
+            os.makedirs(default)
+            for name, text in (("kept.conf", "default"), ("edited.conf", "default"), ("gone.conf", "default")):
+                with open(os.path.join(default, name), "w") as handle:
+                    handle.write(text)
+            os.makedirs(os.path.join(root, "etc"))
+            for name, text in (("kept.conf", "default"), ("edited.conf", "my own"), ("gone.conf", "default")):
+                with open(os.path.join(root, "etc", name), "w") as handle:
+                    handle.write(text)
+            removed = compat.remove_etc_copies(paths, "web", ["kept.conf", "edited.conf", "gone.conf", "never-copied.conf"], tree)
+            self.assertEqual(removed, 2)
+            self.assertTrue(os.path.exists(os.path.join(root, "etc/edited.conf")), "an edited file stays")
+            self.assertFalse(os.path.exists(os.path.join(root, "etc/gone.conf")))
 
 
 class ExtensionTests(unittest.TestCase):
@@ -453,9 +614,12 @@ class ExtensionTests(unittest.TestCase):
 
         def runner(cmd, timeout=60, input_bytes=None):
             calls.append(cmd[:2])
+            seen_cmd.append(cmd)
             return 0, json.dumps([{"hierarchy": "/usr", "extensions": ["x"]}]), ""
+        seen_cmd = []
         self.assertEqual(extensions.operate("confext", "refresh", runner), {"kind": "confext", "merged": ["x"]})
         self.assertEqual(calls[0], ["systemd-confext", "refresh"])
+        self.assertEqual(seen_cmd[0], ["systemd-confext", "refresh"])
 
 
 if __name__ == "__main__":

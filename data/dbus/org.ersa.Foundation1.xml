@@ -340,7 +340,8 @@
          checked against its repository's signature and checksum, scriptlets never run, files are labelled for
          SELinux. -->
     <!-- Fields: name, catalog (s: the catalog entry it came from, or empty), requested (as), packages (as, with
-         versions), repos (as), updated (x, unix time), files (i), enabled (b). -->
+         versions), repos (as), updated (x, unix time), files (i), enabled (b), state (s), built_for (s), notes (as: what the
+         packages' scriptlets would have done and was not done here; empty when nothing is missing). -->
     <method name="ListBundles">
       <arg name="bundles" type="aa{sv}" direction="out"/>
     </method>
@@ -475,6 +476,48 @@
          default_set (b), bundles. -->
     <method name="Pending">
       <arg name="update" type="a{sv}" direction="out"/>
+    </method>
+  </interface>
+
+  <!--
+    Remote: remote access. SSH only for now. The settings are one drop-in,
+    /etc/ssh/sshd_config.d/50-foundation.conf. Requires org.ersa.foundation.remote (administrator).
+  -->
+  <interface name="org.ersa.Foundation1.Remote">
+    <!-- What is true now. Keys: installed (b), enabled (b, at boot), active (b), keys (x), users_with_keys (as),
+         password_auth (b, only when foundation configured the server), firewall (s: open, closed, unknown;
+         only when the server is installed). -->
+    <method name="GetStatus">
+      <arg name="status" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Public keys of one user, or of everyone who can log in when user is empty.
+         Each: user, type, fingerprint (SHA256:...), comment, options. -->
+    <method name="ListKeys">
+      <arg name="user" type="s" direction="in"/>
+      <arg name="keys" type="aa{sv}" direction="out"/>
+    </method>
+    <!--
+      Turn the SSH server on or off. Turning it on is refused when password login would be off and no user has a
+      key. It also opens the firewall for SSH if the default zone blocks it, and checks the settings with
+      `sshd -t` before touching the service. Root login is never allowed.
+      Result: enabled (b), active (b), password_auth (b), firewall (s: open, opened, closed, unknown).
+    -->
+    <method name="SetSsh">
+      <arg name="enable" type="b" direction="in"/>
+      <arg name="allow_password" type="b" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Add a plain public key (no options) to the user's ~/.ssh/authorized_keys. Result: user, fingerprint, added (b). -->
+    <method name="AddKey">
+      <arg name="user" type="s" direction="in"/>
+      <arg name="key" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Remove the key with this fingerprint. Result: user, fingerprint, removed (x). -->
+    <method name="RemoveKey">
+      <arg name="user" type="s" direction="in"/>
+      <arg name="fingerprint" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
     </method>
   </interface>
 

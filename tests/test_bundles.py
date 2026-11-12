@@ -118,6 +118,7 @@ class BundleCase(unittest.TestCase):
         FakePool.instances, FakePool.versions = [], {}
         self.merge_fails = False
         self.sysext_calls = []
+        self.confext_calls = []
         self.ctx = support.Recorder()
 
     def write_repo(self, alias, enabled):
@@ -131,6 +132,10 @@ class BundleCase(unittest.TestCase):
                 handle.write(text)
 
     def runner(self, cmd, timeout=60, input_bytes=None):
+        self.commands = getattr(self, "commands", []) + [cmd]
+        if cmd[0] == "systemd-confext":
+            self.confext_calls.append(cmd[1:])
+            return 0, json.dumps([]), ""
         if cmd[0] == "systemd-sysext":
             self.sysext_calls.append(cmd[1])
             if cmd[1] == "refresh" and self.merge_fails:
@@ -279,13 +284,39 @@ class FollowingTheImage(BundleCase):
         self.assertEqual([f["name"] for f in result["failed"]], ["media"])
 
 
+class Scriptlets(BundleCase):
+    def runner(self, cmd, timeout=60, input_bytes=None):
+        if cmd[0] == "rpm" and "--scripts" in cmd:
+            name = os.path.basename(cmd[-1])
+            if name.startswith("one"):
+                return 0, ("NAME:one-1.0-1\npreinstall scriptlet (using /bin/sh):\ngroupadd -r one\nuseradd -r -g one one\n"
+                           "postinstall scriptlet (using /bin/sh):\nupdate-mime-database /usr/share/mime\n"), ""
+            return 0, "NAME:two-1.0-1\n", ""
+        return super().runner(cmd, timeout, input_bytes)
+
+    def test_what_is_not_done_is_reported_and_remembered_and_accounts_are_translated(self):
+        result = self.build("media", ["one"])
+        self.assertEqual(len(result["notes"]), 1)
+        self.assertIn("one-1.0-1: rebuilds caches", result["notes"][0])
+        self.assertNotIn("users", result["notes"][0])
+        self.assertTrue(any("scriptlets not run" in line for line in self.ctx.logs))
+        (listed,) = bundles.list_bundles(self.paths)
+        self.assertEqual(listed["notes"], result["notes"])
+        self.assertTrue(compat.installed_metas(self.paths)[0]["scriptlets"])
+        with open(os.path.join(self.tree(), "usr/lib/sysusers.d/foundation-media.conf")) as handle:
+            text = handle.read()
+        self.assertIn("g one -", text)
+        self.assertIn("u one -:one", text)
+        self.assertIn(["systemd-sysusers"], self.commands)
+
+
 class Building(BundleCase):
     def test_many_packages_become_one_extension_with_their_dependencies(self):
         result = self.build("media", ["one"])
         self.assertEqual(sorted(result["packages"]), ["one-1.0-1", "two-1.0-1"])      # two came in as a dependency
         for path in ("usr/bin/one", "usr/bin/two", "usr/lib64/libone.so.1", "usr/share/two/data.txt"):
             self.assertTrue(self.exists(path), path)
-        self.assertFalse(self.exists("etc"), "files outside /usr and /opt are dropped")
+        self.assertFalse(self.exists("srv"), "files outside /usr, /opt and /etc are dropped")
         with open(os.path.join(self.tree(), "usr/lib/extension-release.d/extension-release.media")) as handle:
             self.assertIn("ID=opensuse-tumbleweed", handle.read())
         self.assertTrue(self.ctx.committed)

@@ -1,0 +1,7 @@
+{
+  "name": "gsettings",
+  "title": "Settings schemas (GNOME, GTK and other GLib applications)",
+  "collect": ["usr/share/glib-2.0/schemas/*.gschema.xml"],
+  "run": ["glib-compile-schemas", "{out}"],
+  "note": "Sessions find the result through GSETTINGS_SCHEMA_DIR=/var/lib/foundation/generated/gsettings (usr/lib/environment.d/60-foundation-generated.conf in the image); GLib reads it in addition to the system schemas."
+}

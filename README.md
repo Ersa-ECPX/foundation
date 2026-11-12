@@ -199,6 +199,8 @@ extension** overlaid on `/usr` and `/opt`.
 ```
 foundation repo list                          # the repositories, whether each is on, how fresh its lists are
 foundation repo refresh                       # download the signed package lists
+foundation remote ssh on                       # SSH server, keys only (refuses if nobody could log in)
+foundation remote key add ~/.ssh/id_ed25519.pub
 foundation repo add NAME URL --key FILE.asc   # your own repository (shows the key fingerprint first)
 foundation repo remove NAME                   # remove one you added
 foundation repo search vlc                    # find packages in the enabled repositories
@@ -290,7 +292,7 @@ previous overlay. After a system update, `compat revalidate` rechecks every exte
 
 Limits to know about: the extension's files carry whatever SELinux labels the filesystem gives them
 (not tested with the enforcing policy); kernel modules built for another kernel do not work; an
-extension cannot change `/etc` (that needs a confext).
+extension cannot change files that already exist in `/etc`: its own `/etc` files are only copied in where nothing exists yet.
 
 ## Provisioning
 

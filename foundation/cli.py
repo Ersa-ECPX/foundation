@@ -321,6 +321,105 @@ def cmd_reboot(client, args):
     return 0
 
 
+# ----------------------------------------------------------------------------- remote access
+
+def cmd_remote_status(client, args):
+    status = client.one("Remote", "GetStatus")
+    if args.json:
+        emit_json(status)
+        return 0
+    ui.title("Remote access")
+    if not status.get("installed"):
+        ui.warn("The SSH server is not part of this system image.")
+        return 0
+    if status.get("active"):
+        state = ui.badge("ok", "on")
+    else:
+        state = "off"
+    password = status.get("password_auth")
+    login = "not set up by foundation" if password is None else ("keys or password" if password else "keys only")
+    firewall = {"open": ui.badge("ok", "open"), "closed": ui.badge("warn", "closed"), "unknown": "unknown"}.get(status.get("firewall"), "unknown")
+    ui.kv([("SSH server", state), ("Starts at boot", "yes" if status.get("enabled") else "no"), ("Login", login),
+           ("Firewall", firewall), ("Keys", f"{status.get('keys', 0)}"
+                                   + (f" ({', '.join(status.get('users_with_keys', []))})" if status.get("users_with_keys") else ""))])
+    print()
+    return 0
+
+
+def cmd_remote_ssh_on(client, args):
+    if args.allow_password and not args.json:
+        ui.warn("Anyone who can reach this computer on the network will be able to try passwords. Keys are safer.")
+    if not sure(args, "Turn the SSH server on?" + (" (passwords allowed)" if args.allow_password else " (keys only)")):
+        return 1
+    code, job = run_job(client, args, "Remote", "SetSsh", "(bb)", True, bool(args.allow_password))
+    if job is not None and job.ok and not args.json:
+        firewall = job.result.get("firewall")
+        if firewall == "closed":
+            ui.warn("The firewall still blocks SSH, so other computers cannot connect. Open it with: "
+                    "firewall-cmd --permanent --add-service=ssh && firewall-cmd --reload")
+        elif firewall == "opened":
+            ui.note("The firewall was opened for SSH.")
+        ui.note("Connect with: ssh <user>@<this computer>")
+    return code
+
+
+def cmd_remote_ssh_off(client, args):
+    if not sure(args, "Turn the SSH server off?"):
+        return 1
+    return run_job(client, args, "Remote", "SetSsh", "(bb)", False, False)[0]
+
+
+def _key_owner(args):
+    if args.user:
+        return args.user
+    import getpass
+    name = getpass.getuser()
+    if os.geteuid() == 0 and not os.environ.get("SUDO_USER"):
+        raise UserError("say whose key this is: --user NAME")
+    return os.environ.get("SUDO_USER") or name
+
+
+def _read_key(argument):
+    if argument == "-":
+        text = sys.stdin.read(8193)
+    elif os.path.isfile(argument):
+        with open(argument, encoding="utf-8") as handle:
+            text = handle.read(8193)
+    else:
+        text = argument
+    lines = [line for line in text.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+    if len(lines) != 1:
+        raise UserError("give exactly one public key (a .pub file, the key itself, or - for standard input)")
+    return lines[0].strip()
+
+
+def cmd_remote_key_list(client, args):
+    keys = client.one("Remote", "ListKeys", "(s)", args.user or "")
+    if args.json:
+        emit_json(keys)
+        return 0
+    ui.title("SSH keys that can log in")
+    if not keys:
+        ui.note("No keys yet. Add one with: foundation remote key add KEYFILE")
+        return 0
+    ui.table(["User", "Type", "Fingerprint", "Comment"],
+             [[k["user"], k["type"], k["fingerprint"], k.get("comment", "") + (" (has options)" if k.get("options") else "")] for k in keys])
+    print()
+    return 0
+
+
+def cmd_remote_key_add(client, args):
+    user = _key_owner(args)
+    key = _read_key(args.key)
+    return run_job(client, args, "Remote", "AddKey", "(ss)", user, key)[0]
+
+
+def cmd_remote_key_remove(client, args):
+    if not sure(args, f"Remove that key from {args.user}?"):
+        return 1
+    return run_job(client, args, "Remote", "RemoveKey", "(ss)", args.user, args.fingerprint)[0]
+
+
 # ----------------------------------------------------------------------------- updates
 
 def update_url_allowed(url):
@@ -673,6 +772,8 @@ def _describe_result(job, args):
     ui.kv([("Bundle", job.result.get("name", "")), ("Packages", f"{len(packages)} ({job.result.get('files', 0)} files)")])
     if job.result.get("skipped"):
         ui.note("already in the base image, left out: " + ", ".join(job.result["skipped"]))
+    for note in job.result.get("notes", []):
+        ui.warn("Not done: " + note)
     ui.note("Everything in a bundle is one system extension: remove it, or part of it, with `foundation compat remove`.")
 
 
@@ -1175,6 +1276,26 @@ def build_parser():
     reboot = add(sub, "reboot", cmd_reboot, "restart the computer", yes=True)
     reboot.add_argument("--firmware", action="store_true", help="restart into the firmware setup")
     reboot.add_argument("--force", action="store_true", help="restart even if operations are running")
+
+    _, remote = group("remote", "remote access: the SSH server and the keys that may log in")
+    add(remote, "status", cmd_remote_status, "show whether SSH is on, how people log in and the firewall")
+    ssh = remote.add_parser("ssh", help="turn the SSH server on or off", description="turn the SSH server on or off")
+    ssh.set_defaults(func=None, group=ssh)
+    ssh_sub = ssh.add_subparsers(dest="ssh_command", metavar="SUBCOMMAND")
+    ssh_on = add(ssh_sub, "on", cmd_remote_ssh_on, "turn the SSH server on (keys only unless you allow passwords)", yes=True, wait=True)
+    ssh_on.add_argument("--allow-password", action="store_true", help="also allow password login")
+    add(ssh_sub, "off", cmd_remote_ssh_off, "turn the SSH server off", yes=True, wait=True)
+    key = remote.add_parser("key", help="the public keys that may log in", description="the public keys that may log in")
+    key.set_defaults(func=None, group=key)
+    key_sub = key.add_subparsers(dest="key_command", metavar="SUBCOMMAND")
+    key_list = add(key_sub, "list", cmd_remote_key_list, "list the keys")
+    key_list.add_argument("--user", help="only this user's keys")
+    key_add = add(key_sub, "add", cmd_remote_key_add, "add a public key (a .pub file, the key itself, or - for stdin)", wait=True)
+    key_add.add_argument("key", metavar="KEY")
+    key_add.add_argument("--user", help="whose key it is (default: you)")
+    key_remove = add(key_sub, "remove", cmd_remote_key_remove, "remove a key by its fingerprint", yes=True, wait=True)
+    key_remove.add_argument("user")
+    key_remove.add_argument("fingerprint", help="as shown by `key list` (SHA256:...)")
 
     _, deploy = group("deploy", "install the operating system on a disk")
     add(deploy, "list", cmd_deploy_list, "list the disks and whether each can be installed to")

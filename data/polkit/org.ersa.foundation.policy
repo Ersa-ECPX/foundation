@@ -76,6 +76,17 @@
     </defaults>
   </action>
 
+  <!-- Letting other computers log in, and who may: an administrator, and asked again after a while. -->
+  <action id="org.ersa.foundation.remote">
+    <description>Change remote access (SSH) to this computer</description>
+    <message>Authentication is required to change who can log in to this computer from the network</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
   <!-- Light or dark boot splash: cosmetic and harmless, so the active local user needs no password. -->
   <action id="org.ersa.foundation.splash">
     <description>Choose the light or dark boot splash</description>
