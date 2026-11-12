@@ -6,7 +6,12 @@ An update is one archive (`.tar.zst`, or a plain `.tar`) holding exactly:
                          of the two files below
     manifest.json.sig    a detached GPG signature of manifest.json by an image signing key
     root.erofs           the root filesystem image for one slot
+    verity.img           (format 2) its dm-verity hash tree
     uki.efi              the unified kernel image that boots it
+
+A format 2 update is for a dm-verity system: the manifest also carries `roothash`, the kernel image states the same hash on
+its command line, and nothing about the kernel image is changed on install (it is signed for Secure Boot, and its command
+line is the same on every machine). A format 1 update is the older kind, whose kernel image is rewritten per installation.
 
 The manifest is signed and it names the digests of the big files, so one signature covers everything. Nothing else
 is read from the archive: it is streamed, every entry is checked by name, type and size before a byte is written,
@@ -29,14 +34,18 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import uuid
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
-from . import bundles, compat, osinfo, pe, repos, slots
+from . import bundles, compat, osinfo, pe, repos, slots, verity
 from .runner import run
 
 FORMAT = 1
-MANIFEST, SIGNATURE, ROOT, UKI = "manifest.json", "manifest.json.sig", "root.erofs", "uki.efi"
-ALLOWED = (MANIFEST, SIGNATURE, ROOT, UKI)
+FORMATS = (1, 2)
+MANIFEST, SIGNATURE, ROOT, UKI, VERITY = "manifest.json", "manifest.json.sig", "root.erofs", "uki.efi", "verity.img"
+ALLOWED = (MANIFEST, SIGNATURE, ROOT, UKI, VERITY)
+FILE_KEYS = {ROOT: "root", UKI: "uki", VERITY: "verity"}
+MAX_VERITY = 4 * 1024 ** 3
 MAX_SMALL = 1024 * 1024
 MAX_UKI = 512 * 1024 * 1024
 MAX_ROOT = 64 * 1024 ** 3
@@ -117,7 +126,7 @@ def parse_manifest(data, paths):
         manifest = json.loads(data.decode())
     except (ValueError, UnicodeDecodeError) as error:
         raise Failed(f"manifest.json is not valid: {error}") from error
-    if not isinstance(manifest, dict) or manifest.get("format") != FORMAT:
+    if not isinstance(manifest, dict) or manifest.get("format") not in FORMATS:
         raise Failed("this update has a format this system does not understand")
     host = osinfo.os_release(paths["os_release"])
     if host.get("IMAGE_ID") and manifest.get("name") != host["IMAGE_ID"]:
@@ -127,7 +136,16 @@ def parse_manifest(data, paths):
     version = manifest.get("version")
     if not isinstance(version, str) or not VERSION.match(version):
         raise Failed("the update has no usable version")
-    for key, limit in (("root", MAX_ROOT), ("uki", MAX_UKI)):
+    keys = [("root", MAX_ROOT), ("uki", MAX_UKI)]
+    if manifest["format"] == 2:
+        try:
+            verity.uuids(manifest.get("roothash", ""))
+        except Failed as error:
+            raise Failed("the update's manifest has no usable roothash") from error
+        keys.append(("verity", MAX_VERITY))
+    elif "roothash" in manifest or "verity" in manifest:
+        raise Failed("a format 1 update cannot carry a root hash")
+    for key, limit in keys:
         entry = manifest.get(key)
         if not isinstance(entry, dict) or not SHA256.match(str(entry.get("sha256", ""))) \
                 or not isinstance(entry.get("size"), int) or not 0 < entry["size"] <= limit:
@@ -171,7 +189,9 @@ def read_archive(path, stage, paths, unsigned=False, runner=run, progress=lambda
                     if signature is None or not repos.verify_detached(manifest_bytes, signature, keys, runner):
                         raise Failed("the update is not signed by a trusted image signing key")
                     verified = True
-            key = "root" if name == ROOT else "uki"
+            key = FILE_KEYS[name]
+            if key not in manifest:
+                raise Failed(f"unexpected entry in the update: {name!r}")
             if member.size != manifest[key]["size"]:
                 raise Failed(f"{name} is {member.size} bytes; the manifest says {manifest[key]['size']}")
             target = os.path.join(stage, name)
@@ -191,8 +211,10 @@ def read_archive(path, stage, paths, unsigned=False, runner=run, progress=lambda
             if digest.hexdigest() != manifest[key]["sha256"]:
                 raise Failed(f"{name} does not match the checksum in the signed manifest")
             files[key] = target
-    if manifest is None or set(files) != {"root", "uki"}:
-        raise Failed("the update is incomplete: it needs manifest.json, root.erofs and uki.efi")
+    wanted = {"root", "uki"} | ({"verity"} if manifest and manifest.get("format") == 2 else set())
+    if manifest is None or set(files) != wanted:
+        raise Failed("the update is incomplete: it needs " + ", ".join(
+            ["manifest.json", "root.erofs", "uki.efi"] + (["verity.img"] if "verity" in wanted else [])))
     return manifest, files, bool(keys) and not unsigned
 
 
@@ -247,6 +269,124 @@ def mount_erofs(device, runner=run):
         shutil.rmtree(directory, ignore_errors=True)
 
 
+def _write_legacy(layout, manifest, files, target, force, ctx, runner, opener):
+    """A format 1 update: the image goes into a slot that is relabelled for the version, the kernel image is rewritten for it.
+    Returns (slot, label, entry_file, length)."""
+    version = manifest["version"]
+    slot = _choose_target(layout, target, version, force)
+    slots._check_free(layout, slot)
+    if slot.verity_number:
+        raise InvalidArgument(f"slot {slot.name} is a dm-verity slot: it needs a format 2 update, not this one")
+    if manifest["root"]["size"] > slot.size:
+        raise InvalidArgument(f"the image ({manifest['root']['size']} bytes) does not fit slot {slot.name} ({slot.size} bytes)")
+    if slot.state != "empty" and slot.name != version and not force and slot.default:
+        raise InvalidArgument(f"slot {slot.name} is the default boot entry; select the running slot first or pass force")
+    for other in layout.slots:
+        if other.name == version and other is not slot and other.state != "empty":
+            raise InvalidArgument(f"a slot named {version} already exists")
+    label = slots.LABEL_PREFIX + version
+
+    ctx.step("prepare", "Preparing the kernel image")
+    with open(os.path.join(layout.uki_dir, layout.running.entry.file), "rb") as handle:
+        running_text = pe.read_cmdline(handle.read())
+    with open(files["uki"], "rb") as handle:
+        uki = pe.rewrite_cmdline(handle.read(), lambda text: update_cmdline(text, running_text, label))
+    length = manifest["root"]["size"]
+    ctx.log(f"installing version {version} ({length} bytes) into slot {slot.name} ({slot.device})")
+
+    ctx.commit()
+    ctx.step("invalidate", f"Emptying slot {slot.name}")
+    if slot.state != "empty":
+        slots._remove_entries(layout, slot.name)
+        slots._relabel(layout, slot, slots.EMPTY_LABEL, runner)
+
+    ctx.step("write", "Writing the system image")
+    with open(files["root"], "rb") as source, opener(slot.device, "r+b") as device:
+        slots.copy_range(source, device, length, lambda f: ctx.progress(0.3 + 0.4 * f))
+    ctx.step("verify-write", "Verifying what was written")
+    with opener(slot.device, "rb") as device:
+        actual = slots._digest(device, 0, length, lambda f: ctx.progress(0.7 + 0.15 * f))
+    if actual != manifest["root"]["sha256"]:
+        raise Failed("what was written does not match the image; the slot was left empty")
+
+    ctx.step("label", "Labelling the new slot")
+    slots._relabel(layout, slot, label, runner)
+    ctx.step("image", "Installing the kernel image")
+    entry_file = f"ecp_{version}+3.efi"
+    os.makedirs(layout.uki_dir, exist_ok=True)
+    temporary = os.path.join(layout.uki_dir, f".{entry_file}.tmp")
+    with open(temporary, "wb") as handle:
+        handle.write(uki)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, os.path.join(layout.uki_dir, entry_file))
+    ctx.progress(0.86)
+    return slot, label, entry_file, length
+
+
+def _write_verity(layout, manifest, files, target, force, ctx, runner, opener):
+    """A format 2 update: the image and its hash tree go into the standby slot's two partitions, which are then named by the
+    root hash (their GPT UUIDs), and the signed kernel image is copied exactly as it is. The slot's label never changes.
+    Returns (slot, label, entry_file, length)."""
+    version = manifest["version"]
+    roothash = manifest["roothash"].lower()
+    data_uuid, hash_uuid = verity.uuids(roothash)
+    slot = _choose_target(layout, target, version, force)
+    slots._check_free(layout, slot)
+    if not slot.verity_number:
+        raise InvalidArgument(f"slot {slot.name} has no hash partition, so it cannot take a dm-verity update")
+    length, hash_length = manifest["root"]["size"], manifest["verity"]["size"]
+    if length > slot.size:
+        raise InvalidArgument(f"the image ({length} bytes) does not fit slot {slot.name} ({slot.size} bytes)")
+    if hash_length > slot.verity_size:
+        raise InvalidArgument(f"the hash tree ({hash_length} bytes) does not fit slot {slot.name}'s hash partition ({slot.verity_size} bytes)")
+    if slot.state != "empty" and slot.name != version and not force and slot.default:
+        raise InvalidArgument(f"slot {slot.name} is the default boot entry; select the running slot first or pass force")
+    for other in layout.slots:
+        if other.name == version and other is not slot and other.state != "empty":
+            raise InvalidArgument(f"a slot named {version} already exists")
+
+    ctx.step("prepare", "Checking the kernel image")
+    if verity.roothash_of(verity.cmdline_of_file(files["uki"])) != roothash:
+        raise Failed("the kernel image does not carry the root hash the update's manifest names; nothing was changed")
+    ctx.log(f"installing version {version} ({length} bytes, root hash {roothash[:16]}...) into slot {slot.name} ({slot.device})")
+
+    ctx.commit()
+    ctx.step("invalidate", f"Emptying slot {slot.name}")
+    if slot.state != "empty":
+        slots._remove_entries(layout, slot.name)
+    # No kernel image names a random UUID, so from here until the end the slot cannot be booted half-written.
+    slots._set_uuid(layout, slot.number, uuid.uuid4(), runner)
+    slots._set_uuid(layout, slot.verity_number, uuid.uuid4(), runner)
+
+    ctx.step("write", "Writing the system image")
+    with open(files["root"], "rb") as source, opener(slot.device, "r+b") as device:
+        slots.copy_range(source, device, length, lambda f: ctx.progress(0.3 + 0.3 * f))
+    with open(files["verity"], "rb") as source, opener(slot.verity_device, "r+b") as device:
+        slots.copy_range(source, device, hash_length, lambda f: ctx.progress(0.6 + 0.05 * f))
+    ctx.step("verify-write", "Verifying what was written")
+    with opener(slot.device, "rb") as device:
+        actual = slots._digest(device, 0, length, lambda f: ctx.progress(0.65 + 0.15 * f))
+    with opener(slot.verity_device, "rb") as device:
+        actual_hash = slots._digest(device, 0, hash_length, lambda f: ctx.progress(0.8 + 0.03 * f))
+    if actual != manifest["root"]["sha256"] or actual_hash != manifest["verity"]["sha256"]:
+        raise Failed("what was written does not match the update; the slot was left unbootable")
+
+    ctx.step("label", "Naming the new slot by its root hash")
+    slots._set_uuid(layout, slot.number, data_uuid, runner)
+    slots._set_uuid(layout, slot.verity_number, hash_uuid, runner)
+    ctx.step("image", "Installing the kernel image")
+    entry_file = f"ecp_{version}+3.efi"
+    os.makedirs(layout.uki_dir, exist_ok=True)
+    temporary = os.path.join(layout.uki_dir, f".{entry_file}.tmp")
+    with open(files["uki"], "rb") as source, open(temporary, "wb") as handle:
+        shutil.copyfileobj(source, handle, CHUNK)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(temporary, os.path.join(layout.uki_dir, entry_file))
+    ctx.progress(0.86)
+    return slot, slot.label, entry_file, length
+
 def install(paths, archive, ctx, target="", unsigned=False, force=False, runner=run, opener=open, mount=None):
     """Install the update in `archive` into the standby slot and prepare the next boot. Returns a summary."""
     layout = slots.discover(paths)
@@ -261,52 +401,10 @@ def install(paths, archive, ctx, target="", unsigned=False, force=False, runner=
         ctx.step("verify", "Checking the update")
         manifest, files, signed = read_archive(archive, stage, paths, unsigned, runner, lambda f: ctx.progress(0.3 * f))
         version = manifest["version"]
-        slot = _choose_target(layout, target, version, force)
-        slots._check_free(layout, slot)
-        if manifest["root"]["size"] > slot.size:
-            raise InvalidArgument(f"the image ({manifest['root']['size']} bytes) does not fit slot {slot.name} ({slot.size} bytes)")
-        if slot.state != "empty" and slot.name != version and not force and slot.default:
-            raise InvalidArgument(f"slot {slot.name} is the default boot entry; select the running slot first or pass force")
-        for other in layout.slots:
-            if other.name == version and other is not slot and other.state != "empty":
-                raise InvalidArgument(f"a slot named {version} already exists")
-        label = slots.LABEL_PREFIX + version
-
-        ctx.step("prepare", "Preparing the kernel image")
-        with open(os.path.join(layout.uki_dir, layout.running.entry.file), "rb") as handle:
-            running_text = pe.read_cmdline(handle.read())
-        with open(files["uki"], "rb") as handle:
-            uki = pe.rewrite_cmdline(handle.read(), lambda text: update_cmdline(text, running_text, label))
-        length = manifest["root"]["size"]
-        ctx.log(f"installing version {version} ({length} bytes) into slot {slot.name} ({slot.device})")
-
-        ctx.commit()
-        ctx.step("invalidate", f"Emptying slot {slot.name}")
-        if slot.state != "empty":
-            slots._remove_entries(layout, slot.name)
-            slots._relabel(layout, slot, slots.EMPTY_LABEL, runner)
-
-        ctx.step("write", "Writing the system image")
-        with open(files["root"], "rb") as source, opener(slot.device, "r+b") as device:
-            slots.copy_range(source, device, length, lambda f: ctx.progress(0.3 + 0.4 * f))
-        ctx.step("verify-write", "Verifying what was written")
-        with opener(slot.device, "rb") as device:
-            actual = slots._digest(device, 0, length, lambda f: ctx.progress(0.7 + 0.15 * f))
-        if actual != manifest["root"]["sha256"]:
-            raise Failed("what was written does not match the image; the slot was left empty")
-
-        ctx.step("label", "Labelling the new slot")
-        slots._relabel(layout, slot, label, runner)
-        ctx.step("image", "Installing the kernel image")
-        entry_file = f"ecp_{version}+3.efi"
-        os.makedirs(layout.uki_dir, exist_ok=True)
-        temporary = os.path.join(layout.uki_dir, f".{entry_file}.tmp")
-        with open(temporary, "wb") as handle:
-            handle.write(uki)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, os.path.join(layout.uki_dir, entry_file))
-        ctx.progress(0.86)
+        if manifest["format"] == 2:
+            slot, label, entry_file, length = _write_verity(layout, manifest, files, target, force, ctx, runner, opener)
+        else:
+            slot, label, entry_file, length = _write_legacy(layout, manifest, files, target, force, ctx, runner, opener)
     finally:
         shutil.rmtree(stage, ignore_errors=True)
 

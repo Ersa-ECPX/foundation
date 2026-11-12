@@ -18,14 +18,17 @@ import hashlib
 import os
 import re
 import struct
+import uuid
 from dataclasses import dataclass, field
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
-from . import efi, gpt, osinfo, pe
+from . import efi, gpt, osinfo, pe, verity
 from .runner import check, run
 
 LABEL_PREFIX = "ecp-root_"
 LIVE_PREFIX = "ecp-live_"         # the installer medium's root (see layout.py)
+FIXED_PREFIX = "ecp-root-"        # a dm-verity slot: the label never changes ("ecp-root-a"); its content is named by the root hash
+VERITY_PREFIX = "ecp-verity-"     # that slot's hash partition ("ecp-verity-a")
 EMPTY_LABEL = "_empty"
 ENTRY = re.compile(r"^ecp_(?P<name>.+?)(?:\+(?P<left>\d+)(?:-(?P<done>\d+))?)?\.efi$")
 ESP_CANDIDATES = ("/efi", "/boot", "/boot/efi")
@@ -58,6 +61,9 @@ class Slot:
     running: bool = False
     default: bool = False
     entry: Entry = None
+    verity_number: int = 0    # the slot's hash partition, for a dm-verity slot (0: a legacy slot, root hash not used)
+    verity_device: str = ""
+    verity_size: int = 0
 
     def as_dict(self):
         return {
@@ -66,6 +72,7 @@ class Slot:
             "entry": self.entry.file if self.entry else "",
             "tries_left": self.entry.left if self.entry else -1,
             "bootable": bool(self.entry) and self.state != "empty",
+            "verity": bool(self.verity_number),
         }
 
 
@@ -137,6 +144,30 @@ def list_entries(esp):
     return found
 
 
+def hash_entries(esp):
+    """{data partition UUID: Entry} for the UKIs on the ESP that carry a root hash (dm-verity images).
+
+    The UUID is what the partition holding that image is called, so this is how a slot with a fixed label is matched with
+    the kernel image that boots it. A file that cannot be read is left out; a slot with several files keeps the first."""
+    found = {}
+    base = os.path.join(esp, "EFI", "Linux")
+    try:
+        names = sorted(os.listdir(base))
+    except OSError:
+        return found
+    for filename in names:
+        entry = parse_entry(filename)
+        if not entry:
+            continue
+        try:
+            roothash = verity.roothash_of(verity.cmdline_of_file(os.path.join(base, filename)))
+        except (OSError, Failed):
+            continue
+        if roothash:
+            found.setdefault(verity.uuids(roothash)[0], entry)
+    return found
+
+
 def _partition_of(device, sysfs):
     """(disk name, partition number) for a partition device, from sysfs; (None, None) otherwise."""
     node = os.path.join(sysfs, "class/block", os.path.basename(os.path.realpath(device)))
@@ -180,8 +211,28 @@ def discover(paths, machine=None):
     entries = list_entries(layout.esp) if layout.esp else {}
     default = efi.read_loader_variable("LoaderEntryDefault", paths["efivars"])
     default_entry = parse_entry(default) if default else None
+    verity_type = verity.ROOT_VERITY_TYPES.get(machine)
+    hash_parts = {p.name[len(VERITY_PREFIX):]: p for p in table if p.type == verity_type and p.name.startswith(VERITY_PREFIX)}
+    by_hash = hash_entries(layout.esp) if layout.esp else {}
     for part in table:
         if part.type != root_type:
+            continue
+        if part.name.startswith(FIXED_PREFIX):
+            suffix = part.name[len(FIXED_PREFIX):]
+            entry = by_hash.get(part.uuid)
+            companion = hash_parts.get(suffix)
+            slot = Slot(
+                name=entry.name if entry else suffix, label=part.name, device=partition_device(layout.disk, part.number),
+                number=part.number, size=part.size, offset=part.offset,
+                state="empty" if entry is None else ("running" if part.number == running_number else "standby"),
+                running=part.number == running_number, entry=entry,
+                verity_number=companion.number if companion else 0,
+                verity_device=partition_device(layout.disk, companion.number) if companion else "",
+                verity_size=companion.size if companion else 0)
+            slot.default = bool(default_entry and entry and default_entry.name == entry.name)
+            layout.slots.append(slot)
+            if slot.running:
+                layout.running = slot
             continue
         if part.name.startswith(LABEL_PREFIX):
             name = part.name[len(LABEL_PREFIX):]
@@ -280,6 +331,25 @@ def _relabel(layout, slot, label, runner):
             raise
     if _label_on_disk(layout, slot.number) != label:
         raise Failed(f"the label of partition {slot.number} did not change to {label}")
+
+
+def _uuid_on_disk(layout, number):
+    for part in gpt.read_table(layout.disk, layout.sector):
+        if part.number == number:
+            return part.uuid
+    return None
+
+
+def _set_uuid(layout, number, value, runner):
+    """Set a partition's GPT UUID with sfdisk and confirm it on disk (like _relabel, the table on disk is the truth)."""
+    value = uuid.UUID(str(value))
+    try:
+        check(["sfdisk", "--part-uuid", layout.disk, str(number), str(value)], 30, runner=runner)
+    except Failed:
+        if _uuid_on_disk(layout, number) != value:
+            raise
+    if _uuid_on_disk(layout, number) != value:
+        raise Failed(f"the UUID of partition {number} did not change to {value}")
 
 
 def _remove_entries(layout, name):
