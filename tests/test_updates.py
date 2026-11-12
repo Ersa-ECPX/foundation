@@ -288,6 +288,39 @@ class ArchiveScript(Fixture):
         result = self.install(archive, unsigned=False)
         self.assertTrue(result["signed"])
 
+    @unittest.skipUnless(GPG, "needs gpg")
+    def test_the_key_script_and_the_archive_script_work_together(self):
+        """scripts/make-image-signing-key makes a key, its public half is what the system trusts, and an update signed
+        with it (passphrase from a file, as in CI) installs; a signature by another key, or a changed manifest, does not."""
+        script = os.path.join(HERE, "..", "..", "scripts", "make-image-signing-key")
+        if not os.path.exists(script):
+            self.skipTest("scripts/ is not part of this checkout")
+        made = os.path.join(self.system.tmp, "imagekey")
+        subprocess.run(["bash", script, made], check=True, capture_output=True)
+        public = [n for n in os.listdir(made) if n.startswith("ersa-image-") and n.endswith(".asc")]
+        self.assertEqual(len(public), 1)
+        self.trust(os.path.join(made, public[0]))
+        fingerprint = subprocess.run(["gpg", "--homedir", os.path.join(made, "gnupg"), "--list-keys", "--with-colons"], check=True,
+                                     capture_output=True, text=True).stdout.split("fpr:::::::::")[1].split(":")[0]
+        env = {"GNUPGHOME": os.path.join(made, "gnupg"), "ECP_SIGN_KEY": fingerprint,
+               "ECP_SIGN_PASSPHRASE_FILE": os.path.join(made, "passphrase.txt")}
+        archive = self.make("--sign", env=env)
+        self.assertTrue(self.install(archive, unsigned=False)["signed"])
+
+    @unittest.skipUnless(GPG, "needs gpg")
+    def test_a_signed_archive_whose_manifest_was_changed_is_refused(self):
+        self.trust(self.good_key)
+        archive = self.make("--sign", env={"ECP_SIGN_KEY": "good@example.org", "GNUPGHOME": os.path.join(self.keys, "good")})
+        data = subprocess.run(["zstd", "-dc", archive], check=True, capture_output=True).stdout
+        changed = data.replace(b'"version": "0.3.0"', b'"version": "0.3.1"', 1)
+        self.assertNotEqual(changed, data)
+        path = os.path.join(self.system.tmp, "changed.tar")
+        with open(path, "wb") as handle:
+            handle.write(changed)
+        with self.assertRaisesRegex(Failed, "not signed by a trusted"):
+            self.install(path, unsigned=False)
+        self.untouched()
+
 
 class Cmdline(unittest.TestCase):
     def test_the_new_slot_is_named_and_the_data_volume_of_this_install_is_kept(self):

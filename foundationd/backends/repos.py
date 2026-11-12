@@ -317,7 +317,11 @@ def digest(path, algorithm):
 # -- signatures --------------------------------------------------------------------------------
 
 def verify_detached(data, signature, key_files, runner=run):
-    """True if `signature` is a valid detached GPG signature of `data` by one of the keys."""
+    """True if `signature` is a valid detached GPG signature of `data` by one of the keys.
+
+    Only a good signature counts: gpg's own exit status is 0 for a signature by an expired or revoked key (it only warns),
+    so the status lines decide. VALIDSIG must be there and none of EXPSIG (the signature expired), EXPKEYSIG (the key
+    expired), REVKEYSIG (the key was revoked) or BADSIG."""
     with tempfile.TemporaryDirectory(prefix="gnupg.") as home:
         os.chmod(home, 0o700)
         base = ["gpg", "--batch", "--no-tty", "--homedir", home]
@@ -330,8 +334,11 @@ def verify_detached(data, signature, key_files, runner=run):
             handle.write(data)
         with open(sig_path, "wb") as handle:
             handle.write(signature)
-        code, _out, _error = runner(base + ["--verify", sig_path, data_path], 30)
-        return code == 0
+        code, out, error = runner(base + ["--status-fd", "1", "--verify", sig_path, data_path], 30)
+        words = {line.split()[1] for line in (out or "").splitlines() if line.startswith("[GNUPG:] ") and len(line.split()) > 1}
+        if code != 0 or "VALIDSIG" not in words:
+            return False
+        return not words & {"EXPSIG", "EXPKEYSIG", "REVKEYSIG", "BADSIG", "ERRSIG"}
 
 
 def verify_rpms(files, key_files, runner=run):
