@@ -2,7 +2,10 @@
 
 import os
 import re
+import shutil
+import struct
 import sys
+import tempfile
 import unittest
 
 HERE = os.path.dirname(__file__)
@@ -10,7 +13,7 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 
 import support  # noqa: E402
-from foundationd.backends import pe, splash  # noqa: E402
+from foundationd.backends import splash  # noqa: E402
 from foundationd.errors import Failed, InvalidArgument  # noqa: E402
 
 SOURCES = os.path.join(os.environ.get("ECP_PACKAGES_DIR", "/nonexistent"), "ersa-boot-splash", "SOURCES")   # a checkout of the packages repository
@@ -58,18 +61,23 @@ class SyncScript(unittest.TestCase):
 
 
 class Text(unittest.TestCase):
-    def test_dark_adds_the_token_and_keeps_the_others(self):
-        self.assertEqual(splash.apply_theme("quiet root=X rw", "dark"), "quiet root=X rw plymouth.splash=ersa-dark")
+    def test_dark_sets_the_theme_line_and_keeps_the_others(self):
+        self.assertEqual(splash.apply_theme("[Daemon]\nTheme=ersa\nShowDelay=0\n", "dark"), "[Daemon]\nTheme=ersa-dark\nShowDelay=0\n")
 
-    def test_light_removes_the_token_and_keeps_the_others(self):
-        self.assertEqual(splash.apply_theme("quiet plymouth.splash=ersa-dark root=X", "light"), "quiet root=X")
+    def test_light_sets_the_default_theme_again(self):
+        self.assertEqual(splash.apply_theme("[Daemon]\nTheme=ersa-dark\n", "light"), "[Daemon]\nTheme=ersa\n")
 
-    def test_a_foreign_theme_is_replaced_by_dark(self):
-        self.assertEqual(splash.apply_theme("a plymouth.splash=x b", "dark"), "a b plymouth.splash=ersa-dark")
+    def test_a_missing_line_is_added_under_daemon_and_a_missing_section_is_made(self):
+        self.assertEqual(splash.apply_theme("[Daemon]\nShowDelay=0\n", "dark"), "[Daemon]\nTheme=ersa-dark\nShowDelay=0\n")
+        self.assertEqual(splash.apply_theme("", "dark"), "[Daemon]\nTheme=ersa-dark\n")
 
-    def test_an_unchanged_line_is_returned_as_it_is(self):
-        self.assertEqual(splash.apply_theme("a plymouth.splash=ersa-dark b", "dark"), "a plymouth.splash=ersa-dark b")
-        self.assertEqual(splash.apply_theme("a  b", "light"), "a  b")
+    def test_an_unchanged_file_is_returned_as_it_is(self):
+        self.assertEqual(splash.apply_theme("[Daemon]\nTheme=ersa-dark\n", "dark"), "[Daemon]\nTheme=ersa-dark\n")
+
+    def test_the_theme_of_a_file(self):
+        self.assertEqual(splash.theme_of("[Daemon]\nTheme=ersa-dark\n"), "dark")
+        self.assertEqual(splash.theme_of("[Daemon]\nTheme=ersa\n"), "light")
+        self.assertEqual(splash.theme_of(""), "light")
 
     def test_an_unknown_theme_is_refused(self):
         with self.assertRaises(InvalidArgument):
@@ -78,70 +86,111 @@ class Text(unittest.TestCase):
 
 class Backend(unittest.TestCase):
     def setUp(self):
-        self.system = support.FakeSystem(slot_names=("0.2.0", "0.1.0"), running=1)
-        self.addCleanup(self.system.cleanup)
-        self.system.uki("0.2.0")
-        self.system.uki("0.1.0", tries=2)
-        self.paths = self.system.paths
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.efivars = os.path.join(self.root, "efivars")
+        os.makedirs(self.efivars)
+        os.makedirs(os.path.join(self.root, "root/etc/plymouth"))
+        self.paths = {"efivars": self.efivars, "root": os.path.join(self.root, "root")}
+        self.config = os.path.join(self.root, "root/etc/plymouth/plymouthd.conf")
+        with open(self.config, "w") as handle:
+            handle.write("[Daemon]\nTheme=ersa\n")
         self.ctx = support.Recorder()
 
-    def cmdline(self, name):
-        with open(os.path.join(self.system.esp, "EFI/Linux", name), "rb") as handle:
-            return pe.read_cmdline(handle.read())
+    def variable(self):
+        return os.path.join(self.efivars, splash.VARIABLE)
 
-    def files(self):
-        return sorted(os.listdir(os.path.join(self.system.esp, "EFI/Linux")))
+    def theme_in_config(self):
+        with open(self.config) as handle:
+            return splash.theme_of(handle.read())
 
-    def test_dark_changes_every_image_and_keeps_names_and_other_tokens(self):
+    def test_dark_creates_the_variable_with_its_attributes_and_edits_the_configuration(self):
         result = splash.set_theme(self.paths, "dark", self.ctx)
-        self.assertEqual(result, {"theme": "dark", "changed": ["ecp_0.1.0+2.efi", "ecp_0.2.0.efi"], "skipped": []})
-        self.assertEqual(self.files(), ["ecp_0.1.0+2.efi", "ecp_0.2.0.efi"])
-        self.assertEqual(self.cmdline("ecp_0.2.0.efi"), "quiet root=PARTLABEL=ecp-root_0.2.0 rw plymouth.splash=ersa-dark")
-        self.assertEqual(self.cmdline("ecp_0.1.0+2.efi"), "quiet root=PARTLABEL=ecp-root_0.1.0 rw plymouth.splash=ersa-dark")
+        self.assertEqual(result, {"theme": "dark", "changed": [f"UEFI variable {splash.VARIABLE}", "/etc/plymouth/plymouthd.conf"],
+                                  "skipped": []})
+        with open(self.variable(), "rb") as handle:
+            data = handle.read()
+        self.assertEqual(struct.unpack("<I", data[:4])[0], 0x7)          # non-volatile, boot services, runtime
+        self.assertEqual(data[4:], b"\x01")
+        self.assertEqual(self.theme_in_config(), "dark")
 
-    def test_it_is_idempotent_and_writes_nothing_the_second_time(self):
+    def test_it_is_idempotent_and_changes_nothing_the_second_time(self):
         splash.set_theme(self.paths, "dark", self.ctx)
-        before = {n: os.stat(os.path.join(self.system.esp, "EFI/Linux", n)).st_mtime_ns for n in self.files()}
-        result = splash.set_theme(self.paths, "dark", self.ctx)
-        self.assertEqual(result["changed"], [])
-        after = {n: os.stat(os.path.join(self.system.esp, "EFI/Linux", n)).st_mtime_ns for n in self.files()}
-        self.assertEqual(before, after)
+        self.assertEqual(splash.set_theme(self.paths, "dark", self.ctx)["changed"], [])
+        splash.set_theme(self.paths, "light", self.ctx)
+        self.assertEqual(splash.set_theme(self.paths, "light", self.ctx)["changed"], [])
 
-    def test_light_removes_the_token_again(self):
+    def test_light_removes_the_variable_and_restores_the_default_theme(self):
         splash.set_theme(self.paths, "dark", self.ctx)
         result = splash.set_theme(self.paths, "light", self.ctx)
         self.assertEqual(len(result["changed"]), 2)
-        self.assertEqual(self.cmdline("ecp_0.2.0.efi"), "quiet root=PARTLABEL=ecp-root_0.2.0 rw")
+        self.assertFalse(os.path.exists(self.variable()))
+        self.assertEqual(self.theme_in_config(), "light")
 
-    def test_light_without_a_token_changes_nothing(self):
-        self.assertEqual(splash.set_theme(self.paths, "light", self.ctx)["changed"], [])
+    def test_the_other_lines_of_the_configuration_are_kept(self):
+        with open(self.config, "w") as handle:
+            handle.write("[Daemon]\nTheme=ersa\nShowDelay=3\n")
+        splash.set_theme(self.paths, "dark", self.ctx)
+        with open(self.config) as handle:
+            self.assertEqual(handle.read(), "[Daemon]\nTheme=ersa-dark\nShowDelay=3\n")
 
-    def test_a_signed_image_is_skipped_with_a_reason_and_the_others_are_changed(self):
-        with open(os.path.join(self.system.esp, "EFI/Linux/ecp_0.1.0+2.efi"), "wb") as handle:
-            handle.write(support.build_pe(b"quiet root=X", raw_size=512, signed=True))
+    def test_a_missing_configuration_file_is_created(self):
+        os.unlink(self.config)
+        splash.set_theme(self.paths, "dark", self.ctx)
+        self.assertEqual(self.theme_in_config(), "dark")
+
+    def test_a_computer_without_uefi_variables_still_gets_the_file_and_is_told(self):
+        shutil.rmtree(self.efivars)
         result = splash.set_theme(self.paths, "dark", self.ctx)
-        self.assertEqual(result["changed"], ["ecp_0.2.0.efi"])
-        self.assertEqual([s["file"] for s in result["skipped"]], ["ecp_0.1.0+2.efi"])
-        self.assertIn("signed", result["skipped"][0]["reason"])
-        self.assertEqual(self.cmdline("ecp_0.1.0+2.efi"), "quiet root=X")
+        self.assertEqual(result["changed"], ["/etc/plymouth/plymouthd.conf"])
+        self.assertEqual(len(result["skipped"]), 1)
+        self.assertIn("did not start with UEFI", result["skipped"][0]["reason"])
+        self.assertEqual(self.theme_in_config(), "dark")
 
-    def test_no_room_in_the_command_line_section_is_a_clear_failure(self):
-        full = b"quiet root=PARTLABEL=ecp-root_0.2.0 rw"
-        with open(os.path.join(self.system.esp, "EFI/Linux/ecp_0.2.0.efi"), "wb") as handle:
-            handle.write(support.build_pe(full, raw_size=len(full) + 1))
-        with self.assertRaisesRegex(Failed, r"ecp_0\.2\.0\.efi.*does not fit"):
-            splash.set_theme(self.paths, "dark", self.ctx)
-        self.assertEqual(self.cmdline("ecp_0.2.0.efi"), full.decode())
-        self.assertFalse([n for n in os.listdir(os.path.join(self.system.esp, "EFI/Linux")) if n.startswith(".")])
+    def test_current_reads_the_variable(self):
+        self.assertEqual(splash.current(self.paths), {"theme": "light", "uefi": True})
+        splash.set_theme(self.paths, "dark", self.ctx)
+        self.assertEqual(splash.current(self.paths), {"theme": "dark", "uefi": True})
 
     def test_a_bad_theme_is_refused_before_anything_is_written(self):
         with self.assertRaises(InvalidArgument):
             splash.set_theme(self.paths, "blue", self.ctx)
+        self.assertFalse(os.path.exists(self.variable()))
 
-    def test_current_reads_the_running_slots_image(self):
-        self.assertEqual(splash.current(self.paths), {"theme": "light", "file": "ecp_0.2.0.efi"})
-        splash.set_theme(self.paths, "dark", self.ctx)
-        self.assertEqual(splash.current(self.paths)["theme"], "dark")
+    def test_a_variable_that_cannot_be_written_is_a_clear_failure(self):
+        os.chmod(self.efivars, 0o500)
+        self.addCleanup(os.chmod, self.efivars, 0o700)
+        if os.access(self.efivars, os.W_OK):
+            self.skipTest("running as a user that can write anywhere")
+        with self.assertRaisesRegex(Failed, "cannot write the UEFI variable"):
+            splash.set_theme(self.paths, "dark", self.ctx)
+
+
+class InitrdFiles(unittest.TestCase):
+    """The files that make the initrd follow the variable (mkosi.initrd.extra) agree with the backend."""
+
+    MKOSI = os.path.join(os.environ.get("ECP_MKOSI_DIR", os.path.join(HERE, "..", "..")))
+
+    def read(self, relative):
+        path = os.path.join(self.MKOSI, relative)
+        if not os.path.exists(path):
+            self.skipTest("the image configuration is not part of this checkout")
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_the_unit_runs_only_when_the_variable_exists_and_before_plymouth(self):
+        unit = self.read("mkosi.initrd.extra/usr/lib/systemd/system/ersa-splash-dark.service")
+        self.assertIn(f"ConditionPathExists=/sys/firmware/efi/efivars/{splash.VARIABLE}", unit)
+        self.assertIn("Before=plymouth-start.service", unit)
+
+    def test_plymouth_waits_for_it(self):
+        dropin = self.read("mkosi.initrd.extra/usr/lib/systemd/system/plymouth-start.service.d/50-ersa-splash.conf")
+        self.assertIn("After=ersa-splash-dark.service", dropin)
+        self.assertIn("Wants=ersa-splash-dark.service", dropin)
+
+    def test_the_dark_configuration_selects_the_dark_theme_and_the_default_the_light_one(self):
+        self.assertEqual(splash.theme_of(self.read("mkosi.extra/etc/plymouth/plymouthd-dark.conf")), "dark")
+        self.assertEqual(splash.theme_of(self.read("mkosi.extra/etc/plymouth/plymouthd.conf")), "light")
 
 
 if __name__ == "__main__":

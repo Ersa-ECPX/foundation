@@ -52,7 +52,8 @@ class BootDaemon(JobCase):
              "--defaults-path", os.path.join(self.tmp.name, "defaults.d"), "--conf-path", self.conf,
              "--state-path", os.path.join(self.tmp.name, "state"),
              "--efivars-path", s.efivars, "--mountinfo-path", s.mountinfo, "--sysfs-path", s.paths["sysfs"],
-             "--dev-path", s.paths["dev"], "--esp-path", s.esp, "--os-release-path", s.paths["os_release"], *self.extra_args],
+             "--dev-path", s.paths["dev"], "--esp-path", s.esp, "--os-release-path", s.paths["os_release"],
+             "--root-path", s.paths["root"], *self.extra_args],
             env=env, stderr=subprocess.PIPE, text=True)
 
     def slots(self):
@@ -97,13 +98,15 @@ class BootEndToEnd(BootDaemon):
         _path, props = self.run_job("SetNextBoot", "(s)", "0.2.0")
         self.assertEqual((props["State"], props["Result"]["mode"]), ("done", "next"))
 
-    def test_set_splash_rewrites_the_kernel_image_and_reports_it(self):
+    def test_set_splash_sets_the_uefi_variable_and_reports_it(self):
         _path, props = self.run_job("SetSplash", "(s)", "dark")
         self.assertEqual(props["State"], "done", props["ErrorMessage"])
         self.assertEqual(props["Result"]["theme"], "dark")
-        self.assertEqual(list(props["Result"]["changed"]), ["ecp_0.2.0+2.efi"])
+        self.assertTrue(any(c.startswith("UEFI variable ErsaSplashDark-") for c in props["Result"]["changed"]))
         _path, props = self.run_job("SetSplash", "(s)", "dark")
         self.assertEqual(list(props["Result"]["changed"]), [])
+        _path, props = self.run_job("SetSplash", "(s)", "light")
+        self.assertEqual(len(list(props["Result"]["changed"])), 2)
 
     def test_selecting_an_empty_slot_fails_with_a_clear_error(self):
         _path, props = self.run_job("SetDefaultSlot", "(s)", "empty2")

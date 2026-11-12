@@ -32,7 +32,6 @@ import tempfile
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
 from . import bundles, compat, osinfo, pe, repos, slots
-from . import splash as splash_backend
 from .runner import run
 
 FORMAT = 1
@@ -202,12 +201,11 @@ def read_archive(path, stage, paths, unsigned=False, runner=run, progress=lambda
 def update_cmdline(new_text, running_text, label):
     """The new image's command line, made to boot the new slot and mount this installation's data volume."""
     keep = [t for t in running_text.split() if t.startswith("systemd.mount-extra=")]
-    # The boot splash theme is the user's choice (foundation splash): the running system's token wins over the new image's.
-    splash = [t for t in running_text.split() if t.startswith(splash_backend.KEY)]
-    tokens = [t for t in new_text.split() if not t.startswith(DROP + (splash_backend.KEY,))]
+    # (The boot splash theme is no longer part of the command line: it is a UEFI variable, see splash.py.)
+    tokens = [t for t in new_text.split() if not t.startswith(DROP)]
     if not keep:
         tokens += [t for t in new_text.split() if t.startswith("systemd.mount-extra=")]
-    return " ".join(tokens + [f"root=PARTLABEL={label}"] + keep + splash)
+    return " ".join(tokens + [f"root=PARTLABEL={label}"] + keep)
 
 
 # -- installing --------------------------------------------------------------------------------

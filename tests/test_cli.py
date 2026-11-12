@@ -220,7 +220,7 @@ class Boot(Cli, BootDaemon):
     def test_splash_dark_then_light(self):
         code, out, err = self.cli("splash", "dark")
         self.assertEqual(code, 0, err)
-        self.assertIn("ecp_0.2.0+2.efi", out)
+        self.assertIn("UEFI variable", out)
         self.assertIn("next restart", out)
         code, out, _err = self.cli("splash", "dark", "--json")
         self.assertEqual(json.loads(out[out.index("{\n"):])["result"]["changed"], [])

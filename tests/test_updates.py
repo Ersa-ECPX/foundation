@@ -299,13 +299,10 @@ class Cmdline(unittest.TestCase):
         text = updates.update_cmdline("a root=X systemd.mount-extra=LABEL=D:/var", "r root=Y", "ecp-root_9")
         self.assertEqual(sorted(text.split()), sorted("a root=PARTLABEL=ecp-root_9 systemd.mount-extra=LABEL=D:/var".split()))
 
-    def test_the_running_systems_splash_theme_is_carried_over(self):
+    def test_the_splash_theme_is_not_part_of_the_command_line_any_more(self):
+        # it is a UEFI variable (splash.py), so nothing is carried over and nothing is stripped
         text = updates.update_cmdline("a plymouth.splash=ersa-dark root=X", "r root=Y plymouth.splash=other", "ecp-root_9")
-        self.assertEqual(text, "a root=PARTLABEL=ecp-root_9 plymouth.splash=other")
-
-    def test_a_running_light_system_drops_the_new_images_splash_token(self):
-        text = updates.update_cmdline("a plymouth.splash=ersa-dark root=X", "r root=Y", "ecp-root_9")
-        self.assertEqual(text, "a root=PARTLABEL=ecp-root_9")
+        self.assertEqual(text, "a plymouth.splash=ersa-dark root=PARTLABEL=ecp-root_9")
 
 
 if __name__ == "__main__":

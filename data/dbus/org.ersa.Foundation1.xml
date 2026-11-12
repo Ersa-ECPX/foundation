@@ -243,11 +243,13 @@
       <arg name="job" type="o" direction="out"/>
     </method>
     <!--
-      Set the boot splash theme: "light" (the default) or "dark". Plymouth reads plymouth.splash=ersa-dark
-      from the kernel command line, so this rewrites that token in every unified kernel image on the ESP
-      (light removes it). It takes effect at the next boot. A signed image cannot be changed and is
-      reported under skipped. Requires org.ersa.foundation.splash (allowed for the active local user).
-      Result: theme (s), changed (as, file names), skipped (aa{ss}: file, reason).
+      Set the boot splash theme: "light" (the default) or "dark". The choice is a UEFI variable, ErsaSplashDark-<GUID>
+      (present: dark; absent: light), which the initrd reads before Plymouth starts, plus the Theme= line of
+      /etc/plymouth/plymouthd.conf for the splash shown at shutdown. The kernel image is not touched, so it can be
+      signed. It takes effect at the next boot. A computer that did not start with UEFI has no variables: the file is
+      still written and the boot splash cannot follow the choice (reported under skipped).
+      Requires org.ersa.foundation.splash (allowed for the active local user).
+      Result: theme (s), changed (as, what was changed), skipped (aa{ss}: file, reason).
     -->
     <method name="SetSplash">
       <arg name="theme" type="s" direction="in"/>
