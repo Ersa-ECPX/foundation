@@ -80,11 +80,11 @@ class BootEndToEnd(BootDaemon):
 
     def test_slots(self):
         slots = self.slots()
-        self.assertEqual(set(slots), {"0.2.0", "empty2"})
+        self.assertEqual(set(slots), {"0.2.0", "b"})
         self.assertEqual((slots["0.2.0"]["state"], slots["0.2.0"]["running"], slots["0.2.0"]["bootable"],
                           slots["0.2.0"]["tries_left"], slots["0.2.0"]["entry"]),
                          ("running", True, True, 2, "ecp_0.2.0+2.efi"))
-        self.assertEqual((slots["empty2"]["state"], slots["empty2"]["bootable"]), ("empty", False))
+        self.assertEqual((slots["b"]["state"], slots["b"]["bootable"]), ("empty", False))
 
     def test_set_default_stores_the_counter_free_id(self):
         _path, props = self.run_job("SetDefaultSlot", "(s)", "0.2.0")
@@ -109,46 +109,24 @@ class BootEndToEnd(BootDaemon):
         self.assertEqual(len(list(props["Result"]["changed"])), 2)
 
     def test_selecting_an_empty_slot_fails_with_a_clear_error(self):
-        _path, props = self.run_job("SetDefaultSlot", "(s)", "empty2")
+        _path, props = self.run_job("SetDefaultSlot", "(s)", "b")
         self.assertEqual((props["State"], props["ErrorName"]), ("failed", ERR + "InvalidArgument"))
         self.assertIn("empty", props["ErrorMessage"])
 
-    def test_copy_then_release(self):
-        progress = []
-        self.conn.signal_subscribe(NAME, JOB, "ProgressChanged", None, None, Gio.DBusSignalFlags.NONE,
-                                   lambda c, s, p, i, sig, params: progress.append(params.unpack()[0]))
-        path, props = self.run_job("CopySlot", "(ssb)", "", "empty2", False)
+    def test_release(self):
+        self.system.hold(1, "0.1.0")
+        self.system.uki("0.1.0")
+        _path, props = self.run_job("ReleaseSlot", "(s)", "0.1.0")
         self.assertEqual(props["State"], "done", props["ErrorMessage"])
-        self.assertEqual((props["Result"]["slot"], props["Result"]["entry"], props["Result"]["bytes"]),
-                         ("0.2.0-copy", "ecp_0.2.0-copy+3.efi", 1024 * 1024))
-        self.assertEqual(self.labels()[2], "ecp-root_0.2.0-copy")
-        self.assertIn("ecp_0.2.0-copy+3.efi", self.uki_files())
-        with open(os.path.join(self.system.tmp, "dev/vda1"), "rb") as a, open(os.path.join(self.system.tmp, "dev/vda2"), "rb") as b:
-            self.assertEqual(a.read(1024 * 1024), b.read(1024 * 1024))
-        self.pump(lambda: progress and progress[-1] == 1.0, 3)
-        self.assertEqual(progress, sorted(progress))                 # progress never goes backwards
-        slots = self.slots()
-        self.assertEqual((slots["0.2.0-copy"]["state"], slots["0.2.0-copy"]["bootable"]), ("standby", True))
-
-        _path, props = self.run_job("ReleaseSlot", "(s)", "0.2.0-copy")
-        self.assertEqual(props["State"], "done", props["ErrorMessage"])
-        self.assertEqual(self.labels()[2], "_empty")
+        self.assertEqual(self.labels()[3], "ecp-root-b", "labels never change")
         self.assertEqual(self.uki_files(), ["ecp_0.2.0+2.efi"])
+        slots = self.slots()
+        self.assertEqual(slots["b"]["state"], "empty")
 
-    def test_copying_over_the_running_slot_is_refused_and_changes_nothing(self):
+    def test_releasing_the_running_slot_is_refused_and_changes_nothing(self):
+        self.system.hold(1, "0.1.0")
+        self.system.uki("0.1.0")
         before = (self.labels(), self.uki_files())
-        _path, props = self.run_job("CopySlot", "(ssb)", "empty2", "0.2.0", True)
+        _path, props = self.run_job("ReleaseSlot", "(s)", "0.2.0")
         self.assertEqual(props["State"], "failed")
         self.assertEqual((self.labels(), self.uki_files()), before)
-
-    def test_a_slot_in_use_needs_force(self):
-        self.run_job("CopySlot", "(ssb)", "", "empty2", False)
-        before = (self.labels(), self.uki_files())
-        _path, props = self.run_job("CopySlot", "(ssb)", "", "0.2.0-copy", False)
-        self.assertEqual(props["State"], "failed")
-        self.assertIn("force", props["ErrorMessage"])
-        self.assertEqual((self.labels(), self.uki_files()), before)
-
-
-if __name__ == "__main__":
-    unittest.main()

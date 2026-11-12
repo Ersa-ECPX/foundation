@@ -4,7 +4,6 @@ import os
 import re
 import shlex
 
-ROOT_LABEL = re.compile(r"^ecp-root_(?P<version>.+)$")
 SERVICES = ["NetworkManager.service", "bluetooth.service", "firewalld.service", "gdm.service"]
 
 
@@ -55,32 +54,6 @@ def mounts(mountinfo_path):
             "readonly": "ro" in options and "rw" not in options,
         }
     return result
-
-
-def partition_name(device, sysfs):
-    """The GPT partition name of a block device, from sysfs (the kernel reports it as PARTNAME)."""
-    real = os.path.realpath(device)
-    try:
-        with open(os.path.join(sysfs, "class/block", os.path.basename(real), "uevent"), encoding="utf-8") as handle:
-            for line in handle:
-                if line.startswith("PARTNAME="):
-                    return line.split("=", 1)[1].strip()
-    except OSError:
-        pass
-    return ""
-
-
-def running_slot(paths):
-    """The running root slot (device, label, version) or None if / is not a partition we know."""
-    root = mounts(paths["mountinfo"]).get("/")
-    if not root:
-        return None
-    label = partition_name(root["source"], paths["sysfs"])
-    match = ROOT_LABEL.match(label)
-    return {
-        "device": os.path.realpath(root["source"]), "fstype": root["fstype"], "readonly": root["readonly"],
-        "label": label, "version": match.group("version") if match else None,
-    }
 
 
 def unit_states(units, bus):

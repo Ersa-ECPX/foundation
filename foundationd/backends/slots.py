@@ -1,17 +1,15 @@
-"""Boot slots: discovery, boot state, selection, copying and releasing.
+"""Boot slots: discovery, boot state, selection and releasing.
 
-A slot is a root-type GPT partition on the disk that holds the running root. Its label is
-`ecp-root_<name>` (or `_empty`), and the unified kernel image (UKI) `ecp_<name>[+tries].efi` in
-<ESP>/EFI/Linux boots the partition with that label (its command line says
-`root=PARTLABEL=ecp-root_<name>`).
+A slot is a pair of GPT partitions on the disk that holds the running root: the root filesystem (type root, label
+`ecp-root-a` or `ecp-root-b`) and its dm-verity hash tree (type root-verity, label `ecp-verity-a`/`-b`). Labels never change
+and say nothing about the contents. What a slot holds is named by its root hash: the data partition's GPT UUID is the first
+half of the hash and the hash partition's UUID the second half (verity.py), and the unified kernel image (UKI)
+`ecp_<version>[+tries].efi` in <ESP>/EFI/Linux whose command line says `roothash=<that hash>` is the one that boots it. A slot
+whose UUID matches no kernel image is empty. The installer medium's own root is labelled `ecp-live` (with `ecp-live-verity`).
 
-Everything is derived from the partition table, the ESP's files and the loader's EFI variables,
-read directly. The only commands run are `bootctl` (to write the default entry: there is no other
-interface) and `sfdisk` (to change a partition label safely).
-
-Copying makes the copy a slot of its own: a different label and a UKI whose command line names
-that label. Two partitions with one label would make `root=PARTLABEL=` ambiguous and would leave
-the update tool without a free slot.
+Everything is derived from the partition table, the ESP's files and the loader's EFI variables, read directly. The only
+commands run are `bootctl` (to write the default entry: there is no other interface) and `sfdisk` (to change a partition's
+UUID safely).
 """
 
 import hashlib
@@ -25,14 +23,12 @@ from ..errors import Failed, InvalidArgument, NotFound, Unavailable
 from . import efi, gpt, osinfo, pe, verity
 from .runner import check, run
 
-LABEL_PREFIX = "ecp-root_"
-LIVE_PREFIX = "ecp-live_"         # the installer medium's root (see layout.py)
-FIXED_PREFIX = "ecp-root-"        # a dm-verity slot: the label never changes ("ecp-root-a"); its content is named by the root hash
-VERITY_PREFIX = "ecp-verity-"     # that slot's hash partition ("ecp-verity-a")
-EMPTY_LABEL = "_empty"
+SLOT_PREFIX = "ecp-root-"         # a slot's root partition ("ecp-root-a"); the label never changes
+VERITY_PREFIX = "ecp-verity-"     # its hash partition ("ecp-verity-a")
+LIVE_LABEL = "ecp-live"           # the installer medium's root; never offered as a slot to install into
+LIVE_VERITY_LABEL = "ecp-live-verity"
 ENTRY = re.compile(r"^ecp_(?P<name>.+?)(?:\+(?P<left>\d+)(?:-(?P<done>\d+))?)?\.efi$")
 ESP_CANDIDATES = ("/efi", "/boot", "/boot/efi")
-COPY_SUFFIX = "-copy"
 CHUNK = 4 * 1024 * 1024
 
 
@@ -61,7 +57,8 @@ class Slot:
     running: bool = False
     default: bool = False
     entry: Entry = None
-    verity_number: int = 0    # the slot's hash partition, for a dm-verity slot (0: a legacy slot, root hash not used)
+    live: bool = False        # the installer medium's own root: shown, but never a place to install
+    verity_number: int = 0    # the slot's hash partition
     verity_device: str = ""
     verity_size: int = 0
 
@@ -72,7 +69,7 @@ class Slot:
             "entry": self.entry.file if self.entry else "",
             "tries_left": self.entry.left if self.entry else -1,
             "bootable": bool(self.entry) and self.state != "empty",
-            "verity": bool(self.verity_number),
+            "live": self.live,
         }
 
 
@@ -179,6 +176,27 @@ def _partition_of(device, sysfs):
     return os.path.basename(os.path.dirname(os.path.realpath(node))), number
 
 
+def _backing_partitions(device, sysfs):
+    """[(disk name, partition number)] for the devices under `device`.
+
+    A dm-verity root is /dev/mapper/root, a device-mapper device, not a partition: its backing devices (the data partition and
+    the hash partition) are listed in sysfs under slaves/. A plain partition is its own backing device."""
+    node = os.path.join(sysfs, "class/block", os.path.basename(os.path.realpath(device)))
+    try:
+        under = sorted(os.listdir(os.path.join(node, "slaves")))
+    except OSError:
+        under = []
+    if not under:
+        disk, number = _partition_of(device, sysfs)
+        return [(disk, number)] if disk else []
+    found = []
+    for name in under:
+        disk, number = _partition_of(os.path.join("/dev", name), sysfs)
+        if disk:
+            found.append((disk, number))
+    return found
+
+
 def partition_device(disk_path, number):
     return f"{disk_path}{'p' if disk_path[-1].isdigit() else ''}{number}"
 
@@ -194,9 +212,10 @@ def discover(paths, machine=None):
     root = layout.mounts.get("/")
     if not root:
         raise Unavailable("cannot find the root filesystem")
-    disk, running_number = _partition_of(root["source"], paths["sysfs"])
-    if disk is None:
+    backing = _backing_partitions(root["source"], paths["sysfs"])
+    if not backing:
         raise Unavailable(f"the root filesystem ({root['source']}) is not on a partition")
+    disk = backing[0][0]
     layout.disk = os.path.join(paths["dev"], disk)
     try:
         with open(os.path.join(paths["sysfs"], "class/block", disk, "queue/logical_block_size"), encoding="utf-8") as handle:
@@ -208,7 +227,9 @@ def discover(paths, machine=None):
     except (OSError, gpt.GptError) as error:
         raise Unavailable(f"cannot read the partition table of {layout.disk}: {error}") from error
 
-    entries = list_entries(layout.esp) if layout.esp else {}
+    # of the partitions under the root device, the one of root type is the filesystem (the other is its hash tree)
+    root_numbers = {p.number for p in table if p.type == root_type}
+    running_number = next((number for _disk, number in backing if number in root_numbers), backing[0][1])
     default = efi.read_loader_variable("LoaderEntryDefault", paths["efivars"])
     default_entry = parse_entry(default) if default else None
     verity_type = verity.ROOT_VERITY_TYPES.get(machine)
@@ -217,39 +238,21 @@ def discover(paths, machine=None):
     for part in table:
         if part.type != root_type:
             continue
-        if part.name.startswith(FIXED_PREFIX):
-            suffix = part.name[len(FIXED_PREFIX):]
-            entry = by_hash.get(part.uuid)
-            companion = hash_parts.get(suffix)
-            slot = Slot(
-                name=entry.name if entry else suffix, label=part.name, device=partition_device(layout.disk, part.number),
-                number=part.number, size=part.size, offset=part.offset,
-                state="empty" if entry is None else ("running" if part.number == running_number else "standby"),
-                running=part.number == running_number, entry=entry,
-                verity_number=companion.number if companion else 0,
-                verity_device=partition_device(layout.disk, companion.number) if companion else "",
-                verity_size=companion.size if companion else 0)
-            slot.default = bool(default_entry and entry and default_entry.name == entry.name)
-            layout.slots.append(slot)
-            if slot.running:
-                layout.running = slot
+        live = part.name == LIVE_LABEL
+        if not (live or part.name.startswith(SLOT_PREFIX)):
             continue
-        if part.name.startswith(LABEL_PREFIX):
-            name = part.name[len(LABEL_PREFIX):]
-        elif part.name.startswith(LIVE_PREFIX):
-            name = part.name[len(LIVE_PREFIX):]
-        elif part.name == EMPTY_LABEL:
-            name = f"empty{part.number}"
-        else:
-            continue
-        is_empty = part.name == EMPTY_LABEL
+        suffix = "live" if live else part.name[len(SLOT_PREFIX):]
+        entry = by_hash.get(part.uuid)
+        companion = next((p for p in table if p.type == verity_type and p.name == (LIVE_VERITY_LABEL if live else VERITY_PREFIX + suffix)), None)
         slot = Slot(
-            name=name, label=part.name, device=partition_device(layout.disk, part.number),
+            name=entry.name if entry else suffix, label=part.name, device=partition_device(layout.disk, part.number),
             number=part.number, size=part.size, offset=part.offset,
-            state="empty" if is_empty else ("running" if part.number == running_number else "standby"),
-            running=part.number == running_number,
-            entry=None if is_empty else entries.get(name))
-        slot.default = bool(default_entry and not is_empty and default_entry.name == name)
+            state="empty" if entry is None else ("running" if part.number == running_number else "standby"),
+            running=part.number == running_number, entry=entry, live=live,
+            verity_number=companion.number if companion else 0,
+            verity_device=partition_device(layout.disk, companion.number) if companion else "",
+            verity_size=companion.size if companion else 0)
+        slot.default = bool(default_entry and entry and default_entry.name == entry.name)
         layout.slots.append(slot)
         if slot.running:
             layout.running = slot
@@ -311,28 +314,6 @@ def select(paths, name, once, runner=run):
 
 # -- releasing ---------------------------------------------------------------------------------
 
-def _label_on_disk(layout, number):
-    for part in gpt.read_table(layout.disk, layout.sector):
-        if part.number == number:
-            return part.name
-    return None
-
-
-def _relabel(layout, slot, label, runner):
-    """Set a partition label with sfdisk and confirm it on disk.
-
-    sfdisk can report an error when the kernel cannot re-read the table of a disk that has mounted
-    partitions, even though the label was written; the table on disk is the truth, so check that.
-    """
-    try:
-        check(["sfdisk", "--part-label", layout.disk, str(slot.number), label], 30, runner=runner)
-    except Failed:
-        if _label_on_disk(layout, slot.number) != label:
-            raise
-    if _label_on_disk(layout, slot.number) != label:
-        raise Failed(f"the label of partition {slot.number} did not change to {label}")
-
-
 def _uuid_on_disk(layout, number):
     for part in gpt.read_table(layout.disk, layout.sector):
         if part.number == number:
@@ -341,7 +322,7 @@ def _uuid_on_disk(layout, number):
 
 
 def _set_uuid(layout, number, value, runner):
-    """Set a partition's GPT UUID with sfdisk and confirm it on disk (like _relabel, the table on disk is the truth)."""
+    """Set a partition's GPT UUID with sfdisk and confirm it on disk (sfdisk can report an error when the kernel cannot re-read the table of a disk with mounted partitions even though the UUID was written, so the table on disk is the truth)."""
     value = uuid.UUID(str(value))
     try:
         check(["sfdisk", "--part-uuid", layout.disk, str(number), str(value)], 30, runner=runner)
@@ -375,22 +356,28 @@ def _check_free(layout, slot):
 
 
 def release(paths, name, ctx, runner=run):
+    """Make a slot empty: remove its kernel image and give its partitions new random UUIDs, so that nothing names them any more.
+    The data stays on the partition until an update overwrites it."""
     layout = discover(paths)
     slot = layout.find(name)
+    if slot.live:
+        raise InvalidArgument("the installer medium's own root cannot be released")
     if slot.state == "empty":
         return {"slot": slot.name, "released": False}
     _check_free(layout, slot)
-    others = [s for s in layout.slots if s is not slot and s.entry is not None and s.state != "empty"]
+    others = [s for s in layout.slots if s is not slot and s.entry is not None and s.state != "empty" and not s.live]
     if not others:
         raise InvalidArgument("refusing to release the only slot that can boot")
     ctx.step("release", f"Releasing slot {slot.name}")
     ctx.commit()
     removed = _remove_entries(layout, slot.name) if layout.esp else []
-    _relabel(layout, slot, EMPTY_LABEL, runner)
-    return {"slot": slot.name, "released": True, "removed_entries": removed}
+    _set_uuid(layout, slot.number, uuid.uuid4(), runner)
+    if slot.verity_number:
+        _set_uuid(layout, slot.verity_number, uuid.uuid4(), runner)
+    return {"slot": slot.label, "released": True, "removed_entries": removed}
 
 
-# -- copying -----------------------------------------------------------------------------------
+# -- writing a slot ----------------------------------------------------------------------------
 
 def filesystem_length(handle, partition_size):
     """Bytes of an EROFS image (from its superblock), or the whole partition if it is not one."""
@@ -434,87 +421,3 @@ def _digest(handle, offset, length, progress, chunk=CHUNK):
         done += len(data)
         progress(done / length)
     return digest.hexdigest()
-
-
-def new_slot_name(source):
-    return source if source.endswith(COPY_SUFFIX) else source + COPY_SUFFIX
-
-
-def copy(paths, source_name, target_name, force, ctx, runner=run, opener=open):
-    """Copy a slot onto another and make the copy bootable as a slot of its own."""
-    layout = discover(paths)
-    if not layout.esp:
-        raise Unavailable("cannot find the EFI system partition (is it mounted?)")
-    source = layout.find(source_name) if source_name else layout.running
-    if source is None:
-        raise Unavailable("the running slot is unknown; name the source slot")
-    target = layout.find(target_name)
-    if source.state == "empty":
-        raise InvalidArgument("the source slot is empty")
-    if source is target:
-        raise InvalidArgument("the source and the target are the same slot")
-    _check_free(layout, target)
-    if target.state != "empty" and not force:
-        raise InvalidArgument(f"slot {target.name} is in use; pass force to overwrite it")
-    if source.entry is None:
-        raise InvalidArgument(f"slot {source.name} has no kernel image on the ESP to copy")
-
-    new_name = new_slot_name(source.name)
-    for other in layout.slots:
-        if other.name == new_name and other is not target:
-            raise InvalidArgument(f"a slot named {new_name} already exists; release it first")
-    new_label = LABEL_PREFIX + new_name
-
-    # Everything that can fail without damaging anything happens before the point of no return.
-    ctx.step("prepare", "Checking the slots and preparing the kernel image")
-    uki_path = os.path.join(layout.uki_dir, source.entry.file)
-    with open(uki_path, "rb") as handle:
-        uki = handle.read()
-    def point_at_new_slot(text):
-        # An installed system's kernel image names its root by PARTUUID, a built one by label; either way the
-        # copy must boot the new partition, which is found by its label.
-        tokens = text.split(" ")
-        if sum(token.startswith("root=") for token in tokens) != 1:
-            raise InvalidArgument("the kernel command line does not contain root= exactly once")
-        return " ".join(f"root=PARTLABEL={new_label}" if token.startswith("root=") else token for token in tokens)
-    patched = pe.rewrite_cmdline(uki, point_at_new_slot)
-    with opener(source.device, "rb") as probe:
-        length = filesystem_length(probe, source.size)
-    if length > target.size:
-        raise InvalidArgument(f"the target ({target.size} bytes) is smaller than the source data ({length} bytes)")
-    ctx.log(f"copying {length} bytes from {source.device} to {target.device}")
-
-    ctx.commit()
-    # From here the target's old contents are being destroyed. Leave it empty and unbootable
-    # (label _empty, no kernel image) until the copy has been verified.
-    ctx.step("invalidate", f"Emptying slot {target.name}")
-    if target.state != "empty":
-        _remove_entries(layout, target.name)
-        _relabel(layout, target, EMPTY_LABEL, runner)
-
-    ctx.step("copy", "Copying the root filesystem")
-    with opener(source.device, "rb") as src, opener(target.device, "r+b") as dst:
-        copy_range(src, dst, length, lambda f: ctx.progress(0.7 * f))
-
-    ctx.step("verify", "Verifying the copy")
-    with opener(source.device, "rb") as src, opener(target.device, "rb") as dst:
-        expected = _digest(src, 0, length, lambda f: ctx.progress(0.7 + 0.15 * f))
-        actual = _digest(dst, 0, length, lambda f: ctx.progress(0.85 + 0.1 * f))
-    if expected != actual:
-        raise Failed("the copy does not match the source; the target slot was left empty")
-
-    ctx.step("label", "Labelling the new slot")
-    _relabel(layout, target, new_label, runner)
-
-    ctx.step("image", "Installing the kernel image")
-    entry_file = f"ecp_{new_name}+3.efi"
-    final = os.path.join(layout.uki_dir, entry_file)
-    temporary = os.path.join(layout.uki_dir, f".{entry_file}.tmp")
-    os.makedirs(layout.uki_dir, exist_ok=True)
-    with open(temporary, "wb") as handle:
-        handle.write(patched)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(temporary, final)
-    ctx.progress(1.0)
-    return {"slot": new_name, "label": new_label, "entry": entry_file, "bytes": length, "source": source.name}

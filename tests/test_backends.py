@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 
 import support  # noqa: E402
-from foundationd.backends import cpio, elf, gpt, osinfo, pe, slots  # noqa: E402
+from foundationd.backends import cpio, elf, gpt, osinfo, pe, slots, verity  # noqa: E402
 from foundationd.backends.runner import run  # noqa: E402
 from foundationd.errors import Failed, InvalidArgument, NotFound, Unavailable  # noqa: E402
 
@@ -26,9 +26,11 @@ class GptTests(unittest.TestCase):
         system = support.FakeSystem()
         self.addCleanup(system.cleanup)
         table = gpt.read_table(system.image)
-        self.assertEqual([(p.number, p.name) for p in table], [(1, "ecp-root_0.2.0"), (2, "_empty"), (3, "ECP-ESP")])
+        self.assertEqual([(p.number, p.name) for p in table], [(1, "ecp-root-a"), (2, "ecp-verity-a"), (3, "ecp-root-b"),
+                                                               (4, "ecp-verity-b"), (5, "ECP-ESP")])
         self.assertEqual(table[0].size, 4 * support.MIB)
-        self.assertEqual(table[0].type, gpt.ROOT_TYPES["x86_64"])
+        self.assertEqual((table[0].type, table[1].type), (gpt.ROOT_TYPES["x86_64"], verity.ROOT_VERITY_TYPES["x86_64"]))
+        self.assertEqual((table[0].uuid, table[1].uuid), verity.uuids(support.hash_for("0.2.0")))
 
     @needs_sfdisk
     def test_corruption_is_detected(self):
@@ -230,24 +232,26 @@ class SlotDiscoveryTests(unittest.TestCase):
     def discover(self):
         return slots.discover(self.system.paths, machine="x86_64")
 
-    def test_the_installer_mediums_root_counts_as_the_running_slot(self):
-        """Its root is labelled ecp-live_<version> so an installed disk's ecp-root_<version> cannot be mistaken for it."""
+    def test_the_installer_mediums_root_counts_as_the_running_slot_but_is_marked_live(self):
+        """Its root is labelled ecp-live so an installed disk's ecp-root-a cannot be mistaken for it."""
         system = support.FakeSystem(("live:0.3.0",), running=1)
         self.addCleanup(shutil.rmtree, system.tmp, True)
         system.uki("0.3.0")
         layout = slots.discover(system.paths, machine="x86_64")
-        self.assertEqual([(s.name, s.label, s.running) for s in layout.slots], [("0.3.0", "ecp-live_0.3.0", True)])
+        self.assertEqual([(s.name, s.label, s.running, s.live) for s in layout.slots], [("0.3.0", "ecp-live", True, True)])
         self.assertIs(layout.running, layout.slots[0])
         self.assertEqual(layout.running.entry.file, "ecp_0.3.0.efi")
 
     def test_finds_slots_running_and_empty(self):
         self.system.uki("0.2.0", tries=None)
         layout = self.discover()
-        self.assertEqual([(s.name, s.state) for s in layout.slots], [("0.2.0", "running"), ("empty2", "empty")])
+        self.assertEqual([(s.name, s.state) for s in layout.slots], [("0.2.0", "running"), ("b", "empty")])
         self.assertEqual(layout.running.name, "0.2.0")
         self.assertEqual(layout.running.entry.file, "ecp_0.2.0.efi")
 
     def test_state_without_efi_variables(self):
+        self.system.uki("0.2.0")
+        shutil.rmtree(self.system.paths["efivars"])
         state = slots.boot_state(self.system.paths)
         self.assertEqual(state["running_slot"], "0.2.0")
         self.assertEqual(state["assessment"], "unknown")
@@ -309,13 +313,14 @@ class SlotSelectTests(unittest.TestCase):
         slots.select(self.system.paths, "0.2.0", once=True, runner=runner)
         self.assertEqual(runner.calls[0][1], "set-oneshot")
 
-    def test_a_slot_without_a_kernel_image_is_refused(self):
-        with self.assertRaisesRegex(InvalidArgument, "no kernel image"):
-            slots.select(self.system.paths, "0.2.0", once=False, runner=FakeRunner())
+    def test_a_slot_without_a_kernel_image_is_empty_and_refused(self):
+        # nothing names its partitions, so there is nothing to boot
+        with self.assertRaisesRegex(InvalidArgument, "empty"):
+            slots.select(self.system.paths, "a", once=False, runner=FakeRunner())
 
     def test_empty_slot_is_refused(self):
         with self.assertRaisesRegex(InvalidArgument, "empty"):
-            slots.select(self.system.paths, "empty2", once=False, runner=FakeRunner())
+            slots.select(self.system.paths, "ecp-root-b", once=False, runner=FakeRunner())
 
     def test_not_booted_through_uefi(self):
         shutil.rmtree(self.system.paths["efivars"])
@@ -350,156 +355,6 @@ class FindEspTests(unittest.TestCase):
 
 
 @needs_sfdisk
-class SlotCopyTests(unittest.TestCase):
-    FS_BYTES = 1 * support.MIB
-
-    def setUp(self):
-        self.system = support.FakeSystem()
-        self.addCleanup(self.system.cleanup)
-        random.seed(7)
-        self.data = bytes(random.getrandbits(8) for _ in range(self.FS_BYTES + 4096))
-        self.system.fill_slot(1, self.data, erofs_bytes=self.FS_BYTES)
-        self.data = self.partition_bytes(1, self.FS_BYTES + 4096)   # what is really in the source
-        self.system.uki("0.2.0", tries=None)
-
-    def copy(self, ctx=None, **kw):
-        ctx = ctx or support.Recorder()
-        args = dict(source_name="", target_name="empty2", force=False)
-        args.update(kw)
-        return slots.copy(self.system.paths, args["source_name"], args["target_name"], args["force"], ctx,
-                          runner=run, opener=self.system.opener()), ctx
-
-    def labels(self):
-        return {p.number: p.name for p in gpt.read_table(self.system.image)}
-
-    def partition_bytes(self, number, length):
-        part = [p for p in gpt.read_table(self.system.image) if p.number == number][0]
-        with open(self.system.image, "rb") as handle:
-            handle.seek(part.offset)
-            return handle.read(length)
-
-    def test_copy_into_an_empty_slot(self):
-        result, ctx = self.copy()
-        self.assertEqual(result["slot"], "0.2.0-copy")
-        self.assertEqual(result["bytes"], self.FS_BYTES)
-        self.assertEqual(self.labels()[2], "ecp-root_0.2.0-copy")
-        self.assertEqual(self.partition_bytes(2, self.FS_BYTES), self.data[:self.FS_BYTES])
-        self.assertEqual(ctx.steps, ["prepare", "invalidate", "copy", "verify", "label", "image"])
-        self.assertTrue(ctx.committed)
-        self.assertEqual(max(ctx.progress_values), 1.0)
-
-    def test_the_copy_gets_its_own_kernel_image_naming_its_own_root(self):
-        self.copy()
-        uki = os.path.join(self.system.esp, "EFI/Linux/ecp_0.2.0-copy+3.efi")
-        with open(uki, "rb") as handle:
-            self.assertEqual(pe.read_cmdline(handle.read()), "quiet root=PARTLABEL=ecp-root_0.2.0-copy rw")
-        with open(os.path.join(self.system.esp, "EFI/Linux/ecp_0.2.0.efi"), "rb") as handle:
-            self.assertIn("root=PARTLABEL=ecp-root_0.2.0 ", pe.read_cmdline(handle.read()) + " ")  # source untouched
-
-    def test_the_source_slot_is_never_modified(self):
-        before = self.partition_bytes(1, self.FS_BYTES + 4096)
-        self.copy()
-        self.assertEqual(self.partition_bytes(1, self.FS_BYTES + 4096), before)
-        self.assertEqual(self.labels()[1], "ecp-root_0.2.0")
-
-    def test_the_running_slot_cannot_be_a_target(self):
-        self.copy()                                        # slot 2 now holds a populated copy
-        with self.assertRaisesRegex(InvalidArgument, "running slot"):
-            self.copy(source_name="0.2.0-copy", target_name="0.2.0", force=True)
-
-    def test_same_source_and_target(self):
-        with self.assertRaises(InvalidArgument):
-            self.copy(source_name="empty2", target_name="empty2")
-
-    def test_a_slot_in_use_needs_force_and_nothing_changes_without_it(self):
-        self.copy()                       # now slot 2 holds 0.2.0-copy
-        before = (self.labels(), sorted(os.listdir(os.path.join(self.system.esp, "EFI/Linux"))))
-        with self.assertRaisesRegex(InvalidArgument, "force"):
-            self.copy(target_name="0.2.0-copy")
-        self.assertEqual((self.labels(), sorted(os.listdir(os.path.join(self.system.esp, "EFI/Linux")))), before)
-
-    def test_force_overwrites_a_slot_in_use(self):
-        self.copy()
-        self.system.fill_slot(2, b"\xaa" * 8192)          # damage the copy
-        result, _ctx = self.copy(target_name="0.2.0-copy", force=True)
-        self.assertEqual(self.partition_bytes(2, self.FS_BYTES), self.data[:self.FS_BYTES])
-        self.assertEqual(self.labels()[2], "ecp-root_0.2.0-copy")
-        self.assertEqual(result["slot"], "0.2.0-copy")
-
-    def test_a_signed_kernel_image_fails_before_anything_is_destroyed(self):
-        os.unlink(os.path.join(self.system.esp, "EFI/Linux/ecp_0.2.0.efi"))
-        self.system.uki("0.2.0", signed=True)
-        ctx = support.Recorder()
-        with self.assertRaisesRegex(Failed, "signed"):
-            self.copy(ctx)
-        self.assertFalse(ctx.committed)
-        self.assertEqual(self.labels()[2], "_empty")
-
-    def test_source_without_a_kernel_image(self):
-        os.unlink(os.path.join(self.system.esp, "EFI/Linux/ecp_0.2.0.efi"))
-        with self.assertRaisesRegex(InvalidArgument, "no kernel image"):
-            self.copy()
-
-    def test_a_target_that_is_too_small(self):
-        system = support.FakeSystem(slot_names=("0.2.0", "empty"), root_mib=4)
-        self.addCleanup(system.cleanup)
-        system.fill_slot(1, b"x" * 4096, erofs_bytes=3 * support.MIB)
-        system.uki("0.2.0")
-        # Pretend the filesystem is bigger than the partition by shrinking the target: use a 1 MiB table.
-        support.sfdisk(system.image, "label: gpt\nfirst-lba: 2048\n\n"
-                       f'size=4M, type={support.ROOT_TYPE}, name="ecp-root_0.2.0"\n'
-                       f'size=1M, type={support.ROOT_TYPE}, name="_empty"\n'
-                       f'size=8M, type={support.ESP_TYPE}, name="ECP-ESP"\n')
-        system.fill_slot(1, b"x" * 4096, erofs_bytes=3 * support.MIB)
-        with self.assertRaisesRegex(InvalidArgument, "smaller"):
-            slots.copy(system.paths, "", "empty2", False, support.Recorder(), opener=system.opener())
-
-    def test_a_failed_verification_leaves_the_target_empty_and_unbootable(self):
-        real_opener = self.system.opener()
-
-        class Corrupting(support.SliceFile):
-            def write(self, data):
-                return super().write(bytes([data[0] ^ 0xFF]) + data[1:])
-
-        def opener(path, mode="rb"):
-            if "+" in mode:
-                from foundationd.backends import gpt as g
-                part = [p for p in g.read_table(self.system.image) if p.number == 2][0]
-                return Corrupting(self.system.image, part.offset, part.size, mode)
-            return real_opener(path, mode)
-
-        with self.assertRaisesRegex(Failed, "does not match"):
-            slots.copy(self.system.paths, "", "empty2", False, support.Recorder(), opener=opener)
-        self.assertEqual(self.labels()[2], "_empty")
-        self.assertNotIn("ecp_0.2.0-copy+3.efi", os.listdir(os.path.join(self.system.esp, "EFI/Linux")))
-
-    def test_old_kernel_image_of_the_overwritten_slot_is_removed(self):
-        self.system.fill_slot(2, b"old" * 100)
-        support.sfdisk_label = None
-        import subprocess
-        subprocess.run(["sfdisk", "--part-label", self.system.image, "2", "ecp-root_0.1.0"], check=True, capture_output=True)
-        self.system.uki("0.1.0")
-        self.copy(target_name="0.1.0", force=True)
-        files = os.listdir(os.path.join(self.system.esp, "EFI/Linux"))
-        self.assertNotIn("ecp_0.1.0.efi", files)
-        self.assertIn("ecp_0.2.0-copy+3.efi", files)
-
-    def test_copying_a_copy_does_not_stack_suffixes(self):
-        self.assertEqual(slots.new_slot_name("0.2.0"), "0.2.0-copy")
-        self.assertEqual(slots.new_slot_name("0.2.0-copy"), "0.2.0-copy")
-
-    def test_the_target_must_not_be_mounted(self):
-        self.system.write_mountinfo([f"40 36 0:5 / /mnt rw - ext4 {self.system.paths['dev']}/vda2 rw"])
-        with self.assertRaisesRegex(InvalidArgument, "mounted"):
-            self.copy()
-
-    def test_relabel_failure_is_detected_even_if_the_tool_lies(self):
-        layout = slots.discover(self.system.paths, machine="x86_64")
-        with self.assertRaisesRegex(Failed, "did not change"):
-            slots._relabel(layout, layout.slots[1], "ecp-root_zzz", FakeRunner())   # reports success, changes nothing
-
-
-@needs_sfdisk
 class SlotReleaseTests(unittest.TestCase):
     def setUp(self):
         self.system = support.FakeSystem(slot_names=("0.2.0", "0.1.0"))
@@ -510,8 +365,19 @@ class SlotReleaseTests(unittest.TestCase):
     def test_release_a_standby_slot(self):
         result = slots.release(self.system.paths, "0.1.0", support.Recorder())
         self.assertTrue(result["released"])
-        self.assertEqual({p.number: p.name for p in gpt.read_table(self.system.image)}[2], "_empty")
+        table = {p.number: p for p in gpt.read_table(self.system.image)}
+        self.assertEqual((table[3].name, table[4].name), ("ecp-root-b", "ecp-verity-b"), "labels never change")
+        self.assertNotEqual(table[3].uuid, verity.uuids(support.hash_for("0.1.0"))[0], "nothing names the slot any more")
         self.assertEqual(os.listdir(os.path.join(self.system.esp, "EFI/Linux")), ["ecp_0.2.0.efi"])
+        self.assertEqual(slots.discover(self.system.paths).slots[1].state, "empty")
+
+    def test_the_installer_mediums_root_cannot_be_released(self):
+        system = support.FakeSystem(("live:0.3.0", "0.2.0"), running=2)
+        self.addCleanup(system.cleanup)
+        system.uki("0.3.0")
+        system.uki("0.2.0")
+        with self.assertRaisesRegex(InvalidArgument, "installer medium"):
+            slots.release(system.paths, "0.3.0", support.Recorder())
 
     def test_running_slot_cannot_be_released(self):
         with self.assertRaisesRegex(InvalidArgument, "running"):
@@ -524,7 +390,7 @@ class SlotReleaseTests(unittest.TestCase):
 
     def test_releasing_an_empty_slot_is_a_no_op(self):
         slots.release(self.system.paths, "0.1.0", support.Recorder())
-        self.assertFalse(slots.release(self.system.paths, "empty2", support.Recorder())["released"])
+        self.assertFalse(slots.release(self.system.paths, "ecp-root-b", support.Recorder())["released"])
 
 
 if __name__ == "__main__":

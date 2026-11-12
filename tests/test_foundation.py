@@ -113,17 +113,13 @@ class Parser(unittest.TestCase):
 
     def test_the_commands_exist(self):
         for argv in (["status"], ["slot", "status"], ["slot", "list"], ["slot", "boot", "a", "--once"],
-                     ["slot", "copy", "--to", "b"], ["slot", "release", "a"], ["reboot", "--firmware"],
+                     ["slot", "release", "a"], ["reboot", "--firmware"],
                      ["apps", "install", "org.x"], ["compat", "install", "f.rpm", "--force"], ["ext", "merge", "--kind", "confext"],
                      ["config", "set", "k", "v"], ["job", "cancel", "3"], ["base", "gtk"]):
             self.assertTrue(callable(self.parse(*argv).func), argv)
 
-    def test_copy_needs_a_target(self):
-        with self.assertRaises(SystemExit), mock.patch("sys.stderr", io.StringIO()):
-            self.parse("slot", "copy")
-
     def test_destructive_commands_accept_yes_and_the_rest_do_not_need_it(self):
-        self.assertTrue(self.parse("slot", "copy", "--to", "b", "--yes").yes)
+        self.assertTrue(self.parse("slot", "release", "b", "--yes").yes)
         self.assertFalse(hasattr(self.parse("slot", "status"), "yes"))
 
     def test_user_facing_text_spells_out_the_product_name(self):

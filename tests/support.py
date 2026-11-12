@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 
 ROOT_TYPE = "4f68bce3-e8cd-4db1-96e7-fbcaf984b709"
+VERITY_TYPE = "2c7357ed-ebd2-46d9-aec1-23d437ec2bf5"
 ESP_TYPE = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
 LOADER_GUID = "4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
 MIB = 1024 * 1024
@@ -34,6 +35,12 @@ def build_pe(cmdline, raw_size=512, signed=False, with_cmdline=True):
     if with_cmdline:
         out[0x600:0x600 + len(cmdline)] = cmdline
     return bytes(out)
+
+
+def hash_for(name):
+    """A root hash (64 hex digits) for a slot that holds version `name`: the same name always gives the same hash."""
+    import hashlib
+    return hashlib.sha256(name.encode()).hexdigest()
 
 
 def sfdisk(image, script):
@@ -80,19 +87,36 @@ class SliceFile:
 
 
 class FakeSystem:
-    """A temporary directory laid out like the parts of a running system the slot code reads."""
+    """A temporary directory laid out like the parts of a running system the slot code reads.
+
+    Every slot is a dm-verity pair of partitions: slot k has its root partition k*2+1 (label ecp-root-a, -b, ...) and its hash
+    partition k*2+2 (ecp-verity-a, ...); the ESP is last. A slot named "X" holds version X: its partitions' UUIDs are the two
+    halves of hash_for("X"), which is what the kernel image of version X (`uki("X")`) names on its command line. "empty" slots
+    have random UUIDs, and "live:X" is the installer medium's root (labels ecp-live, ecp-live-verity)."""
 
     def __init__(self, slot_names=("0.2.0", "empty"), running=1, root_mib=4):
+        import uuid as uuidlib
         self.tmp = tempfile.mkdtemp()
         t = self.tmp
+        self.slot_names = tuple(slot_names)
         self.image = os.path.join(t, "dev", "vda")
         os.makedirs(os.path.dirname(self.image))
         with open(self.image, "wb") as handle:
-            handle.truncate(64 * MIB)
+            handle.truncate(96 * MIB)
         script = "label: gpt\nfirst-lba: 2048\n\n"
-        for name in slot_names:
-            label = "_empty" if name == "empty" else (f"ecp-live_{name[5:]}" if name.startswith("live:") else f"ecp-root_{name}")
-            script += f'size={root_mib}M, type={ROOT_TYPE}, name="{label}"\n'
+        for index, name in enumerate(self.slot_names):
+            if name.startswith("live:"):
+                root_label, verity_label = "ecp-live", "ecp-live-verity"
+            else:
+                suffix = chr(ord("a") + index)
+                root_label, verity_label = f"ecp-root-{suffix}", f"ecp-verity-{suffix}"
+            if name == "empty":
+                data_uuid, hash_uuid = uuidlib.uuid4(), uuidlib.uuid4()
+            else:
+                value = hash_for(name[5:] if name.startswith("live:") else name)
+                data_uuid, hash_uuid = uuidlib.UUID(value[:32]), uuidlib.UUID(value[32:])
+            script += f'size={root_mib}M, type={ROOT_TYPE}, name="{root_label}", uuid={data_uuid}\n'
+            script += f'size=1M, type={VERITY_TYPE}, name="{verity_label}", uuid={hash_uuid}\n'
         script += f'size=8M, type={ESP_TYPE}, name="ECP-ESP"\n'
         sfdisk(self.image, script)
         self.running = running
@@ -103,7 +127,7 @@ class FakeSystem:
         with open(os.path.join(sysfs, "devices/vda/queue/logical_block_size"), "w") as handle:
             handle.write("512\n")
         os.symlink("../../devices/vda", os.path.join(sysfs, "class/block/vda"))
-        for number in range(1, len(slot_names) + 2):
+        for number in range(1, 2 * len(self.slot_names) + 2):
             node = os.path.join(sysfs, f"devices/vda/vda{number}")
             os.makedirs(node)
             with open(os.path.join(node, "partition"), "w") as handle:
@@ -122,8 +146,17 @@ class FakeSystem:
         with open(self.paths["os_release"], "w") as handle:
             handle.write('ID="opensuse-tumbleweed"\nIMAGE_ID=ecp\n')
 
+    def hold(self, slot_index, version):
+        """Make slot `slot_index` (0 is the first) hold `version`: its two partitions get the UUIDs of that version's root hash."""
+        import uuid as uuidlib
+        value = hash_for(version)
+        for offset, half in ((1, value[:32]), (2, value[32:])):
+            number = slot_index * 2 + offset
+            subprocess.run(["sfdisk", "--part-uuid", self.image, str(number), str(uuidlib.UUID(half))], check=True, capture_output=True)
+
     def write_mountinfo(self, extra):
-        lines = [f"36 35 0:1 / / ro - erofs /dev/vda{self.running} ro"] + extra
+        number = self.running * 2 - 1       # `running` counts slots from 1; the root partition of slot k is 2k-1
+        lines = [f"36 35 0:1 / / ro - erofs /dev/vda{number} ro"] + extra
         with open(self.mountinfo, "w") as handle:
             handle.write("\n".join(lines) + "\n")
 
@@ -131,7 +164,7 @@ class FakeSystem:
         """Create a UKI file for slot `name`; returns its file name."""
         suffix = "" if tries is None else f"+{tries}"
         filename = f"ecp_{name}{suffix}.efi"
-        cmdline = f"quiet root=PARTLABEL=ecp-root_{root or name} rw".encode()
+        cmdline = f"quiet roothash={hash_for(root or name)} rw".encode()
         with open(os.path.join(self.esp, "EFI/Linux", filename), "wb") as handle:
             handle.write(build_pe(cmdline, **kw))
         return filename

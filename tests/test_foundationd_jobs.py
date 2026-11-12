@@ -242,7 +242,7 @@ class Denied(JobCase):
 
     def test_nothing_starts_without_authorization(self):
         self.assertEqual(self.error_of(EXTENSIONS, "Merge", "(s)", "sysext"), ERR + "NotAuthorized")
-        self.assertEqual(self.error_of(BOOT, "CopySlot", "(ssb)", "", "b", True), ERR + "NotAuthorized")
+        self.assertEqual(self.error_of(BOOT, "ReleaseSlot", "(s)", "b"), ERR + "NotAuthorized")
         self.assertEqual(self.error_of(BOOT, "Reboot", "(b)", False), ERR + "NotAuthorized")
         self.assertEqual(self.error_of(COMPAT, "InstallPackages", "(sasas)", "media", ["vlc"], []), ERR + "NotAuthorized")
         self.assertEqual(self.error_of(COMPAT, "InstallCatalog", "(ssb)", "codecs", "", True), ERR + "NotAuthorized")
@@ -332,7 +332,7 @@ class Persistence(JobCase):
         record_dir = os.path.join(self.tmp.name, "state", "jobs")
         os.makedirs(record_dir, exist_ok=True)
         with open(os.path.join(record_dir, "00000007.json"), "w") as handle:
-            json.dump({"id": 7, "kind": "boot.copy", "state": "running", "step": "copy"}, handle)
+            json.dump({"id": 7, "kind": "boot.release", "state": "running", "step": "release"}, handle)
         self.restart()
         props = self.props("/org/ersa/Foundation1/Job/7")
         self.assertEqual(props["State"], "failed")

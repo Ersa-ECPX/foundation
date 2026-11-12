@@ -1,4 +1,8 @@
-"""Installing a system image update: the archive checks, the slot writes, the next boot."""
+"""Installing a system image update: the archive checks, the slot writes, the next boot.
+
+Every slot is a dm-verity pair: the root partition and its hash partition, labelled ecp-root-a/-b and ecp-verity-a/-b (the labels
+never change), named by the root hash (their GPT UUIDs). An update writes both into the standby slot, names them by the hash and
+copies the signed kernel image exactly as it came."""
 
 import contextlib
 import hashlib
@@ -12,21 +16,21 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import uuid
 
 HERE = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 
 import support  # noqa: E402
-from foundationd.backends import gpt, pe, slots, updates  # noqa: E402
+from foundationd.backends import gpt, slots, updates, verity  # noqa: E402
 from foundationd.backends.runner import run  # noqa: E402
 from foundationd.errors import Failed, InvalidArgument  # noqa: E402
 from test_repos import GPG, _gpg_key, _sign  # noqa: E402
 
-ROOT_BYTES = 1024 * 1024
-CMDLINE = "quiet splash root=PARTLABEL=ecp-root_0.3.0 systemd.mount-extra=LABEL=ECP-DATA:/var:btrfs:subvol=var ecp.pad=----------"
-RUNNING = ("quiet root=PARTUUID=aaaa systemd.mount-extra=PARTUUID=bbbb:/var:btrfs:subvol=var,x-initrd.mount "
-           "systemd.mount-extra=PARTUUID=bbbb:/home:btrfs:subvol=home")
+MIB = 1024 * 1024
+ROOT_TYPE, VERITY_TYPE = str(gpt.ROOT_TYPES["x86_64"]), str(verity.ROOT_VERITY_TYPES["x86_64"])
+NEW_HASH = "bb" * 16 + "cc" * 16
 
 
 def tar_bytes(entries):
@@ -39,40 +43,48 @@ def tar_bytes(entries):
     return buffer.getvalue()
 
 
-class Fixture(unittest.TestCase):
+def cmdline(roothash):
+    return f"ro quiet splash roothash={roothash} ecp.pad=----------------"
+
+
+@unittest.skipUnless(support.tool_available("sfdisk"), "needs sfdisk")
+class Base(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        random.seed(3)
-        cls.root = bytes(random.getrandbits(8) for _ in range(ROOT_BYTES))
+        random.seed(5)
+        cls.root = bytes(random.getrandbits(8) for _ in range(MIB))
+        cls.tree = bytes(random.getrandbits(8) for _ in range(64 * 1024))
         cls.keys = tempfile.mkdtemp()
         if GPG:
-            cls.good_home, cls.bad_home = os.path.join(cls.keys, "good"), os.path.join(cls.keys, "bad")
-            cls.good_key = _gpg_key(cls.good_home, "good")
-            cls.bad_key = _gpg_key(cls.bad_home, "bad")
+            cls.good_key = _gpg_key(os.path.join(cls.keys, "good"), "good")
+            cls.bad_key = _gpg_key(os.path.join(cls.keys, "bad"), "bad")
 
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(cls.keys, True)
 
     def setUp(self):
-        self.system = support.FakeSystem()
+        self.system = support.FakeSystem()          # slot a runs 0.2.0, slot b is empty
+        self.system.uki("0.2.0")
         self.addCleanup(self.system.cleanup)
-        with open(os.path.join(self.system.esp, "EFI/Linux/ecp_0.2.0.efi"), "wb") as handle:
-            handle.write(support.build_pe(RUNNING.encode(), raw_size=1024))
         self.paths = self.system.paths
         self.ctx = support.Recorder()
-        self.mounted = []
+
+    def uki(self, roothash=NEW_HASH):
+        self.uki_bytes = support.build_pe(cmdline(roothash).encode(), raw_size=1024)
+        return self.uki_bytes
 
     def manifest(self, **changes):
-        uki = support.build_pe(CMDLINE.encode(), raw_size=1024)
-        self.uki = uki
-        data = {"format": 1, "name": "ecp", "version": "0.3.0", "arch": os.uname().machine,
+        uki = self.uki()
+        data = {"format": 1, "name": "ecp", "version": "0.3.0", "arch": os.uname().machine, "roothash": NEW_HASH,
                 "root": {"file": "root.erofs", "sha256": hashlib.sha256(self.root).hexdigest(), "size": len(self.root)},
+                "verity": {"file": "verity.img", "sha256": hashlib.sha256(self.tree).hexdigest(), "size": len(self.tree)},
                 "uki": {"file": "uki.efi", "sha256": hashlib.sha256(uki).hexdigest(), "size": len(uki)}}
         data.update(changes)
+        data = {k: v for k, v in data.items() if v is not None}
         return json.dumps(data).encode()
 
-    def archive(self, manifest=None, extra=(), signed_by=None, root=None, order=None):
+    def archive(self, manifest=None, tree=None, with_tree=True, uki=None, root=None, extra=(), signed_by=None, order=None):
         manifest = manifest or self.manifest()
         entries = [("manifest.json", manifest)]
         if signed_by:
@@ -82,7 +94,10 @@ class Fixture(unittest.TestCase):
             _sign(os.path.join(self.keys, signed_by), signed_by, path, path + ".asc")
             with open(path + ".asc", "rb") as handle:
                 entries.append(("manifest.json.sig", handle.read()))
-        entries += [("root.erofs", self.root if root is None else root), ("uki.efi", self.uki)] + list(extra)
+        entries += [("root.erofs", self.root if root is None else root), ("uki.efi", uki or self.uki_bytes)]
+        if with_tree:
+            entries.append(("verity.img", self.tree if tree is None else tree))
+        entries += list(extra)
         if order:
             entries = [entries[i] for i in order]
         path = os.path.join(self.system.tmp, "update.tar")
@@ -95,43 +110,121 @@ class Fixture(unittest.TestCase):
         os.makedirs(directory, exist_ok=True)
         shutil.copy(key, os.path.join(directory, "ersa-image-test.asc"))
 
-    @contextlib.contextmanager
-    def fake_mount(self, device):
-        self.mounted.append(device)
-        root = tempfile.mkdtemp(dir=self.system.tmp)
-        os.makedirs(os.path.join(root, "usr/lib"))
-        with open(os.path.join(root, "usr/lib/os-release"), "w") as handle:
-            handle.write('ID="opensuse-tumbleweed"\nIMAGE_ID="ecp"\nIMAGE_VERSION="0.3.0"\nVERSION_ID="20251101"\n')
-        yield root
-
-    def install(self, path, **kw):
+    def install(self, path, opener=None, **kw):
         kw.setdefault("unsigned", True)
         kw.setdefault("mount", self.fake_mount)
-        return updates.install(self.paths, path, self.ctx, runner=run, opener=self.system.opener(), **kw)
+        return updates.install(self.paths, path, self.ctx, runner=run, opener=opener or self.system.opener(), **kw)
 
-    def labels(self):
-        return {p.number: p.name for p in gpt.read_table(self.system.image)}
+    def fake_mount(self, device):
+        import contextlib
 
-    def partition_bytes(self, number, length):
-        part = [p for p in gpt.read_table(self.system.image) if p.number == number][0]
+        @contextlib.contextmanager
+        def mounted():
+            root = tempfile.mkdtemp(dir=self.system.tmp)
+            os.makedirs(os.path.join(root, "usr/lib"))
+            with open(os.path.join(root, "usr/lib/os-release"), "w") as handle:
+                handle.write('ID="opensuse-tumbleweed"\nIMAGE_ID="ecp"\nIMAGE_VERSION="0.3.0"\n')
+            yield root
+        return mounted()
+
+    def table(self):
+        return {p.number: p for p in gpt.read_table(self.system.image)}
+
+    def part_bytes(self, number, length):
+        part = self.table()[number]
         with open(self.system.image, "rb") as handle:
             handle.seek(part.offset)
             return handle.read(length)
 
     def untouched(self):
-        self.assertEqual(self.labels()[2], "_empty")
+        table = self.table()
+        self.assertEqual(table[3].name, "ecp-root-b")
+        self.assertNotEqual(table[3].uuid, verity.uuids(NEW_HASH)[0])
         self.assertEqual(sorted(os.listdir(os.path.join(self.system.esp, "EFI/Linux"))), ["ecp_0.2.0.efi"])
-        self.assertEqual(os.listdir(os.path.join(self.paths["state"], "staging")), [])
 
 
-@unittest.skipUnless(support.tool_available("sfdisk"), "needs sfdisk")
-class Installing(Fixture):
-    def test_the_image_is_written_to_the_standby_slot_and_made_bootable(self):
+class Discovery(Base):
+    def test_slots_are_found_by_the_root_hash_not_by_a_label_with_a_version(self):
+        layout = slots.discover(self.paths)
+        a, b = layout.slots
+        self.assertEqual((a.name, a.label, a.state, a.running), ("0.2.0", "ecp-root-a", "running", True))
+        self.assertEqual((b.name, b.label, b.state), ("b", "ecp-root-b", "empty"))
+        self.assertEqual((a.verity_number, b.verity_number), (2, 4))
+        self.assertIs(layout.running, a)
+        self.assertEqual([x["live"] for x in slots.slots(self.paths)], [False, False])
+
+    def test_a_kernel_image_without_a_root_hash_matches_no_slot(self):
+        path = os.path.join(self.system.esp, "EFI/Linux/ecp_0.2.0.efi")
+        with open(path, "wb") as handle:
+            handle.write(support.build_pe(b"quiet root=PARTUUID=aaaa ro", raw_size=1024))
+        self.assertEqual(slots.discover(self.paths).slots[0].state, "empty")
+
+
+class Installing(Base):
+    def test_an_update_lands_named_by_its_hash_with_the_kernel_image_untouched(self):
         result = self.install(self.archive())
-        self.assertEqual((result["version"], result["entry"], result["reboot_required"]), ("0.3.0", "ecp_0.3.0+3.efi", True))
-        self.assertEqual(self.labels()[2], "ecp-root_0.3.0")
-        self.assertEqual(self.partition_bytes(2, ROOT_BYTES), self.root)
-        self.assertEqual(self.labels()[1], "ecp-root_0.2.0", "the running slot is never touched")
+        self.assertEqual((result["version"], result["label"]), ("0.3.0", "ecp-root-b"))
+        table = self.table()
+        self.assertEqual(table[3].name, "ecp-root-b", "the label never changes")
+        self.assertEqual((table[3].uuid, table[4].uuid), verity.uuids(NEW_HASH))
+        self.assertEqual(self.part_bytes(3, len(self.root)), self.root)
+        self.assertEqual(self.part_bytes(4, len(self.tree)), self.tree)
+        landed = os.path.join(self.system.esp, "EFI/Linux/ecp_0.3.0+3.efi")
+        with open(landed, "rb") as handle:
+            self.assertEqual(handle.read(), self.uki_bytes, "the signed kernel image must be copied byte for byte")
+        slot = slots.discover(self.paths).slots[1]
+        self.assertEqual((slot.name, slot.state), ("0.3.0", "standby"))
+        self.assertEqual(slots.discover(self.paths).slots[0].state, "running", "the running slot is untouched")
+
+    def test_the_running_slot_is_not_touched(self):
+        before = self.part_bytes(1, 4096), self.table()[1].uuid, self.table()[2].uuid
+        self.install(self.archive())
+        self.assertEqual((self.part_bytes(1, 4096), self.table()[1].uuid, self.table()[2].uuid), before)
+
+    def test_a_kernel_image_with_another_root_hash_is_refused(self):
+        # a manifest that is self-consistent (it names this kernel image's checksum) but whose root hash is not the image's
+        wrong = self.uki("dd" * 32)
+        manifest = self.manifest(uki={"file": "uki.efi", "sha256": hashlib.sha256(wrong).hexdigest(), "size": len(wrong)})
+        self.refused(self.archive(manifest=manifest, uki=wrong), "does not carry the root hash")
+
+    def test_a_hash_tree_that_does_not_match_the_manifest(self):
+        self.refused(self.archive(tree=self.tree[:-1] + b"X"), "checksum")
+
+    def test_a_hash_tree_too_large_for_the_hash_partition(self):
+        self.tree = b"\0" * (2 * MIB)
+        self.refused(self.archive(), "hash partition", InvalidArgument)
+
+    def test_an_update_without_its_hash_tree(self):
+        self.refused(self.archive(with_tree=False), "incomplete")
+
+    def test_a_manifest_needs_a_usable_root_hash(self):
+        for bad in ("zz", "ab" * 31, None):
+            self.refused(self.archive(manifest=self.manifest(roothash=bad)), "roothash")
+
+    def test_an_update_of_another_format_is_refused(self):
+        self.refused(self.archive(manifest=self.manifest(format=9)), "format")
+        self.refused(self.archive(manifest=self.manifest(format=2)), "format")
+
+    def test_a_failed_write_leaves_the_slot_unbootable_and_the_running_slot_alone(self):
+        real = self.system.opener()
+        calls = []
+
+        def flaky(path, mode="rb"):
+            calls.append(path)
+            if path.endswith("vda4") and "r+b" in mode:
+                raise OSError("disk went away")
+            return real(path, mode)
+        with self.assertRaises(OSError):
+            self.install(self.archive(), opener=flaky)
+        table = self.table()
+        self.assertNotEqual(table[3].uuid, verity.uuids(NEW_HASH)[0], "no kernel image may match a half-written slot")
+        self.assertEqual(slots.discover(self.paths).slots[0].state, "running")
+        self.assertEqual(slots.discover(self.paths).slots[1].state, "empty")
+        self.assertEqual(sorted(os.listdir(os.path.join(self.system.esp, "EFI/Linux"))), ["ecp_0.2.0.efi"])
+
+    def test_every_step_runs_and_the_install_is_committed(self):
+        result = self.install(self.archive())
+        self.assertEqual((result["entry"], result["reboot_required"]), ("ecp_0.3.0+3.efi", True))
         for step in ("verify", "prepare", "write", "label", "image", "bundles", "boot"):
             self.assertIn(step, self.ctx.steps)
         self.assertTrue(self.ctx.committed)
@@ -140,21 +233,8 @@ class Installing(Fixture):
     def test_a_zstd_compressed_archive_is_read(self):
         path = self.archive()
         subprocess.run(["zstd", "-q", "-f", path, "-o", path + ".zst"], check=True)
-        result = self.install(path + ".zst")
-        self.assertEqual(result["version"], "0.3.0")
-        self.assertEqual(self.partition_bytes(2, ROOT_BYTES), self.root)
-
-    def test_the_new_kernel_image_boots_the_new_slot_and_keeps_this_installs_data_volume(self):
-        self.install(self.archive())
-        with open(os.path.join(self.system.esp, "EFI/Linux/ecp_0.3.0+3.efi"), "rb") as handle:
-            text = pe.read_cmdline(handle.read())
-        tokens = text.split()
-        self.assertIn("root=PARTLABEL=ecp-root_0.3.0", tokens)
-        self.assertEqual(sum(t.startswith("root=") for t in tokens), 1)
-        self.assertIn("systemd.mount-extra=PARTUUID=bbbb:/var:btrfs:subvol=var,x-initrd.mount", tokens)
-        self.assertIn("systemd.mount-extra=PARTUUID=bbbb:/home:btrfs:subvol=home", tokens)
-        self.assertFalse(any("LABEL=ECP-DATA" in t or t.startswith("ecp.pad") for t in tokens))
-        self.assertIn("splash", tokens)                       # the new image's own options stay
+        self.assertEqual(self.install(path + ".zst")["version"], "0.3.0")
+        self.assertEqual(self.part_bytes(3, len(self.root)), self.root)
 
     def test_a_restart_is_recorded_for_whoever_wants_to_tell_the_user(self):
         self.install(self.archive())
@@ -163,13 +243,18 @@ class Installing(Fixture):
         self.assertEqual(oct(os.stat(updates.pending_path(self.paths)).st_mode & 0o777), "0o644")
         self.assertFalse(updates.clear_pending(self.paths), "still running the old image")
         with open(self.paths["os_release"], "w") as handle:
-            handle.write('IMAGE_ID=ecp\nIMAGE_VERSION=0.3.0\n')
+            handle.write("IMAGE_ID=ecp\nIMAGE_VERSION=0.3.0\n")
         self.assertTrue(updates.clear_pending(self.paths))
         self.assertEqual(updates.pending(self.paths), {})
 
     def test_bundles_are_prepared_against_the_new_image(self):
-        self.install(self.archive())
-        self.assertEqual(self.mounted, [self.system.paths["dev"] + "/vda2"])
+        mounted = []
+
+        def mount(device):
+            mounted.append(device)
+            return self.fake_mount(device)
+        self.install(self.archive(), mount=mount)
+        self.assertEqual(mounted, [self.system.paths["dev"] + "/vda3"])
 
     def test_the_default_boot_entry_is_set_when_booted_through_uefi(self):
         calls = []
@@ -178,7 +263,8 @@ class Installing(Fixture):
             calls.append(cmd)
             return run(cmd, timeout, input_bytes) if cmd[0] == "sfdisk" else (0, "", "")
         self.system.efivar("LoaderInfo", "systemd-boot")
-        updates.install(self.paths, self.archive(), self.ctx, unsigned=True, runner=runner, opener=self.system.opener(), mount=self.fake_mount)
+        updates.install(self.paths, self.archive(), self.ctx, unsigned=True, runner=runner, opener=self.system.opener(),
+                        mount=self.fake_mount)
         self.assertIn(["bootctl", "set-default", "ecp_0.3.0.efi"], calls)
 
     def test_without_uefi_the_install_still_completes_and_says_what_to_do(self):
@@ -188,8 +274,6 @@ class Installing(Fixture):
         self.assertTrue(any("boot menu" in note for note in result["notes"]))
 
     def test_the_version_already_running_is_refused(self):
-        with open(self.paths["os_release"], "w") as handle:
-            handle.write("IMAGE_ID=ecp\n")
         with self.assertRaisesRegex(InvalidArgument, "already runs"):
             self.install(self.archive(manifest=self.manifest(version="0.2.0")))
         self.untouched()
@@ -200,9 +284,22 @@ class Installing(Fixture):
             self.install(self.archive())
         self.install(self.archive(), force=True)
 
+    def test_the_installer_mediums_own_root_cannot_install_updates(self):
+        table = self.table()
+        # relabel the running root as the installer medium's
+        subprocess.run(["sfdisk", "--part-label", self.system.image, "1", "ecp-live"], check=True, capture_output=True)
+        subprocess.run(["sfdisk", "--part-label", self.system.image, "2", "ecp-live-verity"], check=True, capture_output=True)
+        self.assertTrue(table)
+        with self.assertRaisesRegex(Exception, "not an installed system"):
+            self.install(self.archive())
 
-@unittest.skipUnless(support.tool_available("sfdisk"), "needs sfdisk")
-class Refusing(Fixture):
+    def refused(self, path, pattern, exception=Failed):
+        with self.assertRaisesRegex(exception, pattern):
+            self.install(path)
+        self.untouched()
+
+
+class Refusing(Base):
     """Everything that is wrong with an update is found before the standby slot is touched."""
 
     def refuse(self, path, pattern, exception=Failed, **kw):
@@ -223,7 +320,7 @@ class Refusing(Fixture):
             self.refuse(self.archive(extra=[(name, b"x")]), "unexpected entry")
 
     def test_the_manifest_must_come_first(self):
-        self.refuse(self.archive(order=[1, 0]), "first entry")
+        self.refuse(self.archive(order=[1, 0, 2, 3]), "first entry")
 
     def test_an_incomplete_update(self):
         path = os.path.join(self.system.tmp, "partial.tar")
@@ -235,12 +332,11 @@ class Refusing(Fixture):
         self.refuse(self.archive(manifest=self.manifest(name="other")), "not for this system", InvalidArgument)
         self.refuse(self.archive(manifest=self.manifest(arch="riscv64")), "machines", InvalidArgument)
 
-    def test_a_bad_version_or_format(self):
+    def test_a_bad_version(self):
         self.refuse(self.archive(manifest=self.manifest(version="../x")), "version")
-        self.refuse(self.archive(manifest=self.manifest(format=9)), "format")
 
     def test_an_image_larger_than_the_slot(self):
-        self.root = b"\0" * (5 * 1024 * 1024)
+        self.root = b"\0" * (5 * MIB)
         self.refuse(self.archive(), "does not fit", InvalidArgument)
 
     def test_a_signed_update_needs_a_trusted_key_unless_told_otherwise(self):
@@ -253,22 +349,66 @@ class Refusing(Fixture):
         self.refuse(self.archive(signed_by="bad"), "not signed by a trusted", unsigned=False)
         result = self.install(self.archive(signed_by="good"), unsigned=False)
         self.assertTrue(result["signed"])
-        self.assertEqual(self.labels()[2], "ecp-root_0.3.0")
+        self.assertEqual((self.table()[3].uuid, self.table()[4].uuid), verity.uuids(NEW_HASH))
 
 
 @unittest.skipUnless(os.uname().machine == "x86_64" and shutil.which("zstd"), "needs x86_64 and zstd")
-class ArchiveScript(Fixture):
-    """The script that makes update archives produces what the installer reads."""
+class ArchiveScript(Base):
+    """scripts/make-update-archive makes an archive from the verity build outputs, and the installer takes it."""
 
-    def make(self, *extra, env=None):
-        work = os.path.join(self.system.tmp, "mkarchive")
+    def test_the_archive_script_output_installs_into_a_verity_slot(self):
+        import subprocess
+        script = os.path.join(HERE, "..", "..", "scripts", "make-update-archive")
+        if not os.path.exists(script):
+            self.skipTest("scripts/ is not part of this checkout")
+        work = os.path.join(self.system.tmp, "mk")
         os.makedirs(os.path.join(work, "src"))
-        raw = os.path.join(work, "r.erofs")
+        for name, data in (("root-x86-64", self.root), ("root-verity-x86-64", self.tree)):
+            raw = os.path.join(work, name)
+            with open(raw, "wb") as handle:
+                handle.write(data)
+            subprocess.run(["zstd", "-q", raw, "-o", os.path.join(work, f"src/ecp_0.3.0.{name}.raw.zst")], check=True)
+        with open(os.path.join(work, "src/ecp_0.3.0.roothash"), "w") as handle:
+            handle.write(NEW_HASH + "\n")
+        with open(os.path.join(work, "src/ecp_0.3.0.efi"), "wb") as handle:
+            handle.write(self.uki())
+        subprocess.run([sys.executable, script, "0.3.0", "--source", os.path.join(work, "src"), "--output", os.path.join(work, "out")],
+                       check=True, capture_output=True)
+        archive = os.path.join(work, "out", "ecp_0.3.0-x86_64.tar.zst")
+        result = self.install(archive)
+        self.assertEqual((result["version"], result["label"]), ("0.3.0", "ecp-root-b"))
+        self.assertEqual(self.part_bytes(4, len(self.tree)), self.tree)
+
+    def test_the_hash_tree_and_root_hash_are_required(self):
+        import subprocess
+        script = os.path.join(HERE, "..", "..", "scripts", "make-update-archive")
+        if not os.path.exists(script):
+            self.skipTest("scripts/ is not part of this checkout")
+        work = os.path.join(self.system.tmp, "mk2")
+        os.makedirs(os.path.join(work, "src"))
+        raw = os.path.join(work, "r")
         with open(raw, "wb") as handle:
             handle.write(self.root)
         subprocess.run(["zstd", "-q", raw, "-o", os.path.join(work, "src/ecp_0.3.0.root-x86-64.raw.zst")], check=True)
         with open(os.path.join(work, "src/ecp_0.3.0.efi"), "wb") as handle:
-            handle.write(support.build_pe(CMDLINE.encode(), raw_size=1024))
+            handle.write(self.uki())
+        done = subprocess.run([sys.executable, script, "0.3.0", "--source", os.path.join(work, "src"), "--output", os.path.join(work, "out")],
+                              capture_output=True, text=True)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn("dm-verity", done.stderr)
+
+    def make(self, *extra, env=None):
+        work = os.path.join(self.system.tmp, "mkarchive")
+        os.makedirs(os.path.join(work, "src"), exist_ok=True)
+        for name, data in (("root-x86-64", self.root), ("root-verity-x86-64", self.tree)):
+            raw = os.path.join(work, name)
+            with open(raw, "wb") as handle:
+                handle.write(data)
+            subprocess.run(["zstd", "-q", "-f", raw, "-o", os.path.join(work, f"src/ecp_0.3.0.{name}.raw.zst")], check=True)
+        with open(os.path.join(work, "src/ecp_0.3.0.roothash"), "w") as handle:
+            handle.write(NEW_HASH + "\n")
+        with open(os.path.join(work, "src/ecp_0.3.0.efi"), "wb") as handle:
+            handle.write(self.uki())
         script = os.path.join(HERE, "..", "..", "scripts", "make-update-archive")
         if not os.path.exists(script):
             self.skipTest("scripts/ is not part of this checkout")
@@ -276,22 +416,16 @@ class ArchiveScript(Fixture):
                        check=True, capture_output=True, env={**os.environ, **(env or {})})
         return os.path.join(work, "out", "ecp_0.3.0-x86_64.tar.zst")
 
-    def test_an_unsigned_archive_installs_with_the_unsigned_flag(self):
-        result = self.install(self.make())
-        self.assertEqual((result["version"], result["signed"]), ("0.3.0", False))
-        self.assertEqual(self.partition_bytes(2, ROOT_BYTES), self.root)
-
     @unittest.skipUnless(GPG, "needs gpg")
     def test_a_signed_archive_verifies_against_the_installed_key(self):
         self.trust(self.good_key)
         archive = self.make("--sign", env={"ECP_SIGN_KEY": "good@example.org", "GNUPGHOME": os.path.join(self.keys, "good")})
-        result = self.install(archive, unsigned=False)
-        self.assertTrue(result["signed"])
+        self.assertTrue(self.install(archive, unsigned=False)["signed"])
 
     @unittest.skipUnless(GPG, "needs gpg")
     def test_the_key_script_and_the_archive_script_work_together(self):
         """scripts/make-image-signing-key makes a key, its public half is what the system trusts, and an update signed
-        with it (passphrase from a file, as in CI) installs; a signature by another key, or a changed manifest, does not."""
+        with it (passphrase from a file, as in CI) installs."""
         script = os.path.join(HERE, "..", "..", "scripts", "make-image-signing-key")
         if not os.path.exists(script):
             self.skipTest("scripts/ is not part of this checkout")
@@ -304,8 +438,7 @@ class ArchiveScript(Fixture):
                                      capture_output=True, text=True).stdout.split("fpr:::::::::")[1].split(":")[0]
         env = {"GNUPGHOME": os.path.join(made, "gnupg"), "ECP_SIGN_KEY": fingerprint,
                "ECP_SIGN_PASSPHRASE_FILE": os.path.join(made, "passphrase.txt")}
-        archive = self.make("--sign", env=env)
-        self.assertTrue(self.install(archive, unsigned=False)["signed"])
+        self.assertTrue(self.install(self.make("--sign", env=env), unsigned=False)["signed"])
 
     @unittest.skipUnless(GPG, "needs gpg")
     def test_a_signed_archive_whose_manifest_was_changed_is_refused(self):
@@ -320,22 +453,6 @@ class ArchiveScript(Fixture):
         with self.assertRaisesRegex(Failed, "not signed by a trusted"):
             self.install(path, unsigned=False)
         self.untouched()
-
-
-class Cmdline(unittest.TestCase):
-    def test_the_new_slot_is_named_and_the_data_volume_of_this_install_is_kept(self):
-        text = updates.update_cmdline("a b root=X systemd.mount-extra=LABEL=D:/var ecp.pad=--", "r root=Y systemd.mount-extra=PARTUUID=P:/var",
-                                      "ecp-root_9")
-        self.assertEqual(text, "a b root=PARTLABEL=ecp-root_9 systemd.mount-extra=PARTUUID=P:/var")
-
-    def test_a_running_system_without_pinned_mounts_keeps_the_image_own(self):
-        text = updates.update_cmdline("a root=X systemd.mount-extra=LABEL=D:/var", "r root=Y", "ecp-root_9")
-        self.assertEqual(sorted(text.split()), sorted("a root=PARTLABEL=ecp-root_9 systemd.mount-extra=LABEL=D:/var".split()))
-
-    def test_the_splash_theme_is_not_part_of_the_command_line_any_more(self):
-        # it is a UEFI variable (splash.py), so nothing is carried over and nothing is stripped
-        text = updates.update_cmdline("a plymouth.splash=ersa-dark root=X", "r root=Y plymouth.splash=other", "ecp-root_9")
-        self.assertEqual(text, "a plymouth.splash=ersa-dark root=PARTLABEL=ecp-root_9")
 
 
 if __name__ == "__main__":

@@ -45,8 +45,6 @@ def register(service):
 
     set_default, check_default = job_method("boot.set_default", ("slot",), (validate.slot,))
     set_next, check_next = job_method("boot.set_next", ("slot",), (validate.slot,))
-    copy, check_copy = job_method("boot.copy", ("source", "target", "force"),
-                                  (validate.optional_slot, validate.slot, lambda v: v))
     release, check_release = job_method("boot.release", ("slot",), (validate.slot,))
 
     def splash_theme(value):
@@ -97,7 +95,6 @@ def register(service):
         (BOOT, "GetSlots"): Method(slots),
         (BOOT, "SetDefaultSlot"): Method(set_default, ACTION_BOOT, check_default),
         (BOOT, "SetNextBoot"): Method(set_next, ACTION_BOOT, check_next),
-        (BOOT, "CopySlot"): Method(copy, ACTION_SLOTS, check_copy),
         (BOOT, "ReleaseSlot"): Method(release, ACTION_SLOTS, check_release),
         (BOOT, "SetSplash"): Method(set_splash, ACTION_SPLASH, check_splash),
         (BOOT, "Reboot"): Method(reboot_handler(False), ACTION_BOOT),

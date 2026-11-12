@@ -246,40 +246,6 @@ def cmd_slot_boot(client, args):
     return code
 
 
-def cmd_slot_copy(client, args):
-    slots = client.one("Boot", "GetSlots")
-    source = find_slot(slots, args.source) if args.source else next((s for s in slots if s["running"]), None)
-    if source is None:
-        raise UserError("the running slot is unknown; name the source with --from")
-    target = find_slot(slots, args.target)
-    if target["running"]:
-        raise UserError("the running slot cannot be overwritten")
-    in_use = target["state"] != "empty"
-    if in_use and not args.force:
-        raise UserError(f"slot {target['name']} is in use; add --force to overwrite it")
-    new_name = source["name"] if source["name"].endswith("-copy") else source["name"] + "-copy"
-    ui.title(f"Copy slot {source['name']} to {target['name']}")
-    ui.kv([("Source", f"{source['name']}  ({source['device']}, {ui.human_size(source['size'])})"),
-           ("Target", f"{target['name']}  ({target['device']}, {ui.human_size(target['size'])})"),
-           ("Result", f"a new slot named {new_name} with its own kernel image")])
-    print()
-    if in_use:
-        ui.warn(f"everything in slot {target['name']} will be overwritten and cannot be recovered")
-    else:
-        ui.note(f"Slot {target['name']} is empty; it will become {new_name}.")
-    ui.note("The running slot is only read. Update installs will use this slot again once it is released "
-            "(foundation slot release).")
-    print()
-    if not sure(args, f"Copy slot {source['name']} over {target['name']}?", expected=target["name"] if in_use else None):
-        return 1
-    code, job = run_job(client, args, "Boot", "CopySlot", "(ssb)", args.source or "", target["name"], bool(args.force))
-    if job is not None and job.ok and not args.json:
-        ui.kv([("New slot", job.result.get("slot")), ("Kernel image", job.result.get("entry")),
-               ("Copied", ui.human_size(job.result.get("bytes", 0)))])
-        ui.note(f"Boot it once with: foundation slot boot {job.result.get('slot')} --once")
-    return code
-
-
 def cmd_slot_release(client, args):
     slots = client.one("Boot", "GetSlots")
     slot = find_slot(slots, args.slot)
@@ -1264,11 +1230,7 @@ def build_parser():
     boot = add(slot, "boot", cmd_slot_boot, "choose the slot to boot", yes=True, wait=True)
     boot.add_argument("slot")
     boot.add_argument("--once", action="store_true", help="only for the next boot")
-    copy = add(slot, "copy", cmd_slot_copy, "copy a slot (default: the running one) onto another", yes=True, wait=True)
-    copy.add_argument("--from", dest="source", metavar="SLOT", help="the slot to copy (default: the running slot)")
-    copy.add_argument("--to", dest="target", metavar="SLOT", required=True, help="the slot to overwrite")
-    copy.add_argument("--force", action="store_true", help="overwrite a slot that is in use")
-    add(slot, "release", cmd_slot_release, "mark a standby slot empty so updates can use it", yes=True, wait=True).add_argument("slot")
+    add(slot, "release", cmd_slot_release, "empty a standby slot (its kernel image and its names) so updates can use it", yes=True, wait=True).add_argument("slot")
 
     add(sub, "splash", cmd_splash, "choose the light or dark boot splash (takes effect at the next restart)",
         wait=True).add_argument("theme", choices=("light", "dark"))

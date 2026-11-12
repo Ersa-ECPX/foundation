@@ -28,11 +28,6 @@ def set_next(ctx):
     return slots.select(ctx.paths, name, once=True)
 
 
-@worker("boot.copy")
-def copy(ctx):
-    return slots.copy(ctx.paths, ctx.arg("source", str, ""), ctx.arg("target"), ctx.arg("force", bool, False), ctx)
-
-
 @worker("boot.release")
 def release(ctx):
     return slots.release(ctx.paths, ctx.arg("slot"), ctx)

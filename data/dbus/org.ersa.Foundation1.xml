@@ -193,9 +193,9 @@
   </interface>
 
   <!--
-    Boot slots and boot control. A slot is a root-type partition. Its label is ecp-root_&lt;name&gt;
-    and the unified kernel image (UKI) ecp_&lt;name&gt;+N.efi on the ESP boots the partition with that
-    label. Requires UEFI with systemd-boot.
+    Boot slots and boot control. A slot is a root partition with its dm-verity hash partition (labels ecp-root-a/ecp-verity-a and so on, which never change); the root hash names what it holds
+    and the unified kernel image (UKI) ecp_&lt;version&gt;+N.efi on the ESP whose command line has that roothash= boots
+    it. A slot's name is the version its kernel image names, or a/b when it is empty. Requires UEFI with systemd-boot.
   -->
   <interface name="org.ersa.Foundation1.Boot">
     <!--
@@ -224,20 +224,8 @@
       <arg name="slot" type="s" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
-    <!--
-      Copy a slot onto another and make the copy a bootable slot of its own (its own label and
-      UKI, so it never collides with the source). The source defaults to the running slot when
-      empty. A target that is not empty is overwritten only when force is true. The running slot
-      cannot be a target. Requires org.ersa.foundation.slots. Result: slot, label, entry, bytes.
-    -->
-    <method name="CopySlot">
-      <arg name="source" type="s" direction="in"/>
-      <arg name="target" type="s" direction="in"/>
-      <arg name="force" type="b" direction="in"/>
-      <arg name="job" type="o" direction="out"/>
-    </method>
-    <!-- Empty a standby slot: relabel it _empty and remove its UKI, so OTA can use it. The running
-         slot cannot be released. Requires org.ersa.foundation.slots. -->
+    <!-- Empty a standby slot: remove its UKI and give its partitions new random UUIDs, so nothing names them and
+         OTA can use it. The running slot cannot be released. Requires org.ersa.foundation.slots. -->
     <method name="ReleaseSlot">
       <arg name="slot" type="s" direction="in"/>
       <arg name="job" type="o" direction="out"/>

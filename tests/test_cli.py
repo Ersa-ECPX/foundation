@@ -192,15 +192,15 @@ class Boot(Cli, BootDaemon):
         self.assertIn("Running slot", out)
         self.assertIn("0.2.0", out)
         self.assertIn("pending: 2 tries left", out)
-        self.assertIn("empty2", out)
+        self.assertIn("b", out)
 
     def test_slot_list_is_an_alias(self):
-        self.assertIn("empty2", self.cli("slot", "list")[1])
+        self.assertIn("b", self.cli("slot", "list")[1])
 
     def test_slot_status_json(self):
         data = json.loads(self.cli("slot", "status", "--json")[1])
         self.assertEqual(data["boot"]["running_slot"], "0.2.0")
-        self.assertEqual({s["name"] for s in data["slots"]}, {"0.2.0", "empty2"})
+        self.assertEqual({s["name"] for s in data["slots"]}, {"0.2.0", "b"})
 
     def test_status_overview(self):
         code, out, err = self.cli("status")
@@ -233,7 +233,7 @@ class Boot(Cli, BootDaemon):
             self.assertEqual(handle.read().split()[0], "set-oneshot")
 
     def test_booting_an_empty_slot_is_refused_before_anything_runs(self):
-        code, _out, err = self.cli("slot", "boot", "empty2", "--yes")
+        code, _out, err = self.cli("slot", "boot", "b", "--yes")
         self.assertEqual(code, 2)
         self.assertIn("no kernel image", err)
         self.assertFalse(os.path.exists(self.bootctl_log))
@@ -243,42 +243,21 @@ class Boot(Cli, BootDaemon):
         self.assertEqual(code, 2)
         self.assertIn("no slot named", err)
 
-    def test_copy_the_running_slot_to_the_empty_one(self):
-        code, out, err = self.cli("slot", "copy", "--to", "empty2", "--yes")
+    def test_release_empties_a_standby_slot(self):
+        self.system.hold(1, "0.1.0")
+        self.system.uki("0.1.0")
+        code, _out, err = self.cli("slot", "release", "0.1.0", "--yes")
         self.assertEqual(code, 0, err)
-        self.assertIn("0.2.0-copy", out)
-        self.assertEqual(self.labels()[2], "ecp-root_0.2.0-copy")
-        self.assertIn("ecp_0.2.0-copy+3.efi", self.uki_files())
-        self.assertIn("foundation slot boot 0.2.0-copy --once", out)
+        self.assertEqual(self.labels()[3], "ecp-root-b", "labels never change")
+        self.assertNotIn("ecp_0.1.0.efi", self.uki_files())
+        self.assertIn("already empty", self.cli("slot", "release", "b", "--yes")[1])
 
-    def test_copy_shows_what_will_happen_and_asks_first(self):
-        code, out, err = self.cli("slot", "copy", "--to", "empty2")
-        self.assertEqual(code, 1)
-        self.assertIn("will become 0.2.0-copy", out)
-        self.assertIn("confirmation required", err)
-        self.assertEqual(self.labels()[2], "_empty")        # nothing was changed
-
-    def test_copy_onto_the_running_slot_is_refused(self):
-        code, _out, err = self.cli("slot", "copy", "--from", "empty2", "--to", "0.2.0", "--yes")
-        self.assertEqual(code, 2)
-        self.assertIn("running slot", err)
-
-    def test_overwriting_a_slot_in_use_needs_force(self):
-        self.assertEqual(self.cli("slot", "copy", "--to", "empty2", "--yes")[0], 0)
-        before = (self.labels(), self.uki_files())
-        code, _out, err = self.cli("slot", "copy", "--to", "0.2.0-copy", "--yes")
-        self.assertEqual(code, 2)
-        self.assertIn("--force", err)
-        self.assertEqual((self.labels(), self.uki_files()), before)
-        code, out, err = self.cli("slot", "copy", "--to", "0.2.0-copy", "--force", "--yes")
-        self.assertEqual(code, 0, err)
-
-    def test_release(self):
-        self.cli("slot", "copy", "--to", "empty2", "--yes")
-        code, _out, err = self.cli("slot", "release", "0.2.0-copy", "--yes")
-        self.assertEqual(code, 0, err)
-        self.assertEqual(self.labels()[2], "_empty")
-        self.assertIn("already empty", self.cli("slot", "release", "empty2", "--yes")[1])
+    def test_the_running_slot_cannot_be_released(self):
+        self.system.hold(1, "0.1.0")
+        self.system.uki("0.1.0")
+        code, _out, err = self.cli("slot", "release", "0.2.0", "--yes")
+        self.assertNotEqual(code, 0)
+        self.assertIn("running", err)
 
     def test_compat_inspect_explains_why_a_package_does_not_fit(self):
         if not RPM or not support.tool_available("rpm"):
