@@ -9,7 +9,10 @@ PRODUCT = "Ersa Compute Platform"
 PARTITION_TITLES = {
     "ECP-ESP": "Boot",
     "ECP-RECOVERY": "Recovery",
-    "_empty": "System slot B",
+    "ecp-root-a": "System slot A",
+    "ecp-verity-a": "Integrity data for slot A",
+    "ecp-root-b": "System slot B",
+    "ecp-verity-b": "Integrity data for slot B",
     "ECP-DATA": "Your files and settings",
     "ECP-LIVE": "The installer's workspace",
 }
@@ -18,8 +21,6 @@ PARTITION_TITLES = {
 def partition_title(label):
     if label in PARTITION_TITLES:
         return PARTITION_TITLES[label]
-    if label.startswith("ecp-root_"):
-        return "System slot A"
     return label
 
 

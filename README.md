@@ -70,8 +70,6 @@ that changes the system asks first (`--yes` skips the question) and can be start
 foundation status                         the system, boot slot, storage and services
 foundation slot status                    which slot you are on, the boot assessment, every slot
 foundation slot boot SLOT [--once]        choose the slot to boot (once, or from now on)
-foundation slot copy --to SLOT [--from SLOT] [--force]
-                                          copy a slot (default: the running one) onto another
 foundation deploy list                      disks and whether each can be installed to
 foundation deploy install DISK [--dry-run]  erase a disk and install this system on it (typed confirmation)
 foundation slot release SLOT              mark a standby slot empty so updates can use it
@@ -84,21 +82,18 @@ foundation job list|show|cancel|logs
 foundation base [FILTER]                  packages in the read-only base image
 ```
 
-A copy, as it looks on a terminal (illustrative; the device names depend on the machine):
+Releasing a slot, as it looks on a terminal (illustrative; the device names depend on the machine):
 
 ```
-$ foundation slot copy --to empty2
+$ foundation slot release 0.1.0
 
-Copy slot 0.2.0 to empty2
--------------------------
-  Source  0.2.0  (/dev/nvme0n1p4, 8 GiB)
-  Target  empty2  (/dev/nvme0n1p5, 8 GiB)
-  Result  a new slot named 0.2.0-copy with its own kernel image
+Release slot 0.1.0
+------------------
+  Slot    0.1.0  (/dev/nvme0n1p3, 8 GiB, standby)
+  Result  its kernel image is removed and its partitions get new names; updates can use it again
 
-Slot empty2 is empty; it will become 0.2.0-copy.
-Copy slot 0.2.0 over empty2? [y/N] y
-› Copying the root filesystem
-  ██████████████░░░░░░░░░░░░░░  51%
+Release slot 0.1.0? Type the slot name to confirm: 0.1.0
+› Releasing slot 0.1.0
 ```
 
 Ctrl-C while following a job asks the service to cancel it. Before a job's point of no return that
@@ -108,10 +103,10 @@ login with no polkit agent, run the command with `sudo`.
 
 ## How a request travels
 
-Take `foundation slot copy --to empty2 --yes`:
+Take `foundation slot release 0.1.0 --yes`:
 
 1. **CLI** reads `Boot.GetSlots`, checks the arguments, shows the plan, asks, then calls
-   `Boot.CopySlot("", "empty2", false)`. Before the call it subscribes to *all* job signals, so a
+   `Boot.ReleaseSlot("0.1.0")`. Before the call it subscribes to *all* job signals, so a
    fast job's first steps are not lost.
 2. **Broker** (`foundationd/service.py`) receives the call. The method table is built from
    `foundationd/api/*.py`; the contract check at start-up refuses to run if any method in
@@ -122,7 +117,7 @@ Take `foundation slot copy --to empty2 --yes`:
    The caller is identified by its unique bus name, not a pid. If polkit cannot be reached the
    answer is *no*.
 5. **Job**: the broker creates `/org/ersa/Foundation1/Job/N`, takes the locks, starts
-   `foundationd-worker boot.copy`, writes the request as one JSON line to its stdin, and replies
+   `foundationd-worker boot.release`, writes the request as one JSON line to its stdin, and replies
    with the job's path.
 6. **Worker** (`workerlib.py`, `workers/boot.py`, `backends/slots.py`) does the work and writes JSON
    events to stdout: `step`, `progress`, `log`, `uncancellable`, and finally `result` or `error`.
@@ -153,41 +148,26 @@ Things worth knowing:
 
 ## Boot slots
 
-A **slot** is a root-type GPT partition on the disk that holds the running root. Its label is
-`ecp-root_<name>` (or `_empty`) and the unified kernel image (UKI)
-`/EFI/Linux/ecp_<name>[+tries].efi` on the ESP boots it: the UKI's command line says
-`root=PARTLABEL=ecp-root_<name>`. Everything is read directly from the partition table, the ESP's
-files and the loader's EFI variables (`backends/slots.py`, `gpt.py`, `efi.py`).
+A **slot** is a pair of GPT partitions on the disk that holds the running root: the root filesystem (label `ecp-root-a` or
+`ecp-root-b`) and its dm-verity hash partition (`ecp-verity-a`/`-b`). The labels never change. What a slot holds is
+named by its **root hash**: the root partition's UUID is the first half of the hash, the hash partition's the second half,
+and the unified kernel image (UKI) `/EFI/Linux/ecp_<version>[+tries].efi` on the ESP whose command line says
+`roothash=<that hash>` boots it. A slot whose UUID no kernel image names is empty. Everything is read directly from the
+partition table, the ESP's files and the loader's EFI variables (`backends/slots.py`, `gpt.py`, `efi.py`, `verity.py`). The
+running root is `/dev/mapper/root` (a device-mapper device), so the slot code follows it to its partitions through sysfs.
 
-**Naming and why a copy gets a new name.** The update tool expects one version per slot, and
-`root=PARTLABEL=` must match exactly one partition. Copying a slot onto another would give two
-partitions the same label, which makes boot ambiguous and leaves updates with no free slot. So a
-copy becomes a slot of its own: the label is `ecp-root_<source>-copy`, and the copy gets its own
-UKI, a byte-for-byte copy of the source's with only the `root=PARTLABEL=` token changed in the
-`.cmdline` section (`backends/pe.py`). That edit is refused, and nothing is touched, if the image is
-signed, if the token is not there exactly once, or if the new text does not fit the section.
+**Nothing edits a kernel image.** It is signed for Secure Boot, and its command line is the same on every machine. An update
+writes both partitions of the standby slot, names them by the new root hash (`sfdisk --part-uuid`) and copies the signed
+image as it came; until the last step no kernel image names the partitions, so a half-written slot cannot boot. There is no
+`slot copy`: a copy would have the same root hash and so the same UUIDs.
 
-**Order of a copy** (each step is chosen so a failure leaves a bootable system):
-
-| Step | What happens | If it fails here |
-| --- | --- | --- |
-| prepare | checks, reads the source's UKI, produces the patched UKI in memory, measures the data | nothing was changed; cancellable |
-| *(commit)* | point of no return | |
-| invalidate | removes the target's old UKI, relabels it `_empty` | target is empty and unbootable |
-| copy | copies the filesystem (only the EROFS image's real length), fsync | target is empty and unbootable |
-| verify | re-reads both and compares SHA-256 | job fails; target stays empty |
-| label | relabels the target `ecp-root_<source>-copy` (checked in the table on disk) | label exists, no UKI: harmless |
-| image | writes the UKI under a temporary name and renames it into place | as above |
-
-Refused up front: the running slot as a target; a target that is mounted; a populated target without
-`--force`; a source with no UKI; a target smaller than the data; a name clash with another slot.
-**Release** relabels a standby slot `_empty` and removes its UKI, so updates can use it again; it
-will not release the running slot or the only slot that can boot.
+**Release** removes a standby slot's kernel image and gives its partitions new random UUIDs, so updates can use it again; it
+will not release the running slot, the installer medium's own root, or the only slot that can boot.
 
 **Choosing what boots.** `slot boot SLOT` calls `bootctl set-default` (or `set-oneshot` with
 `--once`) with the entry id *without* its boot counter (`ecp_0.2.0.efi`), so the choice survives
 `systemd-bless-boot` renaming `ecp_0.2.0+3.efi` to `ecp_0.2.0.efi`. The job's result includes the
-value the loader variable ended up with. A slot just copied is tried a few times (the `+3`
+value the loader variable ended up with. A slot just updated is tried a few times (the `+3`
 counter) and boot falls back to the previous entry if it does not start.
 
 ## Repositories and bundles
@@ -480,7 +460,7 @@ Full detail, with field lists, is in `data/dbus/org.ersa.Foundation1.xml`.
 | `Config` | `Get`, `List`, `Describe` | `Set`, `Reset` (immediate) | `config` | |
 | `Job` | properties, `Logs` | `Cancel` | `jobs` | |
 | `Boot` | `GetBootState`, `GetSlots` | `SetDefaultSlot`, `SetNextBoot` | `boot` | `slots` |
-| | | `CopySlot`, `ReleaseSlot` | `slots` (always asks) | `slots` |
+| | | `ReleaseSlot` | `slots` (always asks) | `slots` |
 | | | `Reboot`, `RebootToFirmware` (immediate, via logind) | `boot` | |
 | `Apps` | `ListInstalled`, `Search`, `GetInfo` | `SetupRemote`, `Install`, `Remove`, `Update` | `apps` | `flatpak` |
 | `Compat` | `Inspect`, `List` | `Install`, `Remove`, `Revalidate` | `compat` | `extensions` |
@@ -518,6 +498,8 @@ Dated 2026-11-05. Read this before trusting any of it on hardware.
   unbootable) and every refusal rule, and through D-Bus with the real workers.
 
 **Verified on a booted image (QEMU/OVMF VM, 2026-11-05, from the user's screenshots)**
+
+_The next entries record what was tested on the older, label-based slot layout (`ecp-root_<version>`, `slot copy`), which dm-verity replaced; they are history, not a description of the current system._
 
 - `foundationd` starts by D-Bus activation under `dbus-broker` and `foundation slot status` reads the real
   partition table, ESP and EFI variables.

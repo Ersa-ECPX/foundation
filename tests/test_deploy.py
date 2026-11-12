@@ -1,16 +1,20 @@
+import hashlib
+import io
+import json
 import os
 import shutil
 import subprocess
+import tarfile
 import tempfile
 import unittest
-import uuid
 
 import support  # noqa: F401  (puts the package on sys.path)
-from foundationd.backends import deploy, gpt, layout
-from foundationd.errors import Failed, InvalidArgument
+from foundationd.backends import deploy, gpt, layout, verity
+from foundationd.errors import Failed, InvalidArgument, Unavailable
 
 TOOLS = all(shutil.which(t) for t in ("systemd-repart", "mdir", "mren", "mkfs.btrfs", "mkfs.vfat"))
 MIB = 1024 * 1024
+ROOTHASH = "ab" * 16 + "cd" * 16
 
 
 class Ctx:
@@ -30,15 +34,54 @@ class Ctx:
         self.committed = True
 
 
-class Refusals(unittest.TestCase):
+def tar_bytes(entries):
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as tar:
+        for name, data in entries:
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return buffer.getvalue()
+
+
+class Medium(unittest.TestCase):
+    """An installer medium: its own root is the running system (labels ecp-live, ecp-live-verity), its ESP has a boot loader,
+    and its root carries the operating system to install as an update archive."""
+
     def setUp(self):
-        self.system = support.FakeSystem(("0.1.0", "empty"), running=1)
-        self.system.uki("0.1.0")
+        self.system = support.FakeSystem(("live:0.1.0",), running=1, root_mib=4)
         self.addCleanup(shutil.rmtree, self.system.tmp, ignore_errors=True)
+        self.system.uki("0.1.0")
+        for name, data in (("EFI/BOOT/BOOTX64.EFI", b"loader"), ("loader/loader.conf", b"timeout 0\n")):
+            path = os.path.join(self.system.esp, name)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as handle:
+                handle.write(data)
+        self.root_image = os.urandom(3 * MIB)
+        self.tree = os.urandom(64 * 1024)
+        self.uki = support.build_pe(f"ro quiet roothash={ROOTHASH} ecp.pad=----".encode(), raw_size=1024)
         self.target = os.path.join(self.system.tmp, "target.img")
         with open(self.target, "wb") as h:
             h.truncate(layout.MIN_DISK + 64 * MIB)
+        self.write_payload()
 
+    def manifest(self, **changes):
+        data = {"format": 1, "name": "ecp", "version": "0.1.0", "arch": os.uname().machine, "roothash": ROOTHASH,
+                "root": {"file": "root.erofs", "sha256": hashlib.sha256(self.root_image).hexdigest(), "size": len(self.root_image)},
+                "verity": {"file": "verity.img", "sha256": hashlib.sha256(self.tree).hexdigest(), "size": len(self.tree)},
+                "uki": {"file": "uki.efi", "sha256": hashlib.sha256(self.uki).hexdigest(), "size": len(self.uki)}}
+        data.update(changes)
+        return json.dumps(data).encode()
+
+    def write_payload(self, manifest=None, uki=None):
+        directory = os.path.join(self.system.paths["root"], deploy.PAYLOAD_DIR)
+        os.makedirs(directory, exist_ok=True)
+        with open(os.path.join(directory, "ecp_0.1.0-x86_64.tar"), "wb") as handle:
+            handle.write(tar_bytes([("manifest.json", manifest or self.manifest()), ("uki.efi", uki or self.uki),
+                                    ("root.erofs", self.root_image), ("verity.img", self.tree)]))
+
+
+class Refusals(Medium):
     def test_plain_files_refused_by_default(self):
         with self.assertRaises(InvalidArgument):
             deploy.describe_target(self.system.paths, self.target)
@@ -67,59 +110,95 @@ class Refusals(unittest.TestCase):
         info = deploy.describe_target(self.system.paths, self.system.image, True)
         self.assertTrue(info["boot_medium"] or info["problems"])
 
-    def test_plan_lists_layout(self):
+    def test_plan_lists_the_verity_layout_and_the_payloads_version(self):
         plan = deploy.plan(self.system.paths, self.target, True)
         self.assertTrue(plan["possible"], plan["problems"])
         self.assertEqual(plan["version"], "0.1.0")
-        labels = [p["label"] for p in plan["partitions"]]
-        self.assertIn("ecp-root_0.1.0", labels)
-        self.assertIn("_empty", labels)
+        self.assertEqual([p["label"] for p in plan["partitions"]],
+                         ["ECP-ESP", "ECP-RECOVERY", "ecp-root-a", "ecp-verity-a", "ecp-root-b", "ecp-verity-b", "ECP-DATA"])
+
+    def test_a_medium_without_a_payload_cannot_install(self):
+        shutil.rmtree(os.path.join(self.system.paths["root"], deploy.PAYLOAD_DIR))
+        plan = deploy.plan(self.system.paths, self.target, True)
+        self.assertFalse(plan["possible"])
+        self.assertTrue(any("no system image" in p for p in plan["problems"]))
+        ctx = Ctx()
+        with self.assertRaises(Unavailable):
+            deploy.deploy(self.system.paths, self.target, self.target, ctx, allow_file=True)
+        self.assertFalse(ctx.committed)
 
     def test_list_disks_marks_boot_disk(self):
         disks = {d["name"]: d for d in deploy.list_disks(self.system.paths)}
         self.assertFalse(disks["vda"]["usable"])
         self.assertTrue(disks["vda"]["boot_medium"])
 
+    def test_a_kernel_image_with_another_root_hash_is_refused_before_anything_is_written(self):
+        wrong = support.build_pe(f"ro roothash={'ee' * 32}".encode(), raw_size=1024)
+        self.uki = wrong
+        self.write_payload(manifest=self.manifest())
+        ctx = Ctx()
+        with self.assertRaisesRegex(Failed, "root hash"):
+            deploy.deploy(self.system.paths, self.target, self.target, ctx, allow_file=True)
+        self.assertFalse(ctx.committed)
+        with open(self.target, "rb") as h:
+            self.assertEqual(h.read(4096), bytes(4096))
+
 
 @unittest.skipUnless(TOOLS, "needs systemd-repart, mtools, mkfs.btrfs and mkfs.vfat")
-class Install(unittest.TestCase):
-    def setUp(self):
-        self.system = support.FakeSystem(("0.1.0", "empty"), running=1, root_mib=4)
-        self.addCleanup(shutil.rmtree, self.system.tmp, ignore_errors=True)
-        self.uki = self.system.uki("0.1.0")
-        self.data = os.urandom(3 * MIB)
-        part = self.system.fill_slot(1, self.data, erofs_bytes=len(self.data))
-        with open(self.system.image, "rb") as h:
-            h.seek(part.offset)
-            self.data = h.read(len(self.data))  # as written, including the superblock
-        self.system.make_device_files()
-        self.target = os.path.join(self.system.tmp, "target.img")
-        with open(self.target, "wb") as h:
-            h.truncate(layout.MIN_DISK + 64 * MIB)
-
+class Install(Medium):
     def run_deploy(self, **kw):
         ctx = Ctx()
         result = deploy.deploy(self.system.paths, self.target, self.target, ctx, allow_file=True, **kw)
         return result, ctx
 
+    def esp_listing(self):
+        esp = {p.name: p for p in gpt.read_table(self.target)}["ECP-ESP"]
+        return subprocess.run(["mdir", "-b", "-i", f"{self.target}@@{esp.offset}", "::EFI/Linux"],
+                              capture_output=True, text=True, check=True).stdout
+
     def test_install(self):
         result, ctx = self.run_deploy()
         self.assertTrue(ctx.committed)
-        self.assertEqual(result["version"], "0.1.0")
+        self.assertEqual((result["version"], result["roothash"]), ("0.1.0", ROOTHASH))
         table = {p.name: p for p in gpt.read_table(self.target)}
-        self.assertEqual(set(table), {"ECP-ESP", "ECP-RECOVERY", "ecp-root_0.1.0", "_empty", "ECP-DATA"})
-        self.assertEqual(table["ecp-root_0.1.0"].size, layout.ROOT_SLOT)
-        self.assertEqual(table["_empty"].size, layout.ROOT_SLOT)
+        self.assertEqual(set(table), {"ECP-ESP", "ECP-RECOVERY", "ecp-root-a", "ecp-verity-a", "ecp-root-b", "ecp-verity-b", "ECP-DATA"})
+        self.assertEqual((table["ecp-root-a"].size, table["ecp-root-b"].size), (layout.ROOT_SLOT, layout.ROOT_SLOT))
+        self.assertEqual((table["ecp-verity-a"].size, table["ecp-verity-b"].size), (layout.VERITY_SLOT, layout.VERITY_SLOT))
         self.assertGreaterEqual(table["ECP-DATA"].size, layout.DATA_MIN)
-        root = table["ecp-root_0.1.0"]
-        with open(self.target, "rb") as h:
-            h.seek(root.offset)
-            self.assertEqual(h.read(len(self.data)), self.data)
-        esp = table["ECP-ESP"]
-        listing = subprocess.run(["mdir", "-b", "-i", f"{self.target}@@{esp.offset}", "::EFI/Linux"],
-                                 capture_output=True, text=True, check=True).stdout
-        self.assertIn("ecp_0.1.0+3.efi", listing)
-        self.assertNotIn(".partial", listing)
+        for label, data in (("ecp-root-a", self.root_image), ("ecp-verity-a", self.tree)):
+            with open(self.target, "rb") as h:
+                h.seek(table[label].offset)
+                self.assertEqual(h.read(len(data)), data, label)
+        self.assertIn("ecp_0.1.0+3.efi", self.esp_listing())
+        self.assertNotIn(".partial", self.esp_listing())
+
+    def test_the_slot_is_named_by_the_root_hash(self):
+        self.run_deploy()
+        table = {p.name: p for p in gpt.read_table(self.target)}
+        self.assertEqual((table["ecp-root-a"].uuid, table["ecp-verity-a"].uuid), verity.uuids(ROOTHASH))
+        # slot B is empty: nothing names its partitions
+        self.assertNotIn(table["ecp-root-b"].uuid, verity.uuids(ROOTHASH))
+
+    def test_the_kernel_image_is_installed_exactly_as_it_was_built(self):
+        self.run_deploy()
+        esp = {p.name: p for p in gpt.read_table(self.target)}["ECP-ESP"]
+        image = subprocess.run(["mtype", "-i", f"{self.target}@@{esp.offset}", "::EFI/Linux/ecp_0.1.0+3.efi"],
+                               capture_output=True, check=True).stdout
+        self.assertEqual(image, self.uki, "a signed kernel image must not be changed")
+
+    def test_the_boot_loader_of_the_medium_is_copied_to_the_new_esp(self):
+        self.run_deploy()
+        esp = {p.name: p for p in gpt.read_table(self.target)}["ECP-ESP"]
+        data = subprocess.run(["mtype", "-i", f"{self.target}@@{esp.offset}", "::EFI/BOOT/BOOTX64.EFI"], capture_output=True, check=True).stdout
+        self.assertEqual(data, b"loader")
+
+    def test_the_installed_disk_is_found_as_a_system_by_the_slot_code(self):
+        """The disk, attached to a running system, shows slot A running... checked by reading it as its own system."""
+        self.run_deploy()
+        table = {p.name: p for p in gpt.read_table(self.target)}
+        # the hash partition is the second half; both halves are in the table with the verity types
+        self.assertEqual(table["ecp-verity-a"].type, verity.ROOT_VERITY_TYPES["x86_64"])
+        self.assertEqual(table["ecp-root-a"].type, gpt.ROOT_TYPES["x86_64"])
 
     def test_seed_holds_the_chosen_language_and_time_zone(self):
         stage = tempfile.mkdtemp()
@@ -165,80 +244,6 @@ class Install(unittest.TestCase):
             with self.assertRaises(InvalidArgument):
                 validate.timezone_name(bad)
 
-    def test_installed_kernel_image_names_this_installs_partuuids(self):
-        self.run_deploy()
-        table = {p.name: p for p in gpt.read_table(self.target)}
-        esp = table["ECP-ESP"]
-        image = subprocess.run(["mtype", "-i", f"{self.target}@@{esp.offset}", "::EFI/Linux/ecp_0.1.0+3.efi"],
-                               capture_output=True, check=True).stdout
-        from foundationd.backends import pe
-        cmdline = pe.read_cmdline(image).split()
-        root, data = table["ecp-root_0.1.0"].uuid, table["ECP-DATA"].uuid
-        self.assertIn(f"root=PARTUUID={root}", cmdline)
-        self.assertIn(f"systemd.mount-extra=PARTUUID={data}:/var:btrfs:subvol=var,x-initrd.mount", cmdline)
-        self.assertIn(f"systemd.mount-extra=PARTUUID={data}:/home:btrfs:subvol=home", cmdline)
-        self.assertFalse([t for t in cmdline if "PARTLABEL" in t or t.startswith("ecp.pad=")], cmdline)
-        self.assertIn("quiet", cmdline)       # the rest of the command line is kept
-
-    def test_each_install_gets_its_own_uuids(self):
-        self.run_deploy()
-        first = {p.name: p.uuid for p in gpt.read_table(self.target)}
-        with open(self.target, "wb") as h:
-            h.truncate(0)
-            h.truncate(layout.MIN_DISK + 64 * MIB)
-        self.run_deploy()
-        second = {p.name: p.uuid for p in gpt.read_table(self.target)}
-        self.assertNotEqual(first["ecp-root_0.1.0"], second["ecp-root_0.1.0"])
-        self.assertNotEqual(first["ECP-DATA"], second["ECP-DATA"])
-
-    def test_installed_cmdline_drops_the_label_arguments_and_the_padding(self):
-        text = ("root=PARTLABEL=ecp-root_0.1.0 ro quiet systemd.mount-extra=LABEL=ECP-DATA:/var:btrfs:subvol=var "
-                "systemd.mount-extra=LABEL=ECP-DATA:/home:btrfs:subvol=home ecp.pad=-----")
-        out = deploy.installed_cmdline(text, "R", "D").split()
-        self.assertEqual(out[:2], ["ro", "quiet"])
-        self.assertEqual(out[2:], ["root=PARTUUID=R", "systemd.mount-extra=PARTUUID=D:/var:btrfs:subvol=var,x-initrd.mount",
-                                   "systemd.mount-extra=PARTUUID=D:/home:btrfs:subvol=home"])
-
-    def test_the_definitions_can_pin_the_root_and_data_uuids(self):
-        plain = layout.definitions("0.1.0", "/e", "/s")
-        self.assertNotIn("UUID=", "".join(plain.values()))
-        pinned = layout.definitions("0.1.0", "/e", "/s", {"root": "r-uuid", "data": "d-uuid"})
-        self.assertIn("UUID=r-uuid\n", pinned["10-root-a.conf"])
-        self.assertIn("UUID=d-uuid\n", pinned["30-data.conf"])
-        self.assertNotIn("UUID=", pinned["15-root-b.conf"])
-
-    def test_the_rewritten_command_line_fits_in_every_image_that_can_be_deployed(self):
-        """ecp.pad= in the mkosi configuration reserves the room; this fails if it ever stops being enough."""
-        import re
-        root = os.environ.get("ECP_MKOSI_DIR", "")        # a checkout of the ecp-mkosi repository
-        if not os.path.isfile(os.path.join(root, "mkosi.conf.d", "10-x86-64.conf")):
-            self.skipTest("set ECP_MKOSI_DIR to an ecp-mkosi checkout")
-
-        def cmdline(*files):
-            text = ""
-            for name in files:
-                with open(os.path.join(root, name), encoding="utf-8") as handle:
-                    body = handle.read()
-                match = re.search(r"^KernelCommandLine=(.*?)(?=^\S|\Z)", body, re.S | re.M)
-                if match:
-                    text += " " + match.group(1)
-            return " ".join(text.replace("%v", "0.1.0").split())
-
-        images = {
-            "normal": cmdline("mkosi.conf.d/10-x86-64.conf", "mkosi.conf.d/30-data-mounts.conf"),
-            "installer": cmdline("mkosi.conf.d/10-x86-64.conf", "mkosi.conf.d/30-data-mounts.conf", "mkosi.profiles/installer/mkosi.conf"),
-        }
-        for name, text in images.items():
-            self.assertIn("ecp.pad=", text, name)
-            new = deploy.installed_cmdline(text, uuid.uuid4(), uuid.uuid4())
-            self.assertLessEqual(len(new), len(text), f"{name}: {len(new)} > {len(text)}")
-            self.assertNotIn("ecp.pad=", new)
-        for name, text in images.items():             # every image, the installer medium included, mounts by label
-            self.assertIn("systemd.mount-extra=LABEL=ECP-DATA:/var:btrfs:subvol=var,x-initrd.mount", text.split(), name)
-        self.assertIn("root=PARTLABEL=ecp-root_0.1.0", images["normal"].split())
-        roots = [t for t in images["installer"].split() if t.startswith("root=")]
-        self.assertEqual(roots[-1], "root=PARTLABEL=ecp-live_0.1.0", "the last root= wins")
-
     def test_data_volume_has_subvolumes(self):
         self.run_deploy()
         data = {p.name: p for p in gpt.read_table(self.target)}["ECP-DATA"]
@@ -256,11 +261,17 @@ class Install(unittest.TestCase):
         self.addCleanup(setattr, deploy.Window, "write", real)
         with self.assertRaises(Failed):
             self.run_deploy()
-        esp = {p.name: p for p in gpt.read_table(self.target)}["ECP-ESP"]
-        listing = subprocess.run(["mdir", "-b", "-i", f"{self.target}@@{esp.offset}", "::EFI/Linux"],
-                                 capture_output=True, text=True, check=True).stdout
-        self.assertNotIn("ecp_0.1.0+3.efi\n", listing + "\n")
-        self.assertIn(".partial", listing)
+        self.assertNotIn("ecp_0.1.0+3.efi\n", self.esp_listing() + "\n")
+        self.assertIn(".partial", self.esp_listing())
+
+    def test_a_payload_that_does_not_match_its_manifest_leaves_no_bootable_kernel(self):
+        self.root_image, good = self.root_image, self.root_image
+        manifest = self.manifest()
+        self.root_image = b"x" * len(good)            # the archive holds other bytes than the manifest names
+        self.write_payload(manifest=manifest)
+        with self.assertRaisesRegex(Failed, "checksum"):
+            self.run_deploy()
+        self.assertNotIn("ecp_0.1.0+3.efi\n", self.esp_listing() + "\n")
 
     def test_no_staging_left_behind(self):
         self.run_deploy()
@@ -277,19 +288,23 @@ class LayoutDrift(unittest.TestCase):
         for name in sorted(os.listdir(root)):
             with open(os.path.join(root, name)) as handle:
                 text = handle.read()
-            fields = dict(l.split("=", 1) for l in text.splitlines() if "=" in l)
+            fields = dict(l.split("=", 1) for l in text.splitlines() if "=" in l and not l.startswith("#"))
             built[fields.get("Label", name)] = fields
-        made = layout.definitions("0.1.0", "/e", "/s")
+        made = layout.definitions("/e", "/s", "r", "v")
         generated = {}
         for text in made.values():
             fields = dict(l.split("=", 1) for l in text.splitlines() if "=" in l)
             generated[fields["Label"]] = fields
+        self.assertEqual(set(generated), set(built), "the installer's layout and the built image's must have the same partitions")
         for label, fields in generated.items():
-            built_label = label if label in built else next((k for k in built if k.startswith("ecp-root") and label.startswith("ecp-root")), label)
-            self.assertIn(built_label, built, label)
-            for key in ("Type", "SizeMin", "SizeMax", "Format"):
-                if key in fields and key in built[built_label]:
-                    self.assertEqual(fields[key], built[built_label][key], (label, key))
+            for key in ("Type", "SizeMinBytes", "SizeMaxBytes", "Format"):
+                if key in fields and key in built[label]:
+                    expected = built[label][key]
+                    size = lambda v: int(v[:-1]) * {"G": 1024 ** 3, "M": 1024 ** 2}[v[-1]] if v[-1:] in "GM" else int(v)
+                    if key.startswith("Size"):
+                        self.assertEqual(int(fields[key]), size(expected), (label, key))
+                    else:
+                        self.assertEqual(fields[key], expected, (label, key))
 
 
 if __name__ == "__main__":

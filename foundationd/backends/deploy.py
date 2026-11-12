@@ -1,23 +1,28 @@
 """Deploy: write the operating system to a disk (the installer's back end).
 
-What it does, in this order, and why the order matters:
+The installer medium carries the operating system as a payload: the update archive of the normal image
+(`usr/share/ersa/payload/*.tar.zst`: the root filesystem, its dm-verity hash tree and the signed kernel image), the same
+file `foundation update install` takes. Deploying is installing that onto a fresh disk. In order, and why the order matters:
 
-  1. Validate. Refuse the disk that holds the running system, any disk with a mounted partition, one
-     that is read-only or too small, and anything that is not a whole disk. The caller must repeat the
-     disk path exactly (`confirm`), so a stray argument cannot pick a disk.
-  2. Prepare, changing nothing: stage the ESP files and read the root image's real length.
+  1. Validate. Refuse the disk that holds the running system, any disk with a mounted partition, one that is read-only or too
+     small, and anything that is not a whole disk. The caller must repeat the disk path exactly (`confirm`), so a stray argument
+     cannot pick a disk.
+  2. Prepare, changing nothing: read the payload's manifest and its kernel image (the first files of the archive), and stage
+     the ESP files.
   3. Commit: the point of no return (the disk is about to be wiped).
-  4. Partition with systemd-repart: ESP (with the boot loader but NO usable kernel image yet), a
-     reserved recovery partition, root slot A (labelled for this version), an empty root slot B, and a
-     btrfs data volume (`var` and `home` subvolumes) seeded from a pre-labelled tree.
-  5. Copy the root image into slot A with progress, then read both back and compare SHA-256.
-  6. Only now make the disk bootable: rename the staged kernel image to `ecp_<version>+3.efi` on the
-     new ESP. Until this last step systemd-boot has nothing to boot, so an interrupted or failed
-     install never leaves a half-written system that looks bootable.
+  4. Partition with systemd-repart: ESP (with the boot loader but NO usable kernel image yet), a reserved recovery
+     partition, root slot A and its hash partition (their UUIDs are the two halves of the root hash, which is how the
+     kernel image finds them), an empty slot B, and a btrfs data volume (`var` and `home` subvolumes) seeded from a
+     pre-labelled tree.
+  5. Stream the root filesystem and its hash tree from the archive straight into slot A's two partitions (checking their
+     checksums as they go), then read both back and compare.
+  6. Only now make the disk bootable: rename the staged kernel image to `ecp_<version>+3.efi` on the new ESP. Until this last
+     step systemd-boot has nothing to boot, so an interrupted or failed install never leaves a half-written system that looks
+     bootable.
 
-The root image is copied from the running root partition, never rebuilt, so the installed system is
-byte-for-byte what was tested. The whole disk node is written (not partition nodes), so no waiting for
-udev. `mtools` renames the file on the new ESP without mounting it.
+The kernel image is copied exactly as it was built (it is signed for Secure Boot and its command line is the same on every
+machine): nothing in it is rewritten. The payload is trusted because it is part of the medium's own root, which dm-verity
+protects; its checksums against the manifest are still checked. `mtools` renames the file on the new ESP without mounting it.
 """
 
 import os
@@ -27,7 +32,7 @@ import tempfile
 import uuid
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
-from . import gpt, layout, osinfo, pe, slots
+from . import gpt, layout, osinfo, slots, updates, verity
 from .runner import check, run
 
 SKIP_PREFIXES = ("loop", "ram", "zram", "dm-", "md", "sr", "nbd", "fd", "sg")
@@ -68,8 +73,8 @@ def _running_disk(paths, mounts):
     root = mounts.get("/")
     if not root:
         return None
-    disk, _number = slots._partition_of(root["source"], paths["sysfs"])
-    return disk
+    backing = slots._backing_partitions(root["source"], paths["sysfs"])
+    return backing[0][0] if backing else None
 
 
 def _mounted_on(paths, mounts, name):
@@ -158,22 +163,34 @@ def _existing_partitions(info):
         return []
 
 
+PAYLOAD_DIR = "usr/share/ersa/payload"
+
+
+def find_payload(paths):
+    """The update archive this installer medium carries (the operating system to install)."""
+    base = os.path.join(paths["root"], PAYLOAD_DIR)
+    try:
+        names = sorted(n for n in os.listdir(base) if n.endswith((".tar.zst", ".tar")))
+    except OSError:
+        names = []
+    if not names:
+        raise Unavailable("this installer medium carries no system image to install")
+    return os.path.join(base, names[-1])
+
+
 def plan(paths, target, allow_file=False):
     """What deploying to `target` would do. Changes nothing."""
     info = describe_target(paths, target, allow_file)
-    running = slots.discover(paths).running
-    version = running.name if running else ""
     problems = list(info["problems"])
-    if running is None:
-        problems.append("the running slot is unknown")
-    elif running.entry is None:
-        problems.append("the running slot has no kernel image on the ESP to install")
-    elif len(layout.LABEL_PREFIX + version) > layout.MAX_LABEL:
-        problems.append(f"the version {version!r} is too long for a partition name")
+    version = ""
+    try:
+        version = updates.read_manifest(find_payload(paths), paths)["version"]
+    except (Unavailable, Failed, InvalidArgument) as error:
+        problems.append(str(error))
     return {
         "disk": info["path"], "size": info["size"], "model": info["model"], "removable": info["removable"],
         "version": version,
-        "partitions": [{"label": label, "size": size or 0, "note": note} for label, size, note in layout.rows(version or "?")],
+        "partitions": [{"label": label, "size": size or 0, "note": note} for label, size, note in layout.rows()],
         "will_erase": _existing_partitions(info),
         "problems": problems, "possible": not problems,
     }
@@ -210,46 +227,33 @@ class Window:
     def fileno(self):
         return self._f.fileno()
 
+    def __enter__(self):
+        return self
 
-def installed_cmdline(text, root_uuid, data_uuid):
-    """The kernel command line of the installed system, from the running one's.
-
-    The root and the data volume are named by the PARTUUIDs this install created, never by label, so a second
-    disk with the same labels (the installer medium, another install) cannot be mounted by mistake. Everything
-    else (quiet, selinux, console and so on) is kept; the installer's own root=, its tmpfs and live mounts and
-    the padding that makes room for this rewrite are dropped.
-    """
-    drop = ("root=", "systemd.mount-extra=", "ecp.pad=")
-    tokens = [token for token in text.split() if not token.startswith(drop)]
-    tokens += [f"root=PARTUUID={root_uuid}",
-               f"systemd.mount-extra=PARTUUID={data_uuid}:/var:btrfs:subvol=var,x-initrd.mount",
-               f"systemd.mount-extra=PARTUUID={data_uuid}:/home:btrfs:subvol=home"]
-    return " ".join(tokens)
+    def __exit__(self, *_error):
+        self.flush()
+        return False
 
 
-def _stage_esp(layout_, version, stage, rewrite):
-    """Copy the running ESP into a staging tree, with the kernel image under a name nothing boots.
-    `rewrite` turns the running kernel command line into the installed system's."""
+def _stage_esp(esp_source, version, uki, stage):
+    """Copy the running ESP (the boot loader, its configuration, the Secure Boot keys) into a staging tree, with the update's
+    kernel image under a name nothing boots."""
     esp = os.path.join(stage, "esp")
-    source_linux = os.path.join(layout_.esp, "EFI", "Linux")
+    source_linux = os.path.join(esp_source, "EFI", "Linux")
 
     def ignore(directory, names):
         return names if os.path.samefile(directory, source_linux) else []
 
-    shutil.copytree(layout_.esp, esp, ignore=ignore, copy_function=shutil.copyfile)
+    shutil.copytree(esp_source, esp, ignore=ignore, copy_function=shutil.copyfile)
     target_dir = os.path.join(esp, "EFI", "Linux")
     os.makedirs(target_dir, exist_ok=True)
-    running = layout_.running
-    with open(os.path.join(source_linux, running.entry.file), "rb") as handle:
-        image = pe.rewrite_cmdline(handle.read(), rewrite)
-    with open(os.path.join(target_dir, f"ecp_{version}+3.efi{PARTIAL}"), "wb") as handle:
-        handle.write(image)
+    shutil.copyfile(uki, os.path.join(target_dir, f"ecp_{version}+3.efi{PARTIAL}"))
     return esp
 
 
-def _write_definitions(directory, version, esp, seed, uuids):
+def _write_definitions(directory, esp, seed, root_uuid, verity_uuid):
     os.makedirs(directory)
-    for name, text in layout.definitions(version, esp, seed, uuids).items():
+    for name, text in layout.definitions(esp, seed, root_uuid, verity_uuid).items():
         with open(os.path.join(directory, name), "w", encoding="utf-8") as handle:
             handle.write(text)
 
@@ -298,27 +302,26 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
     if info["problems"]:
         raise InvalidArgument(f"cannot install to {target}: " + "; ".join(info["problems"]))
     layout_ = slots.discover(paths)
-    running = layout_.running
-    if running is None or running.entry is None:
-        raise Unavailable("the running system has no kernel image on the ESP to install")
-    version = running.name
-    if len(layout.LABEL_PREFIX + version) > layout.MAX_LABEL:
-        raise InvalidArgument(f"the version {version!r} is too long for a partition name")
+    if not layout_.esp:
+        raise Unavailable("cannot find the EFI system partition of the installer medium")
+    archive = find_payload(paths)
 
     ctx.step("prepare", "Preparing the installation")
     os.makedirs(os.path.join(paths["state"], "staging"), mode=0o700, exist_ok=True)
     stage = tempfile.mkdtemp(dir=os.path.join(paths["state"], "staging"), prefix="deploy.")
     try:
-        uuids = {"root": uuid.uuid4(), "data": uuid.uuid4()}
-        esp = _stage_esp(layout_, version, stage,
-                         lambda text: installed_cmdline(text, uuids["root"], uuids["data"]))
-        with opener(running.device, "rb") as probe:
-            length = slots.filesystem_length(probe, running.size)
-        if length > layout.ROOT_SLOT:
-            raise InvalidArgument(f"the root image ({length} bytes) does not fit a {layout.ROOT_SLOT}-byte slot")
+        manifest, head, _signed = updates.read_archive(archive, stage, paths, unsigned=True, runner=runner, only={"uki"})
+        version, roothash = manifest["version"], manifest["roothash"]
+        if verity.roothash_of(verity.cmdline_of_file(head["uki"])) != roothash:
+            raise Failed("the payload's kernel image does not carry the root hash its manifest names")
+        root_uuid, verity_uuid = verity.uuids(roothash)
+        length, tree_length = manifest["root"]["size"], manifest["verity"]["size"]
+        if length > layout.ROOT_SLOT or tree_length > layout.VERITY_SLOT:
+            raise InvalidArgument("the system image does not fit the slots of the disk layout")
+        esp = _stage_esp(layout_.esp, version, head["uki"], stage)
         definitions = os.path.join(stage, "repart.d")
-        _write_definitions(definitions, version, esp, _make_seed(stage, language, timezone, zoneinfo), uuids)
-        ctx.log(f"installing version {version} ({length} bytes of root image) to {target}")
+        _write_definitions(definitions, esp, _make_seed(stage, language, timezone, zoneinfo), root_uuid, verity_uuid)
+        ctx.log(f"installing version {version} ({length} bytes of root image, root hash {roothash[:16]}...) to {target}")
 
         ctx.commit()
         ctx.step("partition", "Partitioning the disk")
@@ -330,26 +333,30 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
         except (OSError, gpt.GptError) as error:
             raise Failed(f"the new partition table cannot be read back: {error}") from error
         by_label = {p.name: p for p in table}
-        for label, _size, _note in layout.rows(version):
+        for label, _size, _note in layout.rows():
             if label not in by_label:
                 raise Failed(f"the partition {label} was not created")
-        root_a, esp_part = by_label[layout.LABEL_PREFIX + version], by_label["ECP-ESP"]
-        if root_a.uuid != uuids["root"] or by_label["ECP-DATA"].uuid != uuids["data"]:
-            raise Failed("the partitions were created with other UUIDs than the kernel command line names")
+        root_a, tree_a, esp_part = by_label[layout.ROOT_LABELS[0]], by_label[layout.VERITY_LABELS[0]], by_label["ECP-ESP"]
+        if (root_a.uuid, tree_a.uuid) != (root_uuid, verity_uuid):
+            raise Failed("the partitions were created with other UUIDs than the root hash names")
 
         ctx.step("copy", "Copying the operating system")
-        with opener(running.device, "rb") as src, open(target, "r+b") as disk:
-            window = Window(disk, root_a.offset, root_a.size)
-            slots.copy_range(src, window, length, lambda f: ctx.progress(0.1 + 0.55 * f))
+        with open(target, "r+b") as disk:
+            sinks = {"root": lambda: Window(disk, root_a.offset, root_a.size),
+                     "verity": lambda: Window(disk, tree_a.offset, tree_a.size)}
+            updates.read_archive(archive, stage, paths, unsigned=True, runner=runner,
+                                 progress=lambda f: ctx.progress(0.1 + 0.55 * f), sinks=sinks)
             ctx.step("verify", "Verifying the copy")
             try:  # read the copy back from the disk, not the page cache
-                os.posix_fadvise(disk.fileno(), root_a.offset, root_a.size, os.POSIX_FADV_DONTNEED)
+                for part in (root_a, tree_a):
+                    os.posix_fadvise(disk.fileno(), part.offset, part.size, os.POSIX_FADV_DONTNEED)
             except (OSError, AttributeError):
                 pass
-            expected = slots._digest(src, 0, length, lambda f: ctx.progress(0.65 + 0.15 * f))
-            actual = slots._digest(window, 0, length, lambda f: ctx.progress(0.8 + 0.15 * f))
-        if expected != actual:
-            raise Failed("the copy does not match the source; the disk was left without a bootable kernel image")
+            actual = slots._digest(Window(disk, root_a.offset, root_a.size), 0, length, lambda f: ctx.progress(0.65 + 0.2 * f))
+            actual_tree = slots._digest(Window(disk, tree_a.offset, tree_a.size), 0, tree_length,
+                                        lambda f: ctx.progress(0.85 + 0.1 * f))
+        if actual != manifest["root"]["sha256"] or actual_tree != manifest["verity"]["sha256"]:
+            raise Failed("the copy does not match the payload; the disk was left without a bootable kernel image")
 
         ctx.step("finish", "Making the disk bootable")
         spec = f"{target}@@{esp_part.offset}"
@@ -361,7 +368,7 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
         with open(target, "rb") as disk:
             os.fsync(disk.fileno())
         ctx.progress(1.0)
-        return {"disk": target, "version": version, "root_partition": root_a.number, "bytes": length,
+        return {"disk": target, "version": version, "root_partition": root_a.number, "bytes": length, "roothash": roothash,
                 "partitions": [{"label": p.name, "size": p.size} for p in table]}
     finally:
         shutil.rmtree(stage, ignore_errors=True)

@@ -37,7 +37,7 @@ import tempfile
 import uuid
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
-from . import bundles, compat, osinfo, pe, repos, slots, verity
+from . import bundles, compat, osinfo, repos, slots, verity
 from .runner import run
 
 FORMAT = 1
@@ -146,8 +146,24 @@ def parse_manifest(data, paths):
     return manifest
 
 
-def read_archive(path, stage, paths, unsigned=False, runner=run, progress=lambda fraction: None):
-    """Check and unpack an update into `stage`. Returns (manifest, {"root": file, "uki": file}, signed)."""
+def read_manifest(path, paths):
+    """The manifest of an update archive (its first entry), without checking the signature or reading the rest."""
+    with _open(path) as tar:
+        for member in tar:
+            if member.name != MANIFEST or not member.isreg() or member.size > MAX_SMALL:
+                raise Failed("manifest.json must be the first entry of the update")
+            return parse_manifest(tar.extractfile(member).read(), paths)
+    raise Failed("the update is empty")
+
+
+def read_archive(path, stage, paths, unsigned=False, runner=run, progress=lambda fraction: None, sinks=None, only=None):
+    """Check and unpack an update into `stage`. Returns (manifest, {"root": file, "uki": file, "verity": file}, signed).
+
+    `sinks` maps a key ("root", "verity", "uki") to a function that returns a file object to write that file to instead of a
+    file in `stage` (the installer writes the images straight into the new partitions, which is faster than staging two
+    gigabytes). The checksum is still compared. `only` is a set of keys: reading stops as soon as those are done, which is how
+    the installer reads the manifest and the kernel image from the start of an archive without reading the rest."""
+    sinks = sinks or {}
     keys = signing_keys(paths)
     manifest, signature, seen, files, verified = None, None, set(), {}, False
     with _open(path) as tar:
@@ -190,7 +206,7 @@ def read_archive(path, stage, paths, unsigned=False, runner=run, progress=lambda
             target = os.path.join(stage, name)
             digest = hashlib.sha256()
             source, done = tar.extractfile(member), 0
-            with open(target, "wb") as out:
+            with (sinks[key]() if key in sinks else open(target, "wb")) as out:
                 while True:
                     chunk = source.read(CHUNK)
                     if not chunk:
@@ -204,6 +220,10 @@ def read_archive(path, stage, paths, unsigned=False, runner=run, progress=lambda
             if digest.hexdigest() != manifest[key]["sha256"]:
                 raise Failed(f"{name} does not match the checksum in the signed manifest")
             files[key] = target
+            if only is not None and set(only) <= set(files):
+                return manifest, files, bool(keys) and not unsigned
+    if only is not None:
+        raise Failed("the update does not hold " + ", ".join(sorted(set(only) - set(files))))
     if manifest is None or set(files) != {"root", "uki", "verity"}:
         raise Failed("the update is incomplete: it needs manifest.json, root.erofs, verity.img and uki.efi")
     return manifest, files, bool(keys) and not unsigned

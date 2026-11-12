@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass, field
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
-from . import efi, gpt, osinfo, pe, verity
+from . import efi, gpt, osinfo, verity
 from .runner import check, run
 
 SLOT_PREFIX = "ecp-root-"         # a slot's root partition ("ecp-root-a"); the label never changes

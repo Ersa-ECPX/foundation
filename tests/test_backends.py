@@ -51,57 +51,19 @@ class GptTests(unittest.TestCase):
 
 
 class PeTests(unittest.TestCase):
-    def test_replaces_the_root_token_and_keeps_everything_else(self):
-        image = support.build_pe(b"quiet root=PARTLABEL=ecp-root_0.2.0 rw")
-        patched = pe.replace_cmdline(image, "root=PARTLABEL=ecp-root_0.2.0", "root=PARTLABEL=ecp-root_0.2.0-copy")
-        self.assertEqual(pe.read_cmdline(patched), "quiet root=PARTLABEL=ecp-root_0.2.0-copy rw")
-        self.assertEqual(len(patched), len(image))
-        table = 0x44 + 20 + 240                                    # section table
-        self.assertEqual(image[:table + 40], patched[:table + 40])  # headers and the .linux entry untouched
-        self.assertEqual(image[0x400:0x600], patched[0x400:0x600])  # .linux contents untouched
+    def test_reads_the_command_line(self):
+        self.assertEqual(pe.read_cmdline(support.build_pe(b"quiet roothash=ab rw")), "quiet roothash=ab rw")
 
-    def test_other_tools_read_the_patched_section(self):
-        if not (support.tool_available("objcopy")):
-            self.skipTest("needs objcopy")
-        import subprocess
-        patched = pe.replace_cmdline(support.build_pe(b"a root=x b"), "root=x", "root=yy")
-        with tempfile.TemporaryDirectory() as tmp:
-            source, dump = os.path.join(tmp, "uki.efi"), os.path.join(tmp, "cmdline")
-            with open(source, "wb") as handle:
-                handle.write(patched)
-            result = subprocess.run(["objcopy", "-O", "binary", "--only-section=.cmdline", source, dump],
-                                    capture_output=True)
-            if result.returncode != 0:
-                self.skipTest("objcopy cannot read this synthetic PE")
-            with open(dump, "rb") as handle:
-                self.assertEqual(handle.read().rstrip(b"\0"), b"a root=yy b")
-
-    def test_signed_image_is_refused(self):
-        with self.assertRaisesRegex(Failed, "signed"):
-            pe.replace_cmdline(support.build_pe(b"root=x", signed=True), "root=x", "root=y")
-
-    def test_token_must_appear_exactly_once(self):
-        with self.assertRaisesRegex(Failed, "exactly once"):
-            pe.replace_cmdline(support.build_pe(b"a b"), "root=x", "root=y")
-        with self.assertRaisesRegex(Failed, "exactly once"):
-            pe.replace_cmdline(support.build_pe(b"root=x root=x"), "root=x", "root=y")
-
-    def test_a_partial_token_does_not_match(self):
-        with self.assertRaisesRegex(Failed, "exactly once"):
-            pe.replace_cmdline(support.build_pe(b"root=xyz"), "root=x", "root=y")
-
-    def test_result_that_does_not_fit_is_refused(self):
-        image = support.build_pe(b"root=x " + b"a" * 400, raw_size=512)
-        with self.assertRaisesRegex(Failed, "does not fit"):
-            pe.replace_cmdline(image, "root=x", "root=" + "y" * 200)
-
-    def test_no_cmdline_section(self):
-        with self.assertRaisesRegex(Failed, "no .cmdline"):
-            pe.replace_cmdline(support.build_pe(b"", with_cmdline=False), "a", "b")
-
-    def test_not_a_pe(self):
+    def test_an_image_without_a_command_line_is_refused(self):
         with self.assertRaises(Failed):
-            pe.replace_cmdline(b"not a pe image", "a", "b")
+            pe.read_cmdline(support.build_pe(b"", with_cmdline=False))
+
+    def test_not_a_pe_image(self):
+        with self.assertRaises(Failed):
+            pe.read_cmdline(b"not a pe image")
+
+    def test_a_signed_image_is_read_like_any_other(self):
+        self.assertEqual(pe.read_cmdline(support.build_pe(b"a b", signed=True)), "a b")
 
 
 class ElfTests(unittest.TestCase):

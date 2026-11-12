@@ -29,8 +29,9 @@ TOOLS = all(support.tool_available(t) for t in ("systemd-repart", "mdir", "mren"
 
 class Text(unittest.TestCase):
     def test_partition_titles(self):
-        self.assertEqual(model.partition_title("ecp-root_0.1.0"), "System slot A")
-        self.assertEqual(model.partition_title("_empty"), "System slot B")
+        self.assertEqual(model.partition_title("ecp-root-a"), "System slot A")
+        self.assertEqual(model.partition_title("ecp-verity-b"), "Integrity data for slot B")
+        self.assertEqual(model.partition_title("ecp-root-b"), "System slot B")
         self.assertEqual(model.partition_title("ECP-DATA"), "Your files and settings")
         self.assertEqual(model.partition_title("other"), "other")
 
