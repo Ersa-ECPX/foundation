@@ -363,7 +363,7 @@ class ArchiveScript(Base):
             self.skipTest("scripts/ is not part of this checkout")
         work = os.path.join(self.system.tmp, "mk")
         os.makedirs(os.path.join(work, "src"))
-        for name, data in (("root-x86-64", self.root), ("root-verity-x86-64", self.tree)):
+        for name, data in (("root-x86-64", self.root), ("root-x86-64-verity", self.tree)):
             raw = os.path.join(work, name)
             with open(raw, "wb") as handle:
                 handle.write(data)
@@ -400,7 +400,7 @@ class ArchiveScript(Base):
     def make(self, *extra, env=None):
         work = os.path.join(self.system.tmp, "mkarchive")
         os.makedirs(os.path.join(work, "src"), exist_ok=True)
-        for name, data in (("root-x86-64", self.root), ("root-verity-x86-64", self.tree)):
+        for name, data in (("root-x86-64", self.root), ("root-x86-64-verity", self.tree)):
             raw = os.path.join(work, name)
             with open(raw, "wb") as handle:
                 handle.write(data)

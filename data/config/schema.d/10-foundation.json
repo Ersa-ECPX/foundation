@@ -1,8 +1,8 @@
 {
   "ota.url": {
     "type": "string",
-    "default": "https://updates.ersa.invalid/ecp",
-    "description": "Base URL of the OS image update source (placeholder until a server exists)."
+    "default": "https://github.com/Ersa-ECPX/ecp-mkosi/releases/download/updates",
+    "description": "Base URL of the OS image update source: the update window reads <url>/latest-<arch>.json there."
   },
   "ota.channel": {
     "type": "string",

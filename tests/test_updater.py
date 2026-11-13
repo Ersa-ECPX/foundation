@@ -97,7 +97,7 @@ class Text(unittest.TestCase):
         self.assertTrue(model.is_newer("0.1.0", ""))
 
     def test_the_placeholder_update_source_is_recognised(self):
-        self.assertTrue(model.is_placeholder("https://updates.ersa.invalid/ecp"))
+        self.assertTrue(model.is_placeholder("https://updates.ersa.invalid/ecp"))   # an unset or fake source
         self.assertTrue(model.is_placeholder(""))
         self.assertFalse(model.is_placeholder("https://updates.example.org/ecp"))
 
