@@ -35,8 +35,6 @@ CSS = b"""
 .status-pill.unknown { background-color: alpha(currentColor, 0.1); }
 .update-progress trough, .update-progress progress { min-height: 8px; border-radius: 4px; }
 .result-line { opacity: 0.8; }
-.done-ok image { color: @success_color; }
-.done-fail image { color: @error_color; }
 .check-status.error { color: @error_color; }
 .check-status.available { color: @accent_color; font-weight: 600; }
 """
@@ -182,7 +180,9 @@ class UpdaterWindow(Adw.ApplicationWindow):
         self.stack.add_named(box, "working")
 
     def _build_done(self):
-        self.done = Adw.StatusPage(icon_name="emblem-ok-symbolic", title="Update installed")
+        # drawn by the app (status-ok.svg, status-fail.svg): the icon theme on the image does not have every name
+        self.marks = {kind: Gdk.Texture.new_from_filename(os.path.join(HERE, f"status-{kind}.svg")) for kind in ("ok", "fail")}
+        self.done = Adw.StatusPage(paintable=self.marks["ok"], title="Update installed")
         self.done_lines = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, halign=Gtk.Align.CENTER)
         self.restart_btn = _pill_button("Restart Now…", self.ask_restart, "suggested-action")
         self.later_btn = _pill_button("Later", self.go_home)
@@ -197,9 +197,7 @@ class UpdaterWindow(Adw.ApplicationWindow):
         self.stack.add_named(self.done, "done")
 
     def show_done(self, ok, title, description, lines=()):
-        self.done.set_icon_name("emblem-ok-symbolic" if ok else "dialog-error-symbolic")
-        self.done.remove_css_class("done-fail" if ok else "done-ok")
-        self.done.add_css_class("done-ok" if ok else "done-fail")
+        self.done.set_paintable(self.marks["ok" if ok else "fail"])
         self.done.set_title(title)
         self.done.set_description(description)
         child = self.done_lines.get_first_child()
@@ -254,7 +252,9 @@ class UpdaterWindow(Adw.ApplicationWindow):
                 title="Boot slots", description="The system is kept in two slots. An update goes into the one that is not running.")
             for slot in sorted(values[0], key=lambda s: s["name"]):
                 row = Adw.ActionRow(title=model.slot_title(slot), subtitle=model.slot_subtitle(slot))
-                row.add_prefix(Gtk.Image(icon_name="emblem-ok-symbolic" if slot.get("running") else "drive-harddisk-symbolic"))
+                name = "object-select-symbolic" if slot.get("running") else "drive-harddisk-symbolic"
+                if Gtk.IconTheme.get_for_display(self.get_display()).has_icon(name):
+                    row.add_prefix(Gtk.Image(icon_name=name))
                 group.add(row)
             page.add(group)
             view = Adw.ToolbarView(content=page)
@@ -480,7 +480,8 @@ class UpdaterWindow(Adw.ApplicationWindow):
         def done(values, error):
             if error is not None:
                 self.toast(model.reboot_failed(error.name, error.message))
-        self.backend.call("Boot", "Reboot", "(b)", (False,), done)
+        # Updates.Restart uses the same authorization as the install, which polkit keeps for a few minutes: one password for both
+        self.backend.call("Updates", "Restart", None, None, done)
 
 
 class UpdaterApp(Adw.Application):

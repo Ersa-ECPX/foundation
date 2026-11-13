@@ -462,6 +462,10 @@
       <arg name="force" type="b" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
+    <!-- Restart the computer into the update that was just installed. Needs the same authorization as Install (org.ersa.foundation.updates,
+         which polkit keeps for a few minutes after the password, so install and restart ask once), and works only while an update waits
+         for a restart (InvalidArgument otherwise); Busy while a job runs. A general restart is Boot.Reboot. -->
+    <method name="Restart"/>
     <!-- The update that is installed and waits for a restart; empty if none. Fields: version, slot,
          default_set (b), bundles. -->
     <method name="Pending">

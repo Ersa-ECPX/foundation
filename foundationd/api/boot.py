@@ -21,6 +21,29 @@ LOGIN = ("org.freedesktop.login1", "/org/freedesktop/login1", "org.freedesktop.l
 LOCKS = ("slots",)
 
 
+def logind_call(service, method, parameters, then):
+    """Call a logind method; then(error_message_or_None) runs when it returns."""
+    def done(connection, result):
+        try:
+            connection.call_finish(result)
+        except GLib.Error as error:
+            then(error.message)
+            return
+        then(None)
+
+    service.connection.call(*LOGIN[:2], LOGIN[2], method, parameters, None, Gio.DBusCallFlags.NONE, 30_000, None, done)
+
+
+def reboot_now(service, call):
+    """Ask logind to restart the computer and answer `call` when it has accepted (or failed with Unavailable)."""
+    def failed(message):
+        reason = re.sub(r"^GDBus\.Error:\S+?:\s*", "", message)
+        call.fail(Unavailable(f"cannot ask systemd-logind to restart the computer: {reason}"))
+
+    logind_call(service, "Reboot", GLib.Variant("(b)", (False,)),
+                lambda error: call.reply() if error is None else failed(error))
+
+
 def register(service):
     jobs = service.jobs
 
@@ -55,17 +78,7 @@ def register(service):
     set_splash, check_splash = job_method("boot.splash", ("theme",), (splash_theme,))
 
     def logind(method, parameters, then):
-        """Call a logind method; then(error_message_or_None) runs when it returns."""
-        def done(connection, result):
-            try:
-                connection.call_finish(result)
-            except GLib.Error as error:
-                then(error.message)
-                return
-            then(None)
-
-        service.connection.call(*LOGIN[:2], LOGIN[2], method, parameters, None,
-                                Gio.DBusCallFlags.NONE, 30_000, None, done)
+        logind_call(service, method, parameters, then)
 
     def reboot_handler(firmware):
         def handler(call):
@@ -78,15 +91,11 @@ def register(service):
                 reason = re.sub(r"^GDBus\.Error:\S+?:\s*", "", message)
                 call.fail(Unavailable(f"cannot ask systemd-logind to restart the computer: {reason}"))
 
-            def do_reboot():
-                logind("Reboot", GLib.Variant("(b)", (False,)),
-                       lambda error: call.reply() if error is None else failed(error))
-
             if firmware:
                 logind("SetRebootToFirmwareSetup", GLib.Variant("(b)", (True,)),
-                       lambda error: do_reboot() if error is None else failed(error))
+                       lambda error: reboot_now(service, call) if error is None else failed(error))
             else:
-                do_reboot()
+                reboot_now(service, call)
             return DEFERRED
         return handler
 

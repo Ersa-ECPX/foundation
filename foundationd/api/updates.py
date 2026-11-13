@@ -7,10 +7,12 @@ nothing else may change slots or merge extensions.
 
 import os
 
-from ..errors import Failed, FoundationError
+from ..backends import updates as backend
+from ..errors import Busy, Failed, FoundationError, InvalidArgument
 from ..service import DEFERRED, Method
 from ..variants import reply_dict
 from . import validate
+from .boot import reboot_now
 
 UPDATES = "org.ersa.Foundation1.Updates"
 ACTION_UPDATES = "org.ersa.foundation.updates"
@@ -57,7 +59,19 @@ def register(service):
     def pending(call):
         return service.query(call, "updates.pending", {}, reply_dict)
 
+    def restart(call):
+        """Restart into the update that was just installed. It is part of the update (same authorization as Install) and works only
+        while an update waits for a restart: it is not a general reboot (that is Boot.Reboot, another authorization)."""
+        if not backend.pending({"state": service.paths.state}):
+            raise InvalidArgument("no update is waiting for a restart")
+        running = jobs.running_jobs()
+        if running:
+            raise Busy(f"{len(running)} job(s) are still running; wait for them")
+        reboot_now(service, call)
+        return DEFERRED
+
     return {
         (UPDATES, "Install"): Method(install, ACTION_UPDATES, check_locks),
+        (UPDATES, "Restart"): Method(restart, ACTION_UPDATES),
         (UPDATES, "Pending"): Method(pending),
     }

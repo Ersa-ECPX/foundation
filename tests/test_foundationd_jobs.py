@@ -22,7 +22,7 @@ from test_foundationd_bus import (BusCase, CONFIG, MANAGER, NAME, PATH, ROOT, gi
 if gi:
     from gi.repository import Gio, GLib
 
-EXTENSIONS, BOOT, APPS, COMPAT, REPOS = (f"org.ersa.Foundation1.{n}" for n in ("Extensions", "Boot", "Apps", "Compat", "Repos"))
+EXTENSIONS, BOOT, APPS, COMPAT, REPOS, UPDATES = (f"org.ersa.Foundation1.{n}" for n in ("Extensions", "Boot", "Apps", "Compat", "Repos", "Updates"))
 JOB = "org.ersa.Foundation1.Job"
 WORKER = f"{sys.executable} {os.path.join(HERE, 'scripted_worker.py')}"
 ERR = "org.ersa.Foundation1.Error."
@@ -243,6 +243,7 @@ class Denied(JobCase):
         self.assertEqual(self.error_of(EXTENSIONS, "Merge", "(s)", "sysext"), ERR + "NotAuthorized")
         self.assertEqual(self.error_of(BOOT, "ReleaseSlot", "(s)", "b"), ERR + "NotAuthorized")
         self.assertEqual(self.error_of(BOOT, "Reboot", "(b)", False), ERR + "NotAuthorized")
+        self.assertEqual(self.error_of(UPDATES, "Restart"), ERR + "NotAuthorized")
         self.assertEqual(self.error_of(COMPAT, "InstallPackages", "(sasas)", "media", ["vlc"], []), ERR + "NotAuthorized")
         self.assertEqual(self.error_of(COMPAT, "InstallCatalog", "(ssb)", "codecs", "", True), ERR + "NotAuthorized")
         self.assertEqual(self.error_of(COMPAT, "RemovePackages", "(sas)", "media", []), ERR + "NotAuthorized")
@@ -390,6 +391,28 @@ class Reboot(JobCase):
     def test_reboot_to_firmware_sets_the_flag_first(self):
         self.call(BOOT, "RebootToFirmware", "(b)", False)
         self.assertEqual(self.calls(), ["SetRebootToFirmwareSetup True", "Reboot False"])
+
+    def waiting_update(self, version="0.3.0"):
+        directory = os.path.join(self.tmp.name, "state")
+        os.makedirs(directory, exist_ok=True)
+        with open(os.path.join(directory, "update-pending.json"), "w") as handle:
+            json.dump({"version": version, "slot": "b", "default_set": True}, handle)
+
+    def test_updates_restart_needs_an_update_that_waits(self):
+        self.assertEqual(self.error_of(UPDATES, "Restart"), ERR + "InvalidArgument")
+        self.assertEqual(self.calls(), [], "nothing may be restarted when no update waits")
+
+    def test_updates_restart_reboots_through_logind_when_an_update_waits(self):
+        self.waiting_update()
+        self.call(UPDATES, "Restart")
+        self.assertEqual(self.calls(), ["Reboot False"])
+
+    def test_updates_restart_waits_for_running_jobs(self):
+        self.waiting_update()
+        path = self.start(EXTENSIONS, "Refresh", "(s)", "sysext")
+        self.wait_for(path, lambda p: p["Step"] == "wait")
+        self.assertEqual(self.error_of(UPDATES, "Restart"), ERR + "Busy")
+        self.assertEqual(self.calls(), [])
 
     def test_a_running_job_blocks_reboot_unless_forced(self):
         path = self.start(EXTENSIONS, "Refresh", "(s)", "sysext")
