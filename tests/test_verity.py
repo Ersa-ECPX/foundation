@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 
 import support  # noqa: E402
-from foundationd.backends import pe, verity  # noqa: E402
+from foundationd.backends import verity  # noqa: E402
 from foundationd.errors import Failed  # noqa: E402
 
 HASH = "00112233445566778899aabbccddeeff" + "0123456789abcdef0123456789abcdef"
@@ -47,8 +47,6 @@ class Reading(unittest.TestCase):
             with open(path, "wb") as handle:
                 handle.write(support.build_pe(text.encode(), raw_size=4096))
             self.assertEqual(verity.cmdline_of_file(path), text)
-            with open(path, "rb") as handle:
-                self.assertEqual(verity.cmdline_of_file(path), pe.read_cmdline(handle.read()))
 
     def test_a_file_that_is_not_a_kernel_image(self):
         with tempfile.TemporaryDirectory() as tmp:

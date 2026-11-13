@@ -133,16 +133,6 @@ class Client:
         """Start recording job signals; pass the result to wait() after starting a job."""
         return Collector(self.connection)
 
-    def start_and_wait(self, interface, method, signature, *args, on_event=None, fds=None):
-        """Call a method that returns a job, follow it to the end and return the JobResult."""
-        collector = self.collect()
-        try:
-            path = self.one(interface, method, signature, *args, fds=fds)
-        except BaseException:
-            collector.close()
-            raise
-        return self.wait(path, on_event, collector=collector)
-
     def wait(self, path, on_event=None, interrupt=None, collector=None):
         """Follow a job until it ends. `on_event(kind, *args)` receives:
              ("step", id, title)  ("progress", fraction)  ("message", text)  ("finished", ok, message)

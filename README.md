@@ -320,7 +320,7 @@ foundation/
     api/                   one module per interface: validate, authorize, start a worker
     workers/               one module per job kind: thin wrappers around backends
     backends/              the real work, with injected paths and runners so tests can fake them
-      slots.py gpt.py pe.py efi.py       boot slots
+      slots.py gpt.py verity.py efi.py      boot slots
       compat.py cpio.py elf.py           compatibility packages
       extensions.py flatpak.py osinfo.py runner.py
   data/

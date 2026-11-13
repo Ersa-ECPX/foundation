@@ -15,7 +15,6 @@ UUID safely).
 import hashlib
 import os
 import re
-import struct
 import uuid
 from dataclasses import dataclass, field
 
@@ -126,20 +125,6 @@ def find_esp(paths, mounts, trigger=os.listdir):
         if mount and mount["fstype"] == "vfat":
             return target
     return ""
-
-
-def list_entries(esp):
-    """The UKIs on the ESP, by version. A version with several files keeps the lexically first."""
-    found = {}
-    try:
-        names = sorted(os.listdir(os.path.join(esp, "EFI", "Linux")))
-    except OSError:
-        return found
-    for filename in names:
-        entry = parse_entry(filename)
-        if entry and entry.version not in found:
-            found[entry.version] = entry
-    return found
 
 
 def hash_entries(esp):
@@ -380,19 +365,6 @@ def release(paths, name, ctx, runner=run):
 
 
 # -- writing a slot ----------------------------------------------------------------------------
-
-def filesystem_length(handle, partition_size):
-    """Bytes of an EROFS image (from its superblock), or the whole partition if it is not one."""
-    handle.seek(1024)
-    superblock = handle.read(40)
-    if len(superblock) == 40 and struct.unpack_from("<I", superblock, 0)[0] == 0xE0F5E1E2:
-        block_bits = superblock[12]
-        blocks = struct.unpack_from("<I", superblock, 36)[0]
-        length = blocks << block_bits
-        if 0 < length <= partition_size:
-            return length
-    return partition_size
-
 
 def copy_range(source, target, length, progress, chunk=CHUNK):
     """Copy `length` bytes from the current position of `source` to that of `target`."""

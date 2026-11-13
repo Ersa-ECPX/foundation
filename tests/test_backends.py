@@ -1,9 +1,7 @@
 """Backends that read or change the system, tested against fake system trees and real images."""
 
 import os
-import random
 import shutil
-import struct
 import sys
 import tempfile
 import unittest
@@ -13,7 +11,7 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 
 import support  # noqa: E402
-from foundationd.backends import cpio, elf, gpt, osinfo, pe, slots, verity  # noqa: E402
+from foundationd.backends import cpio, elf, gpt, osinfo, slots, verity  # noqa: E402
 from foundationd.backends.runner import run  # noqa: E402
 from foundationd.errors import Failed, InvalidArgument, NotFound, Unavailable  # noqa: E402
 
@@ -50,20 +48,27 @@ class GptTests(unittest.TestCase):
                 gpt.read_table(handle.name)
 
 
-class PeTests(unittest.TestCase):
+class KernelImageCommandLineTests(unittest.TestCase):
+    def read(self, data):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "k.efi")
+            with open(path, "wb") as handle:
+                handle.write(data)
+            return verity.cmdline_of_file(path)
+
     def test_reads_the_command_line(self):
-        self.assertEqual(pe.read_cmdline(support.build_pe(b"quiet roothash=ab rw")), "quiet roothash=ab rw")
+        self.assertEqual(self.read(support.build_pe(b"quiet roothash=ab rw")), "quiet roothash=ab rw")
 
     def test_an_image_without_a_command_line_is_refused(self):
         with self.assertRaises(Failed):
-            pe.read_cmdline(support.build_pe(b"", with_cmdline=False))
+            self.read(support.build_pe(b"", with_cmdline=False))
 
     def test_not_a_pe_image(self):
         with self.assertRaises(Failed):
-            pe.read_cmdline(b"not a pe image")
+            self.read(b"not a pe image")
 
     def test_a_signed_image_is_read_like_any_other(self):
-        self.assertEqual(pe.read_cmdline(support.build_pe(b"a b", signed=True)), "a b")
+        self.assertEqual(self.read(support.build_pe(b"a b", signed=True)), "a b")
 
 
 class ElfTests(unittest.TestCase):

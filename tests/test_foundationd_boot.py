@@ -5,7 +5,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
 
 HERE = os.path.dirname(__file__)

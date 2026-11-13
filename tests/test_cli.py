@@ -6,7 +6,6 @@ import os
 import signal
 import subprocess
 import sys
-import time
 import unittest
 
 HERE = os.path.dirname(__file__)

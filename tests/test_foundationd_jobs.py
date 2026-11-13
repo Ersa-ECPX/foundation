@@ -7,7 +7,6 @@ test_foundationd_bus.py.
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile

@@ -27,10 +27,6 @@ def slot(value):
     return value
 
 
-def optional_slot(value):
-    return slot(value) if value else ""
-
-
 def name(value):
     if not isinstance(value, str) or not _NAME.match(value):
         raise InvalidArgument(f"not a valid name: {value!r}")

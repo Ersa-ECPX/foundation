@@ -1,6 +1,5 @@
 """Facts about the running system. Read-only. No command lines: files and D-Bus only."""
 
-import os
 import re
 import shlex
 

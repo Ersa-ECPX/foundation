@@ -2,7 +2,6 @@
 
 import os
 import re
-import sys
 import unittest
 import xml.etree.ElementTree as ET
 

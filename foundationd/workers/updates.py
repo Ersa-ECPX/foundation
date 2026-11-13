@@ -12,4 +12,5 @@ def install(ctx):
 
 @worker("updates.pending")
 def pending(ctx):
+    updates.clear_pending(ctx.paths)       # a restart that has happened is not pending any more
     return updates.pending(ctx.paths)

@@ -8,12 +8,25 @@ import sys
 PENDING = "/var/lib/foundation/update-pending.json"
 
 
+def running_version():
+    try:
+        with open("/etc/os-release", encoding="utf-8") as handle:
+            for line in handle:
+                if line.startswith("IMAGE_VERSION="):
+                    return line.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+    return ""
+
+
 def main():
     try:
         with open(PENDING, encoding="utf-8") as handle:
             version = str(json.load(handle).get("version", ""))
     except (OSError, ValueError):
         return 0                       # nothing waiting
+    if version and version == running_version():
+        return 0                       # already restarted into it
     program = shutil.which("notify-send")
     if not program:
         return 0
