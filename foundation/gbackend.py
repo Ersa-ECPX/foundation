@@ -16,19 +16,28 @@ class Backend:
             connection = Client(bus).connection     # raises ClientError if the bus cannot be reached
         self.connection = connection                # tests pass a connection to a private bus
 
-    def call(self, interface, method, signature, args, done, timeout=60_000, path=PATH):
-        """done(values, None) with the unpacked reply tuple, or done(None, ClientError)."""
+    def call(self, interface, method, signature, args, done, timeout=60_000, path=PATH, fds=None):
+        """done(values, None) with the unpacked reply tuple, or done(None, ClientError). `fds` is a Gio.UnixFDList for
+        methods that take file descriptors (the service never opens a path the caller names). The call allows
+        interactive authorization, so a polkit agent can ask the person for a password."""
         def finished(connection, result):
             try:
-                reply = connection.call_finish(result)
+                if fds is not None:
+                    reply, _out = connection.call_with_unix_fd_list_finish(result)
+                else:
+                    reply = connection.call_finish(result)
             except GLib.Error as error:
                 done(None, ClientError.from_gerror(error))
                 return
             done(reply.unpack() if reply is not None else (), None)
 
         name = interface if "." in interface else PREFIX + interface
-        self.connection.call(NAME, path, name, method, GLib.Variant(signature, args) if signature else None,
-                             None, Gio.DBusCallFlags.ALLOW_INTERACTIVE_AUTHORIZATION, timeout, None, finished)
+        parameters = GLib.Variant(signature, args) if signature else None
+        flags = Gio.DBusCallFlags.ALLOW_INTERACTIVE_AUTHORIZATION
+        if fds is not None:
+            self.connection.call_with_unix_fd_list(NAME, path, name, method, parameters, None, flags, timeout, fds, None, finished)
+        else:
+            self.connection.call(NAME, path, name, method, parameters, None, flags, timeout, None, finished)
 
     def properties(self, path, done):
         def got(values, error):

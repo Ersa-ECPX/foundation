@@ -302,28 +302,7 @@ class Deploy(Cli, BootDaemon):
         self.target = os.path.join(self.system.tmp, "target.img")
         with open(self.target, "wb") as handle:
             handle.truncate(layout.MIN_DISK + 64 * 1024 * 1024)
-        # the medium carries the operating system as an update archive (the payload)
-        import hashlib
-        import io
-        import tarfile
-        root_image, tree = os.urandom(1024 * 1024), os.urandom(64 * 1024)
-        roothash = "12" * 32
-        uki = support.build_pe(f"ro roothash={roothash}".encode(), raw_size=1024)
-        sha = lambda data: hashlib.sha256(data).hexdigest()
-        manifest = json.dumps({"format": 1, "name": "ecp", "version": "0.2.0", "arch": os.uname().machine, "roothash": roothash,
-                               "root": {"file": "root.erofs", "sha256": sha(root_image), "size": len(root_image)},
-                               "verity": {"file": "verity.img", "sha256": sha(tree), "size": len(tree)},
-                               "uki": {"file": "uki.efi", "sha256": sha(uki), "size": len(uki)}}).encode()
-        buffer = io.BytesIO()
-        with tarfile.open(fileobj=buffer, mode="w") as tar:
-            for name, data in (("manifest.json", manifest), ("uki.efi", uki), ("root.erofs", root_image), ("verity.img", tree)):
-                info = tarfile.TarInfo(name)
-                info.size = len(data)
-                tar.addfile(info, io.BytesIO(data))
-        directory = os.path.join(self.system.paths["root"], "usr/share/ersa/payload")
-        os.makedirs(directory)
-        with open(os.path.join(directory, "ecp_0.2.0-x86_64.tar"), "wb") as handle:
-            handle.write(buffer.getvalue())
+        support.write_payload(self.system.paths["root"])      # the medium carries the operating system as an update archive
 
     def test_dry_run_changes_nothing(self):
         code, out, err = self.cli("deploy", "install", self.target, "--dry-run")

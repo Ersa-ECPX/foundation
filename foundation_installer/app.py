@@ -16,7 +16,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, GLib, Graphene, Gsk, Gtk  # noqa: E402
 
 from . import __version__, model  # noqa: E402
-from .backend import Backend, ClientError  # noqa: E402
+from foundation.gbackend import Backend, ClientError  # noqa: E402
 
 APP_ID = "org.ersa.Installer"
 HERE = os.path.dirname(os.path.abspath(__file__))

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=System Update
+Comment=Install an Ersa Compute Platform update
+Exec=/usr/bin/ersa-updater
+Icon=org.ersa.Updater
+Terminal=false
+Categories=System;
+Keywords=update;upgrade;system;version;
+StartupNotify=true

@@ -231,3 +231,32 @@ class Recorder:
 
 def tool_available(name):
     return shutil.which(name) is not None
+
+
+def write_payload(root, version="0.2.0", roothash="12" * 32):
+    """Put an update archive where an installer medium carries the operating system to install (usr/share/ersa/payload)."""
+    import hashlib
+    import io
+    import json
+    import tarfile
+    root_image, tree = os.urandom(1024 * 1024), os.urandom(64 * 1024)
+    uki = build_pe(f"ro roothash={roothash}".encode(), raw_size=1024)
+
+    def sha(data):
+        return hashlib.sha256(data).hexdigest()
+    manifest = json.dumps({"format": 1, "name": "ecp", "version": version, "arch": os.uname().machine, "roothash": roothash,
+                           "root": {"file": "root.erofs", "sha256": sha(root_image), "size": len(root_image)},
+                           "verity": {"file": "verity.img", "sha256": sha(tree), "size": len(tree)},
+                           "uki": {"file": "uki.efi", "sha256": sha(uki), "size": len(uki)}}).encode()
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as tar:
+        for name, data in (("manifest.json", manifest), ("uki.efi", uki), ("root.erofs", root_image), ("verity.img", tree)):
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    directory = os.path.join(root, "usr/share/ersa/payload")
+    os.makedirs(directory, exist_ok=True)
+    path = os.path.join(directory, f"ecp_{version}-{os.uname().machine}.tar")
+    with open(path, "wb") as handle:
+        handle.write(buffer.getvalue())
+    return path

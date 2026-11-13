@@ -91,8 +91,9 @@ class Window(BootDaemon):
     def setUp(self):
         super().setUp()
         from foundation_installer.app import InstallerWindow
-        from foundation_installer.backend import Backend
+        from foundation.gbackend import Backend
         from foundationd.backends import layout
+        support.write_payload(self.system.paths["root"])      # the medium carries the operating system to install
         self.target = os.path.join(self.system.tmp, "target.img")
         with open(self.target, "wb") as handle:
             handle.truncate(layout.MIN_DISK + 64 * 1024 * 1024)
@@ -144,7 +145,9 @@ class Window(BootDaemon):
         self.assertEqual(self.page(), "done", "install should succeed")
         self.assertFalse(self.window.installing)
         from foundationd.backends import gpt
-        self.assertIn("ecp-root_0.2.0", [p.name for p in gpt.read_table(self.target)])
+        names = [p.name for p in gpt.read_table(self.target)]
+        self.assertEqual([n for n in names if n.startswith(("ecp-root", "ecp-verity"))],
+                         ["ecp-root-a", "ecp-verity-a", "ecp-root-b", "ecp-verity-b"])
 
     def test_a_refused_disk_shows_the_failure_page(self):
         self.pump(lambda: self.page() == "welcome")

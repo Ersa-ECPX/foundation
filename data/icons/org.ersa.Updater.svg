@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- App icon: the Ersa mark on a rounded square, with a badge showing an update arrow. -->
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="#26342f"/>
+  <g transform="translate(20 18) scale(0.56)">
+    <g stroke="#f1f5f3" stroke-width="10" stroke-linecap="butt">
+      <circle cx="49" cy="49" r="30"/>
+      <path d="M49 19H113M27.7868 70.2132L74 116.4264"/>
+    </g>
+    <path d="M63.8492 34.1508A21 21 0 0 1 34.1508 63.8492Z" fill="#9db0a9"/>
+  </g>
+  <circle cx="92" cy="92" r="24" fill="#5fbf9a"/>
+  <path d="M92 80v24M81 91l11-11 11 11" fill="none" stroke="#14201b" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
