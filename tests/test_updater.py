@@ -4,10 +4,12 @@ import os
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 import support  # noqa: F401
 from test_foundationd_boot import BootDaemon
 
+from foundation import fetch
 from foundation_updater import model
 
 # The window tests open real windows, so they run only on request, on a virtual display:
@@ -138,10 +140,30 @@ class Window(BootDaemon):
 
     def test_checking_without_an_update_server_says_so_and_changes_nothing(self):
         self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
-        self.window.main_btn.emit("clicked")
-        self.pump(lambda: self.window.mode != "checking")
+        with mock.patch.object(model, "is_placeholder", return_value=True), \
+                mock.patch.object(fetch, "fetch_text", side_effect=AssertionError("must not reach the network")):
+            self.window.main_btn.emit("clicked")
+            self.pump(lambda: self.window.mode != "checking")
         self.assertIn("No update server", self.window.check_status.get_label())
         self.assertEqual(self.window.mode, "check")
+
+    def test_an_unreachable_update_source_is_reported_and_can_be_retried(self):
+        """The default source is read from the service's settings; the download itself is stubbed (no network in tests)."""
+        self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
+        with mock.patch.object(fetch, "fetch_text", side_effect=fetch.FetchError("cannot reach the update source: Not Found")):
+            self.window.main_btn.emit("clicked")
+            self.pump(lambda: self.window.mode != "checking")
+        self.assertIn("cannot reach", self.window.check_status.get_label())
+        self.assertEqual((self.window.mode, self.window.main_btn.get_label()), ("check", "Try Again"))
+
+    def test_a_feed_with_a_newer_version_offers_the_update(self):
+        self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
+        feed = '{"version": "0.3.0", "file": "ecp_0.3.0-x86_64.tar.zst", "size": 1024}'
+        with mock.patch.object(fetch, "fetch_text", return_value=feed):
+            self.window.main_btn.emit("clicked")
+            self.pump(lambda: self.window.mode != "checking")
+        self.assertEqual((self.window.mode, self.window.main_btn.get_label()), ("update", "Update to 0.3.0"))
+        self.assertEqual(self.window.available["version"], "0.3.0")
 
     def test_what_the_feed_says_decides_the_button(self):
         self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
