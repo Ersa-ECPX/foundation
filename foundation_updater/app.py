@@ -315,13 +315,14 @@ class UpdaterWindow(Adw.ApplicationWindow):
         if not feed:
             extra.append(skip)
             extra.append(force)
-        name = os.path.basename(source) if os.path.isfile(source) else source
+        # a local file is named so the person sees which one; the address of a download is not shown
+        name = os.path.basename(source) if os.path.isfile(source) else ""
         dialog = Adw.AlertDialog(
             heading="Install this update?",
             body=("The new system is written to the spare slot. The running system is not changed and keeps working. "
                   "Your bundles are rebuilt for the new system, and it starts at the next restart. If it does not start "
                   "properly, the computer returns to the system that works.\n\nYou will be asked for the administrator's "
-                  f"password.\n\n{name}"))
+                  "password." + (f"\n\n{name}" if name else "")))
         if not feed:
             dialog.set_extra_child(extra)
         dialog.add_response("cancel", "Cancel")
