@@ -59,7 +59,7 @@ class Medium(unittest.TestCase):
                 handle.write(data)
         self.root_image = os.urandom(3 * MIB)
         self.tree = os.urandom(64 * 1024)
-        self.uki = support.build_pe(f"ro quiet roothash={ROOTHASH} ecp.pad=----".encode(), raw_size=1024)
+        self.uki = support.build_pe(f"ro quiet roothash={ROOTHASH}".encode(), raw_size=1024)
         self.target = os.path.join(self.system.tmp, "target.img")
         with open(self.target, "wb") as h:
             h.truncate(layout.MIN_DISK + 64 * MIB)

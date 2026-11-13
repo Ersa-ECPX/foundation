@@ -195,11 +195,11 @@
   <!--
     Boot slots and boot control. A slot is a root partition with its dm-verity hash partition (labels ecp-root-a/ecp-verity-a and so on, which never change); the root hash names what it holds
     and the unified kernel image (UKI) ecp_&lt;version&gt;+N.efi on the ESP whose command line has that roothash= boots
-    it. A slot's name is the version its kernel image names, or a/b when it is empty. Requires UEFI with systemd-boot.
+    it. A slot's name is a or b (the label's suffix) and never changes; the version it holds is a separate field, empty when the slot is empty. Requires UEFI with systemd-boot.
   -->
   <interface name="org.ersa.Foundation1.Boot">
     <!--
-      State of the current boot. Keys: efi (b: booted through systemd-boot), running_slot (s),
+      State of the current boot. Keys: efi (b: booted through systemd-boot), running_slot (s), running_version (s),
       running_device (s), selected_entry (s), default_entry (s), tries_left (i, -1 when blessed),
       tries_done (i), assessment (s: good, pending or unknown).
     -->
@@ -207,7 +207,7 @@
       <arg name="state" type="a{sv}" direction="out"/>
     </method>
     <!--
-      Every root slot. Fields: name (s), label (s), device (s), size (t), state (s: running, standby
+      Every root slot. Fields: name (s: a or b), version (s: the image version it holds, empty if none), label (s), device (s), size (t), state (s: running, standby
       or empty), running (b), default (b: boots by default), entry (s: UKI file on the ESP, empty if
       none), tries_left (i, -1 when blessed or absent), bootable (b).
     -->

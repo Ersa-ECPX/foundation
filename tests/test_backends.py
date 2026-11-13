@@ -200,22 +200,22 @@ class SlotDiscoveryTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, system.tmp, True)
         system.uki("0.3.0")
         layout = slots.discover(system.paths, machine="x86_64")
-        self.assertEqual([(s.name, s.label, s.running, s.live) for s in layout.slots], [("0.3.0", "ecp-live", True, True)])
+        self.assertEqual([(s.name, s.version, s.label, s.running, s.live) for s in layout.slots], [("live", "0.3.0", "ecp-live", True, True)])
         self.assertIs(layout.running, layout.slots[0])
         self.assertEqual(layout.running.entry.file, "ecp_0.3.0.efi")
 
     def test_finds_slots_running_and_empty(self):
         self.system.uki("0.2.0", tries=None)
         layout = self.discover()
-        self.assertEqual([(s.name, s.state) for s in layout.slots], [("0.2.0", "running"), ("b", "empty")])
-        self.assertEqual(layout.running.name, "0.2.0")
+        self.assertEqual([(s.name, s.version, s.state) for s in layout.slots], [("a", "0.2.0", "running"), ("b", "", "empty")])
+        self.assertEqual(layout.running.name, "a")
         self.assertEqual(layout.running.entry.file, "ecp_0.2.0.efi")
 
     def test_state_without_efi_variables(self):
         self.system.uki("0.2.0")
         shutil.rmtree(self.system.paths["efivars"])
         state = slots.boot_state(self.system.paths)
-        self.assertEqual(state["running_slot"], "0.2.0")
+        self.assertEqual((state["running_slot"], state["running_version"]), ("a", "0.2.0"))
         self.assertEqual(state["assessment"], "unknown")
 
     def test_assessment_pending_and_good(self):
@@ -265,14 +265,14 @@ class SlotSelectTests(unittest.TestCase):
     def test_select_passes_the_counter_free_id_to_bootctl(self):
         self.system.uki("0.2.0", tries=3)
         runner = FakeRunner()
-        result = slots.select(self.system.paths, "0.2.0", once=False, runner=runner)
+        result = slots.select(self.system.paths, "a", once=False, runner=runner)
         self.assertEqual(runner.calls, [["bootctl", "set-default", "ecp_0.2.0.efi"]])
         self.assertEqual(result["mode"], "default")
 
     def test_oneshot(self):
         self.system.uki("0.2.0")
         runner = FakeRunner()
-        slots.select(self.system.paths, "0.2.0", once=True, runner=runner)
+        slots.select(self.system.paths, "a", once=True, runner=runner)
         self.assertEqual(runner.calls[0][1], "set-oneshot")
 
     def test_a_slot_without_a_kernel_image_is_empty_and_refused(self):
@@ -288,7 +288,7 @@ class SlotSelectTests(unittest.TestCase):
         shutil.rmtree(self.system.paths["efivars"])
         self.system.uki("0.2.0")
         with self.assertRaises(Unavailable):
-            slots.select(self.system.paths, "0.2.0", once=False, runner=FakeRunner())
+            slots.select(self.system.paths, "a", once=False, runner=FakeRunner())
 
 
 @needs_sfdisk
@@ -325,7 +325,7 @@ class SlotReleaseTests(unittest.TestCase):
         self.system.uki("0.1.0", tries=1)
 
     def test_release_a_standby_slot(self):
-        result = slots.release(self.system.paths, "0.1.0", support.Recorder())
+        result = slots.release(self.system.paths, "b", support.Recorder())
         self.assertTrue(result["released"])
         table = {p.number: p for p in gpt.read_table(self.system.image)}
         self.assertEqual((table[3].name, table[4].name), ("ecp-root-b", "ecp-verity-b"), "labels never change")
@@ -339,19 +339,19 @@ class SlotReleaseTests(unittest.TestCase):
         system.uki("0.3.0")
         system.uki("0.2.0")
         with self.assertRaisesRegex(InvalidArgument, "installer medium"):
-            slots.release(system.paths, "0.3.0", support.Recorder())
+            slots.release(system.paths, "live", support.Recorder())
 
     def test_running_slot_cannot_be_released(self):
         with self.assertRaisesRegex(InvalidArgument, "running"):
-            slots.release(self.system.paths, "0.2.0", support.Recorder())
+            slots.release(self.system.paths, "a", support.Recorder())
 
     def test_never_release_the_only_bootable_slot(self):
         os.unlink(os.path.join(self.system.esp, "EFI/Linux/ecp_0.2.0.efi"))
         with self.assertRaisesRegex(InvalidArgument, "only slot"):
-            slots.release(self.system.paths, "0.1.0", support.Recorder())
+            slots.release(self.system.paths, "b", support.Recorder())
 
     def test_releasing_an_empty_slot_is_a_no_op(self):
-        slots.release(self.system.paths, "0.1.0", support.Recorder())
+        slots.release(self.system.paths, "b", support.Recorder())
         self.assertFalse(slots.release(self.system.paths, "ecp-root-b", support.Recorder())["released"])
 
 

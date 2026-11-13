@@ -199,8 +199,8 @@ class Boot(Cli, BootDaemon):
 
     def test_slot_status_json(self):
         data = json.loads(self.cli("slot", "status", "--json")[1])
-        self.assertEqual(data["boot"]["running_slot"], "0.2.0")
-        self.assertEqual({s["name"] for s in data["slots"]}, {"0.2.0", "b"})
+        self.assertEqual((data["boot"]["running_slot"], data["boot"]["running_version"]), ("a", "0.2.0"))
+        self.assertEqual({(s["name"], s["version"]) for s in data["slots"]}, {("a", "0.2.0"), ("b", "")})
 
     def test_status_overview(self):
         code, out, err = self.cli("status")
@@ -210,7 +210,7 @@ class Boot(Cli, BootDaemon):
         self.assertIn("0.2.0", out)
 
     def test_boot_a_slot(self):
-        code, out, err = self.cli("slot", "boot", "0.2.0", "--yes")
+        code, out, err = self.cli("slot", "boot", "a", "--yes")
         self.assertEqual(code, 0, err)
         self.assertIn("done", out)
         with open(self.bootctl_log) as handle:
@@ -228,7 +228,7 @@ class Boot(Cli, BootDaemon):
         self.assertNotEqual(self.cli("splash", "blue")[0], 0)
 
     def test_boot_once(self):
-        self.assertEqual(self.cli("slot", "boot", "0.2.0", "--once", "--yes")[0], 0)
+        self.assertEqual(self.cli("slot", "boot", "a", "--once", "--yes")[0], 0)
         with open(self.bootctl_log) as handle:
             self.assertEqual(handle.read().split()[0], "set-oneshot")
 
@@ -246,7 +246,7 @@ class Boot(Cli, BootDaemon):
     def test_release_empties_a_standby_slot(self):
         self.system.hold(1, "0.1.0")
         self.system.uki("0.1.0")
-        code, _out, err = self.cli("slot", "release", "0.1.0", "--yes")
+        code, _out, err = self.cli("slot", "release", "b", "--yes")
         self.assertEqual(code, 0, err)
         self.assertEqual(self.labels()[3], "ecp-root-b", "labels never change")
         self.assertNotIn("ecp_0.1.0.efi", self.uki_files())
@@ -255,7 +255,7 @@ class Boot(Cli, BootDaemon):
     def test_the_running_slot_cannot_be_released(self):
         self.system.hold(1, "0.1.0")
         self.system.uki("0.1.0")
-        code, _out, err = self.cli("slot", "release", "0.2.0", "--yes")
+        code, _out, err = self.cli("slot", "release", "a", "--yes")
         self.assertNotEqual(code, 0)
         self.assertIn("running", err)
 

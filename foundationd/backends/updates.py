@@ -235,7 +235,7 @@ def read_archive(path, stage, paths, unsigned=False, runner=run, progress=lambda
 
 def _choose_target(layout, wanted, version, force):
     for slot in layout.slots:
-        if slot.name == version and slot.state != "empty":
+        if slot.version == version and slot.state != "empty":
             if slot.running:
                 raise InvalidArgument(f"this system already runs version {version}")
             if not force:
@@ -286,11 +286,11 @@ def _write_slot(layout, manifest, files, target, force, ctx, runner, opener):
         raise InvalidArgument(f"the image ({length} bytes) does not fit slot {slot.name} ({slot.size} bytes)")
     if hash_length > slot.verity_size:
         raise InvalidArgument(f"the hash tree ({hash_length} bytes) does not fit slot {slot.name}'s hash partition ({slot.verity_size} bytes)")
-    if slot.state != "empty" and slot.name != version and not force and slot.default:
+    if slot.state != "empty" and slot.version != version and not force and slot.default:
         raise InvalidArgument(f"slot {slot.name} is the default boot entry; select the running slot first or pass force")
     for other in layout.slots:
-        if other.name == version and other is not slot and other.state != "empty":
-            raise InvalidArgument(f"a slot named {version} already exists")
+        if other.version == version and other is not slot and other.state != "empty":
+            raise InvalidArgument(f"slot {other.name} already holds version {version}")
 
     ctx.step("prepare", "Checking the kernel image")
     if verity.roothash_of(verity.cmdline_of_file(files["uki"])) != roothash:
@@ -300,7 +300,7 @@ def _write_slot(layout, manifest, files, target, force, ctx, runner, opener):
     ctx.commit()
     ctx.step("invalidate", f"Emptying slot {slot.name}")
     if slot.state != "empty":
-        slots._remove_entries(layout, slot.name)
+        slots._remove_entries(layout, slot.version)
     # No kernel image names a random UUID, so from here until the end the slot cannot be booted half-written.
     slots._set_uuid(layout, slot.number, uuid.uuid4(), runner)
     slots._set_uuid(layout, slot.verity_number, uuid.uuid4(), runner)
@@ -352,7 +352,7 @@ def install(paths, archive, ctx, target="", unsigned=False, force=False, runner=
         shutil.rmtree(stage, ignore_errors=True)
 
     # The new image is installed and bootable from here on; what follows prepares it and must not undo it.
-    result = {"version": version, "slot": version, "label": label, "entry": entry_file, "bytes": length, "signed": signed,
+    result = {"version": version, "slot": slot.name, "label": label, "entry": entry_file, "bytes": length, "signed": signed,
               "bundles": {"ready": [], "failed": []}, "default_set": False, "notes": []}
     ctx.step("bundles", "Rebuilding your bundles for the new system")
     try:
@@ -368,11 +368,11 @@ def install(paths, archive, ctx, target="", unsigned=False, force=False, runner=
 
     ctx.step("boot", "Choosing the new system for the next start")
     try:
-        slots.select(paths, version, False, runner)
+        slots.select(paths, slot.name, False, runner)
         result["default_set"] = True
     except (Unavailable, InvalidArgument, Failed) as error:
         result["notes"].append(f"the new system is not the default yet ({error}); choose it in the boot menu")
-    compat._write_json(pending_path(paths), {"version": version, "slot": version, "default_set": result["default_set"],
+    compat._write_json(pending_path(paths), {"version": version, "slot": slot.name, "default_set": result["default_set"],
                                               "bundles": result["bundles"]})
     os.chmod(pending_path(paths), 0o644)      # a user session reads it to tell the user
     ctx.progress(1.0)

@@ -76,26 +76,28 @@ class BootEndToEnd(BootDaemon):
     def test_boot_state(self):
         (state,) = self.call(BOOT, "GetBootState")
         self.assertEqual((state["efi"], state["running_slot"], state["assessment"], state["tries_left"]),
-                         (True, "0.2.0", "pending", 2))
+                         (True, "a", "pending", 2))
+        self.assertEqual(state["running_version"], "0.2.0")
 
     def test_slots(self):
         slots = self.slots()
-        self.assertEqual(set(slots), {"0.2.0", "b"})
-        self.assertEqual((slots["0.2.0"]["state"], slots["0.2.0"]["running"], slots["0.2.0"]["bootable"],
-                          slots["0.2.0"]["tries_left"], slots["0.2.0"]["entry"]),
+        self.assertEqual(set(slots), {"a", "b"})
+        self.assertEqual((slots["a"]["version"], slots["b"]["version"]), ("0.2.0", ""))
+        self.assertEqual((slots["a"]["state"], slots["a"]["running"], slots["a"]["bootable"],
+                          slots["a"]["tries_left"], slots["a"]["entry"]),
                          ("running", True, True, 2, "ecp_0.2.0+2.efi"))
         self.assertEqual((slots["b"]["state"], slots["b"]["bootable"]), ("empty", False))
 
     def test_set_default_stores_the_counter_free_id(self):
-        _path, props = self.run_job("SetDefaultSlot", "(s)", "0.2.0")
+        _path, props = self.run_job("SetDefaultSlot", "(s)", "a")
         self.assertEqual(props["State"], "done", props["ErrorMessage"])
         self.assertEqual(props["Result"]["stored"], "ecp_0.2.0.efi")
-        self.assertEqual(self.slots()["0.2.0"]["default"], True)
+        self.assertEqual(self.slots()["a"]["default"], True)
         with open(self.bootctl_log) as handle:
             self.assertEqual(handle.read().split(), ["set-default", "ecp_0.2.0.efi"])
 
     def test_set_next_boot(self):
-        _path, props = self.run_job("SetNextBoot", "(s)", "0.2.0")
+        _path, props = self.run_job("SetNextBoot", "(s)", "a")
         self.assertEqual((props["State"], props["Result"]["mode"]), ("done", "next"))
 
     def test_set_splash_sets_the_uefi_variable_and_reports_it(self):
@@ -116,7 +118,7 @@ class BootEndToEnd(BootDaemon):
     def test_release(self):
         self.system.hold(1, "0.1.0")
         self.system.uki("0.1.0")
-        _path, props = self.run_job("ReleaseSlot", "(s)", "0.1.0")
+        _path, props = self.run_job("ReleaseSlot", "(s)", "b")
         self.assertEqual(props["State"], "done", props["ErrorMessage"])
         self.assertEqual(self.labels()[3], "ecp-root-b", "labels never change")
         self.assertEqual(self.uki_files(), ["ecp_0.2.0+2.efi"])
@@ -127,6 +129,6 @@ class BootEndToEnd(BootDaemon):
         self.system.hold(1, "0.1.0")
         self.system.uki("0.1.0")
         before = (self.labels(), self.uki_files())
-        _path, props = self.run_job("ReleaseSlot", "(s)", "0.2.0")
+        _path, props = self.run_job("ReleaseSlot", "(s)", "a")
         self.assertEqual(props["State"], "failed")
         self.assertEqual((self.labels(), self.uki_files()), before)

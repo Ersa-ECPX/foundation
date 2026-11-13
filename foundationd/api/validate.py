@@ -21,7 +21,7 @@ def app_id(value):
 
 
 def slot(value):
-    """A slot name: the version it holds, a/b for an empty slot, or the partition label (ecp-root-a)."""
+    """A slot name: a or b, or the partition label (ecp-root-a)."""
     if not isinstance(value, str) or not _SLOT.match(value):
         raise InvalidArgument(f"not a valid slot name: {value!r}")
     return value

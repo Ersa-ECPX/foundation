@@ -43,7 +43,7 @@ class Reading(unittest.TestCase):
     def test_a_kernel_images_command_line_is_read_from_the_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "k.efi")
-            text = f"ro roothash={HASH} ecp.pad=----"
+            text = f"ro roothash={HASH}"
             with open(path, "wb") as handle:
                 handle.write(support.build_pe(text.encode(), raw_size=4096))
             self.assertEqual(verity.cmdline_of_file(path), text)

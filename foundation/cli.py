@@ -132,7 +132,7 @@ def slot_rows(slots):
         marks = [m for m, on in (("default", slot.get("default")),) if on]
         tries = "blessed" if slot["tries_left"] < 0 and slot["entry"] else (
             f"{slot['tries_left']} left" if slot["entry"] else "-")
-        rows.append([slot["name"], state, slot["entry"] or "-", tries, ", ".join(marks) or "-",
+        rows.append([slot["name"], state, slot.get("version") or "-", tries, ", ".join(marks) or "-",
                      slot["device"], ui.human_size(slot["size"])])
     return rows
 
@@ -141,12 +141,12 @@ def print_slots(slots):
     if not slots:
         ui.note("No boot slots were found.")
         return
-    ui.table(["Slot", "State", "Boot entry", "Tries", "Default", "Partition", "Size"], slot_rows(slots))
+    ui.table(["Slot", "State", "Version", "Tries", "Default", "Partition", "Size"], slot_rows(slots))
 
 
 def print_boot(state):
     ui.kv([("Booted through UEFI", "yes" if state["efi"] else ui.style("no (boot selection is unavailable)", "gray")),
-           ("Running slot", state["running_slot"] or ui.style("unknown", "gray")),
+           ("Running slot", (state["running_slot"] + (f" ({state['running_version']})" if state.get("running_version") else "")) if state["running_slot"] else ui.style("unknown", "gray")),
            ("Boot entry", state["selected_entry"] or None),
            ("Default entry", state["default_entry"] or None)])
     assessment = state["assessment"]
@@ -235,7 +235,7 @@ def cmd_slot_boot(client, args):
         raise UserError(f"slot {slot['name']} has no kernel image to boot")
     when = "at the next boot only" if args.once else "from now on"
     ui.title(f"Boot slot {slot['name']} {when}")
-    ui.kv([("Kernel image", slot["entry"]), ("Partition", slot["device"])])
+    ui.kv([("Version", slot.get("version") or "-"), ("Kernel image", slot["entry"]), ("Partition", slot["device"])])
     print()
     if not sure(args, f"Boot slot {slot['name']} {when}?"):
         return 1

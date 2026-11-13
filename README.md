@@ -85,15 +85,15 @@ foundation base [FILTER]                  packages in the read-only base image
 Releasing a slot, as it looks on a terminal (illustrative; the device names depend on the machine):
 
 ```
-$ foundation slot release 0.1.0
+$ foundation slot release b
 
-Release slot 0.1.0
-------------------
-  Slot    0.1.0  (/dev/nvme0n1p3, 8 GiB, standby)
+Release slot b
+--------------
+  Slot    b  (/dev/nvme0n1p3, 8 GiB, standby, version 0.1.0)
   Result  its kernel image is removed and its partitions get new names; updates can use it again
 
-Release slot 0.1.0? Type the slot name to confirm: 0.1.0
-› Releasing slot 0.1.0
+Release slot b? Type the slot name to confirm: b
+› Releasing slot b
 ```
 
 Ctrl-C while following a job asks the service to cancel it. Before a job's point of no return that
@@ -103,10 +103,10 @@ login with no polkit agent, run the command with `sudo`.
 
 ## How a request travels
 
-Take `foundation slot release 0.1.0 --yes`:
+Take `foundation slot release b --yes`:
 
 1. **CLI** reads `Boot.GetSlots`, checks the arguments, shows the plan, asks, then calls
-   `Boot.ReleaseSlot("0.1.0")`. Before the call it subscribes to *all* job signals, so a
+   `Boot.ReleaseSlot("b")`. Before the call it subscribes to *all* job signals, so a
    fast job's first steps are not lost.
 2. **Broker** (`foundationd/service.py`) receives the call. The method table is built from
    `foundationd/api/*.py`; the contract check at start-up refuses to run if any method in

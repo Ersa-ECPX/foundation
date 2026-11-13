@@ -27,7 +27,7 @@ SLOT_PREFIX = "ecp-root-"         # a slot's root partition ("ecp-root-a"); the 
 VERITY_PREFIX = "ecp-verity-"     # its hash partition ("ecp-verity-a")
 LIVE_LABEL = "ecp-live"           # the installer medium's root; never offered as a slot to install into
 LIVE_VERITY_LABEL = "ecp-live-verity"
-ENTRY = re.compile(r"^ecp_(?P<name>.+?)(?:\+(?P<left>\d+)(?:-(?P<done>\d+))?)?\.efi$")
+ENTRY = re.compile(r"^ecp_(?P<version>.+?)(?:\+(?P<left>\d+)(?:-(?P<done>\d+))?)?\.efi$")
 ESP_CANDIDATES = ("/efi", "/boot", "/boot/efi")
 CHUNK = 4 * 1024 * 1024
 
@@ -35,19 +35,19 @@ CHUNK = 4 * 1024 * 1024
 @dataclass
 class Entry:
     file: str                 # file name on the ESP
-    name: str                 # slot name
+    version: str              # the image version in the file name
     left: int = -1            # tries left, -1 when blessed (no counter)
     done: int = 0
 
     @property
     def id(self):
         """The entry id without a boot counter: stable across systemd-bless-boot renames."""
-        return f"ecp_{self.name}.efi"
+        return f"ecp_{self.version}.efi"
 
 
 @dataclass
 class Slot:
-    name: str
+    name: str                 # a, b (the label's suffix) or live: never changes, whatever the slot holds
     label: str
     device: str
     number: int
@@ -57,6 +57,7 @@ class Slot:
     running: bool = False
     default: bool = False
     entry: Entry = None
+    version: str = ""         # the version of the kernel image that boots this slot; empty for an empty slot
     live: bool = False        # the installer medium's own root: shown, but never a place to install
     verity_number: int = 0    # the slot's hash partition
     verity_device: str = ""
@@ -64,7 +65,7 @@ class Slot:
 
     def as_dict(self):
         return {
-            "name": self.name, "label": self.label, "device": self.device, "size": self.size,
+            "name": self.name, "version": self.version, "label": self.label, "device": self.device, "size": self.size,
             "state": self.state, "running": self.running, "default": self.default,
             "entry": self.entry.file if self.entry else "",
             "tries_left": self.entry.left if self.entry else -1,
@@ -101,7 +102,7 @@ def parse_entry(filename):
     if not match:
         return None
     left = match.group("left")
-    return Entry(filename, match.group("name"), int(left) if left is not None else -1,
+    return Entry(filename, match.group("version"), int(left) if left is not None else -1,
                  int(match.group("done") or 0))
 
 
@@ -128,7 +129,7 @@ def find_esp(paths, mounts, trigger=os.listdir):
 
 
 def list_entries(esp):
-    """The UKIs on the ESP, by slot name. A slot with several files keeps the lexically first."""
+    """The UKIs on the ESP, by version. A version with several files keeps the lexically first."""
     found = {}
     try:
         names = sorted(os.listdir(os.path.join(esp, "EFI", "Linux")))
@@ -136,8 +137,8 @@ def list_entries(esp):
         return found
     for filename in names:
         entry = parse_entry(filename)
-        if entry and entry.name not in found:
-            found[entry.name] = entry
+        if entry and entry.version not in found:
+            found[entry.version] = entry
     return found
 
 
@@ -245,14 +246,14 @@ def discover(paths, machine=None):
         entry = by_hash.get(part.uuid)
         companion = next((p for p in table if p.type == verity_type and p.name == (LIVE_VERITY_LABEL if live else VERITY_PREFIX + suffix)), None)
         slot = Slot(
-            name=entry.name if entry else suffix, label=part.name, device=partition_device(layout.disk, part.number),
+            name=suffix, version=entry.version if entry else "", label=part.name, device=partition_device(layout.disk, part.number),
             number=part.number, size=part.size, offset=part.offset,
             state="empty" if entry is None else ("running" if part.number == running_number else "standby"),
             running=part.number == running_number, entry=entry, live=live,
             verity_number=companion.number if companion else 0,
             verity_device=partition_device(layout.disk, companion.number) if companion else "",
             verity_size=companion.size if companion else 0)
-        slot.default = bool(default_entry and entry and default_entry.name == entry.name)
+        slot.default = bool(default_entry and entry and default_entry.version == entry.version)
         layout.slots.append(slot)
         if slot.running:
             layout.running = slot
@@ -263,7 +264,7 @@ def discover(paths, machine=None):
 
 def boot_state(paths):
     efivars = paths["efivars"]
-    state = {"efi": efi.booted_with_efi(efivars), "running_slot": "", "running_device": "",
+    state = {"efi": efi.booted_with_efi(efivars), "running_slot": "", "running_version": "", "running_device": "",
              "selected_entry": "", "default_entry": "", "tries_left": -1, "tries_done": 0,
              "assessment": "unknown"}
     state["selected_entry"] = efi.read_loader_variable("LoaderEntrySelected", efivars) or ""
@@ -274,6 +275,7 @@ def boot_state(paths):
         return state
     if layout.running is not None:
         state["running_slot"] = layout.running.name
+        state["running_version"] = layout.running.version
         state["running_device"] = layout.running.device
         entry = layout.running.entry
         if entry is not None:
@@ -333,7 +335,7 @@ def _set_uuid(layout, number, value, runner):
         raise Failed(f"the UUID of partition {number} did not change to {value}")
 
 
-def _remove_entries(layout, name):
+def _remove_entries(layout, version):
     removed = []
     try:
         names = os.listdir(layout.uki_dir)
@@ -341,7 +343,7 @@ def _remove_entries(layout, name):
         return removed
     for filename in names:
         entry = parse_entry(filename)
-        if entry and entry.name == name:
+        if entry and entry.version == version:
             os.unlink(os.path.join(layout.uki_dir, filename))
             removed.append(filename)
     return removed
@@ -370,11 +372,11 @@ def release(paths, name, ctx, runner=run):
         raise InvalidArgument("refusing to release the only slot that can boot")
     ctx.step("release", f"Releasing slot {slot.name}")
     ctx.commit()
-    removed = _remove_entries(layout, slot.name) if layout.esp else []
+    removed = _remove_entries(layout, slot.version) if layout.esp and slot.version else []
     _set_uuid(layout, slot.number, uuid.uuid4(), runner)
     if slot.verity_number:
         _set_uuid(layout, slot.verity_number, uuid.uuid4(), runner)
-    return {"slot": slot.label, "released": True, "removed_entries": removed}
+    return {"slot": slot.name, "released": True, "removed_entries": removed}
 
 
 # -- writing a slot ----------------------------------------------------------------------------

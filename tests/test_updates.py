@@ -44,7 +44,7 @@ def tar_bytes(entries):
 
 
 def cmdline(roothash):
-    return f"ro quiet splash roothash={roothash} ecp.pad=----------------"
+    return f"ro quiet splash roothash={roothash}"
 
 
 @unittest.skipUnless(support.tool_available("sfdisk"), "needs sfdisk")
@@ -144,11 +144,11 @@ class Base(unittest.TestCase):
 
 
 class Discovery(Base):
-    def test_slots_are_found_by_the_root_hash_not_by_a_label_with_a_version(self):
+    def test_slots_are_named_by_their_label_and_hold_the_version_their_root_hash_names(self):
         layout = slots.discover(self.paths)
         a, b = layout.slots
-        self.assertEqual((a.name, a.label, a.state, a.running), ("0.2.0", "ecp-root-a", "running", True))
-        self.assertEqual((b.name, b.label, b.state), ("b", "ecp-root-b", "empty"))
+        self.assertEqual((a.name, a.version, a.label, a.state, a.running), ("a", "0.2.0", "ecp-root-a", "running", True))
+        self.assertEqual((b.name, b.version, b.label, b.state), ("b", "", "ecp-root-b", "empty"))
         self.assertEqual((a.verity_number, b.verity_number), (2, 4))
         self.assertIs(layout.running, a)
         self.assertEqual([x["live"] for x in slots.slots(self.paths)], [False, False])
@@ -173,7 +173,7 @@ class Installing(Base):
         with open(landed, "rb") as handle:
             self.assertEqual(handle.read(), self.uki_bytes, "the signed kernel image must be copied byte for byte")
         slot = slots.discover(self.paths).slots[1]
-        self.assertEqual((slot.name, slot.state), ("0.3.0", "standby"))
+        self.assertEqual((slot.name, slot.version, slot.state), ("b", "0.3.0", "standby"))
         self.assertEqual(slots.discover(self.paths).slots[0].state, "running", "the running slot is untouched")
 
     def test_the_running_slot_is_not_touched(self):
@@ -239,7 +239,7 @@ class Installing(Base):
     def test_a_restart_is_recorded_for_whoever_wants_to_tell_the_user(self):
         self.install(self.archive())
         waiting = updates.pending(self.paths)
-        self.assertEqual((waiting["version"], waiting["slot"]), ("0.3.0", "0.3.0"))
+        self.assertEqual((waiting["version"], waiting["slot"]), ("0.3.0", "b"))
         self.assertEqual(oct(os.stat(updates.pending_path(self.paths)).st_mode & 0o777), "0o644")
         self.assertFalse(updates.clear_pending(self.paths), "still running the old image")
         with open(self.paths["os_release"], "w") as handle:
