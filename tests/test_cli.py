@@ -100,8 +100,8 @@ class Scripted(Cli, JobCase):
         self.assertEqual(self.cli("config", "get", "ota.channel")[1].strip(), "stable")
         self.assertEqual(self.cli("config", "set", "ota.channel", "testing")[0], 0)
         self.assertEqual(self.cli("config", "get", "ota.channel")[1].strip(), "testing")
-        self.assertEqual(self.cli("config", "set", "ota.auto_download", "yes")[0], 0)
-        self.assertEqual(self.cli("config", "get", "ota.auto_download")[1].strip(), "true")
+        self.assertEqual(self.cli("config", "set", "ota.auto_update", "yes")[0], 0)
+        self.assertEqual(self.cli("config", "get", "ota.auto_update")[1].strip(), "true")
         listing = self.cli("config", "list")[1]
         self.assertIn("ota.channel", listing)
         self.assertEqual(self.cli("config", "reset", "ota.channel")[0], 0)
@@ -334,3 +334,61 @@ class Deploy(Cli, BootDaemon):
     def test_refuses_the_running_disk(self):
         code, _out, err = self.cli("deploy", "install", self.system.image, "--yes")
         self.assertNotEqual(code, 0)
+
+
+class UpdateCheck(Cli, BootDaemon):
+    """foundation update check: the update source is a local web server, the daemon is the real one."""
+
+    def setUp(self):
+        super().setUp()
+        import functools
+        import http.server
+        import shutil
+        import tempfile
+        import threading
+        with open(self.system.paths["os_release"], "w") as handle:
+            handle.write("ID=opensuse-tumbleweed\nIMAGE_ID=ecp\nIMAGE_VERSION=0.2.0\n")
+        self.www = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.www, True)
+        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=self.www)
+        handler.log_message = lambda *a, **k: None
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.assertEqual(self.cli("config", "set", "ota.url", f"http://127.0.0.1:{self.server.server_address[1]}")[0], 0)
+
+    def feed(self, version, size=1610612736):
+        with open(os.path.join(self.www, f"latest-{os.uname().machine}.json"), "w") as handle:
+            json.dump({"version": version, "file": f"ecp_{version}.tar.zst", "size": size}, handle)
+
+    def test_a_newer_update_is_reported(self):
+        self.feed("0.3.0")
+        code, out, err = self.cli("update", "check")
+        self.assertEqual(code, 0, err)
+        self.assertIn("version 0.3.0 is available", out)
+        self.assertIn("1.5", out)                       # its size
+        self.assertIn("foundation update check --install", out)
+
+    def test_no_newer_update(self):
+        self.feed("0.2.0")
+        code, out, _err = self.cli("update", "check")
+        self.assertEqual(code, 0)
+        self.assertIn("up to date", out)
+
+    def test_json(self):
+        self.feed("0.3.0")
+        found = json.loads(self.cli("update", "check", "--json")[1])
+        self.assertEqual((found["available"], found["version"], found["current"]), (True, "0.3.0", "0.2.0"))
+
+    def test_an_unreachable_source_is_an_error_with_the_reason(self):
+        self.assertEqual(self.cli("config", "set", "ota.url", "http://127.0.0.1:1")[0], 0)
+        code, _out, err = self.cli("update", "check")
+        self.assertNotEqual(code, 0)
+        self.assertIn("cannot reach", err)
+
+    def test_install_refuses_when_nothing_is_newer_and_says_why(self):
+        self.feed("0.2.0")
+        code, out, _err = self.cli("update", "check", "--install", "--yes")
+        self.assertEqual(code, 0)
+        self.assertIn("up to date", out)

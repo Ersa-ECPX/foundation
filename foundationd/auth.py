@@ -27,6 +27,26 @@ class PolkitAuthorizer:
         self._connection = connection
 
     def authorize(self, sender, action_id, callback):
+        """Root is authorized without asking (a root process can change the system anyway, and polkit treats it the same way): that
+        is how the automatic update service, which runs as root, uses the same interface as everyone else. Anyone else is asked."""
+        from gi.repository import GLib
+
+        def uid_known(connection, result):
+            try:
+                (uid,) = connection.call_finish(result).unpack()
+            except Exception as error:  # noqa: BLE001 - not knowing the caller's uid means asking polkit
+                log.debug("cannot read the uid of %s: %s", sender, error)
+                uid = None
+            if uid == 0:
+                callback(True, "")
+            else:
+                self._ask_polkit(sender, action_id, callback)
+
+        self._connection.call(
+            "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "GetConnectionUnixUser",
+            GLib.Variant("(s)", (sender,)), GLib.VariantType("(u)"), self._Gio.DBusCallFlags.NONE, 5000, None, uid_known)
+
+    def _ask_polkit(self, sender, action_id, callback):
         from gi.repository import GLib
 
         subject = ("system-bus-name", {"name": GLib.Variant("s", sender)})

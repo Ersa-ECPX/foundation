@@ -1,6 +1,5 @@
 """Download an update archive: which addresses are accepted, and the download itself (shared by the command line and the updater window)."""
 
-import hashlib
 import ipaddress
 import os
 import tempfile
@@ -53,23 +52,3 @@ def fetch(url, directory, limit=64 * 1024 ** 3, progress=None):
         os.unlink(handle.name)
         raise
     return handle.name
-
-
-def fetch_text(url, limit=1024 * 1024, timeout=20):
-    """A small text document (the update feed) as a string."""
-    try:
-        with urllib.request.urlopen(url, timeout=timeout) as response:
-            data = response.read(limit + 1)
-    except (urllib.error.URLError, OSError, ValueError) as error:
-        raise FetchError(f"cannot reach {url}: {getattr(error, 'reason', error)}") from error
-    if len(data) > limit:
-        raise FetchError("the update feed is larger than expected")
-    return data.decode("utf-8", errors="replace")
-
-
-def file_sha256(path):
-    digest = hashlib.sha256()
-    with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()

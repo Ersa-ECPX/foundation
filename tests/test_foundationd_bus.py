@@ -128,7 +128,7 @@ class ManagerAndReadTests(BusCase):
     def test_list_contains_every_schema_key(self):
         (values,) = self.call(CONFIG, "List")
         self.assertEqual(sorted(values), [
-            "ota.auto_check", "ota.auto_download", "ota.channel", "ota.url", "system.developer_mode"])
+            "ota.auto_check", "ota.auto_update", "ota.channel", "ota.url", "system.developer_mode"])
 
     def test_describe(self):
         (info,) = self.call(CONFIG, "Describe", "(s)", "ota.channel")
@@ -188,7 +188,7 @@ class WriteWithAuthorization(BusCase):
                          "org.ersa.Foundation1.Error.InvalidArgument")
 
     def test_bad_choice_and_multiline_value_are_rejected(self):
-        for value in ("nightly", "stable\nota.auto_download=true"):
+        for value in ("nightly", "stable\nota.auto_update=true"):
             self.assertEqual(self.error_of(CONFIG, "Set", "(sv)", "ota.channel", GLib.Variant("s", value)),
                              "org.ersa.Foundation1.Error.InvalidArgument")
         self.assertFalse(os.path.exists(os.path.join(self.conf, "90-api.conf")))
@@ -232,6 +232,8 @@ class PolkitCase(BusCase):
     polkit_mode = "allow"
 
     def setUp(self):
+        if os.geteuid() == 0:
+            self.skipTest("root is authorized without asking polkit (see tests/test_auth.py), so these checks mean nothing as root")
         self.polkit_log = os.path.join(tempfile.mkdtemp(), "requests")
         self.addCleanup(shutil.rmtree, os.path.dirname(self.polkit_log), True)
         env = dict(os.environ, FAKE_POLKIT=self.polkit_mode, FAKE_POLKIT_LOG=self.polkit_log)

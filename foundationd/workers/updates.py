@@ -1,6 +1,6 @@
 """updates.* workers: installing a system image update."""
 
-from ..backends import updates
+from ..backends import ota, updates
 from ..workerlib import worker
 
 
@@ -14,3 +14,18 @@ def install(ctx):
 def pending(ctx):
     updates.clear_pending(ctx.paths)       # a restart that has happened is not pending any more
     return updates.pending(ctx.paths)
+
+
+@worker("updates.check")
+def check(ctx):
+    return ota.check(ctx.paths, ctx.arg("url"), ctx.arg("arch"))
+
+
+@worker("updates.available")
+def available(ctx):
+    return ota.available(ctx.paths)
+
+
+@worker("updates.install_latest")
+def install_latest(ctx):
+    return ota.install_latest(ctx.paths, ctx.arg("url"), ctx.arg("arch"), ctx)

@@ -23,9 +23,9 @@ sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 
 import support  # noqa: E402
-from foundationd.backends import gpt, slots, updates, verity  # noqa: E402
+from foundationd.backends import gpt, ota, slots, updates, verity  # noqa: E402
 from foundationd.backends.runner import run  # noqa: E402
-from foundationd.errors import Failed, InvalidArgument  # noqa: E402
+from foundationd.errors import Failed, InvalidArgument, Unavailable  # noqa: E402
 from test_repos import GPG, _gpg_key, _sign  # noqa: E402
 
 MIB = 1024 * 1024
@@ -350,6 +350,125 @@ class Refusing(Base):
         result = self.install(self.archive(signed_by="good"), unsigned=False)
         self.assertTrue(result["signed"])
         self.assertEqual((self.table()[3].uuid, self.table()[4].uuid), verity.uuids(NEW_HASH))
+
+
+@unittest.skipUnless(GPG, "needs gpg")
+class OverTheAir(Base):
+    """Checking the update source and installing the newest update from it, against a local web server."""
+
+    def setUp(self):
+        super().setUp()
+        import functools
+        import http.server
+        import threading
+        self.www = os.path.join(self.system.tmp, "www")
+        os.makedirs(self.www)
+        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=self.www)
+        handler.log_message = lambda *a, **k: None
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self.trust(self.good_key)
+        self.fetched = 0
+        with open(self.paths["os_release"], "w") as handle:          # slot a runs 0.2.0
+            handle.write("ID=opensuse-tumbleweed\nIMAGE_ID=ecp\nIMAGE_VERSION=0.2.0\n")
+
+    def publish(self, version="0.3.0", signed_by="good", sha256=None, arch=None):
+        """Put an update archive and the feed that names it into the web server's directory."""
+        name = f"ecp_{version}-{os.uname().machine}.tar.zst"
+        archive = self.archive(manifest=self.manifest(version=version), signed_by=signed_by)
+        with open(archive, "rb") as source, open(os.path.join(self.www, name), "wb") as target:
+            target.write(source.read())
+        served = os.path.join(self.www, name)
+        with open(served, "rb") as handle:
+            digest = hashlib.sha256(handle.read()).hexdigest()
+        with open(os.path.join(self.www, f"latest-{os.uname().machine}.json"), "w") as handle:
+            json.dump({"version": version, "file": name, "size": os.path.getsize(served), "sha256": sha256 or digest}, handle)
+        return name
+
+    def counting_fetch(self, url):
+        from foundationd.backends import feed
+        self.fetched += 1
+        return feed.fetch_text(url)
+
+    def install_latest(self, **kw):
+        return ota.install_latest(self.paths, self.base, os.uname().machine, self.ctx, opener=self.system.opener(),
+                                  mount=self.fake_mount, **kw)
+
+    def test_a_newer_update_is_found_and_recorded(self):
+        self.publish("0.3.0")
+        found = ota.check(self.paths, self.base, os.uname().machine)
+        self.assertEqual((found["available"], found["version"], found["current"]), (True, "0.3.0", "0.2.0"))
+        self.assertGreater(found["size"], 0)
+        self.assertEqual(oct(os.stat(ota.check_path(self.paths)).st_mode & 0o777), "0o644", "a user session reads it")
+
+    def test_an_update_that_is_already_installed_is_no_longer_available(self):
+        self.publish("0.3.0")
+        ota.check(self.paths, self.base, os.uname().machine)
+        with open(self.paths["os_release"], "w") as handle:
+            handle.write("IMAGE_ID=ecp\nIMAGE_VERSION=0.3.0\n")
+        self.assertFalse(ota.available(self.paths)["available"])
+
+    def test_the_same_or_an_older_version_is_not_an_update(self):
+        for version in ("0.2.0", "0.1.9"):
+            self.publish(version)
+            if os.path.exists(ota.check_path(self.paths)):
+                os.unlink(ota.check_path(self.paths))                  # not the cached answer of the last round
+            self.assertFalse(ota.check(self.paths, self.base, os.uname().machine)["available"], version)
+
+    def test_a_second_check_soon_after_the_first_does_not_ask_the_source_again(self):
+        self.publish("0.3.0")
+        clock = [1000.0]
+        ota.check(self.paths, self.base, os.uname().machine, now=lambda: clock[0], fetch=self.counting_fetch)
+        clock[0] += 5
+        ota.check(self.paths, self.base, os.uname().machine, now=lambda: clock[0], fetch=self.counting_fetch)
+        self.assertEqual(self.fetched, 1)
+        clock[0] += 60
+        ota.check(self.paths, self.base, os.uname().machine, now=lambda: clock[0], fetch=self.counting_fetch)
+        self.assertEqual(self.fetched, 2)
+
+    def test_no_source_set_up_is_a_clear_error(self):
+        for base in ("", "https://updates.ersa.invalid/ecp"):
+            with self.assertRaisesRegex(Unavailable, "no update source"):
+                ota.check(self.paths, base, os.uname().machine)
+
+    def test_an_unreachable_source_is_unavailable_not_a_crash(self):
+        with self.assertRaises(Unavailable):
+            ota.check(self.paths, "http://127.0.0.1:1", os.uname().machine)
+
+    def test_install_latest_downloads_verifies_and_installs_into_the_standby_slot(self):
+        name = self.publish("0.3.0")
+        result = self.install_latest()
+        self.assertEqual((result["version"], result["slot"], result["signed"]), ("0.3.0", "b", True))
+        slot = slots.discover(self.paths).slots[1]
+        self.assertEqual((slot.name, slot.version, slot.state), ("b", "0.3.0", "standby"))
+        self.assertEqual(os.listdir(os.path.join(self.paths["state"], "staging")), [], "the downloaded archive is removed")
+        self.assertEqual(self.ctx.steps[:2], ["check", "download"])
+        self.assertEqual(max(self.ctx.progress_values), 1.0)
+        self.assertEqual(self.ctx.progress_values, sorted(self.ctx.progress_values), "progress never goes backwards across download and install")
+        self.assertIn(name, os.listdir(self.www))
+
+    def test_install_latest_refuses_when_nothing_newer_exists(self):
+        self.publish("0.2.0")
+        with self.assertRaisesRegex(InvalidArgument, "already up to date"):
+            self.install_latest()
+        self.assertEqual(slots.discover(self.paths).slots[1].state, "empty")
+
+    def test_a_download_that_does_not_match_the_feeds_checksum_is_refused(self):
+        self.publish("0.3.0", sha256="00" * 32)
+        with self.assertRaisesRegex(Failed, "checksum"):
+            self.install_latest()
+        self.assertEqual(slots.discover(self.paths).slots[1].state, "empty")
+        self.assertEqual(os.listdir(os.path.join(self.paths["state"], "staging")), [])
+
+    def test_an_update_not_signed_by_a_trusted_key_is_refused_even_over_the_air(self):
+        self.publish("0.3.0", signed_by="bad")
+        with self.assertRaisesRegex(Failed, "not signed by a trusted"):
+            self.install_latest()
+        self.assertEqual(slots.discover(self.paths).slots[1].state, "empty")
+        self.assertEqual(os.listdir(os.path.join(self.paths["state"], "staging")), [])
 
 
 @unittest.skipUnless(os.uname().machine == "x86_64" and shutil.which("zstd"), "needs x86_64 and zstd")

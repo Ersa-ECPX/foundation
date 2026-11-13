@@ -1,0 +1,14 @@
+[Unit]
+Description=Check for a system update, and install it if automatic updates are on
+Documentation=file:///usr/share/doc/foundation/README.md
+Wants=network-online.target
+After=network-online.target
+# not on the installer medium: it carries the system to install and is not updated
+ConditionPathExists=!/usr/share/ersa/payload
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/foundation-autoupdate
+Nice=19
+IOSchedulingClass=idle
+TimeoutStartSec=3h

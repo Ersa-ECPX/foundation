@@ -462,6 +462,22 @@
       <arg name="force" type="b" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
+    <!-- Ask the update source (the setting ota.url: <ota.url>/latest-<arch>.json) whether a newer update exists, and record the answer.
+         No authorization (it only reads). Fields: available (b), current (s), version (s: the newest the source offers), size (t, bytes,
+         0 if unknown), checked (x, epoch seconds). Unavailable if no source is set up or it cannot be reached; a second call within
+         30 seconds answers from the last one. -->
+    <method name="Check">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <!-- What the last Check found, judged against what runs now; empty if no check was made yet. Same fields as Check. No authorization. -->
+    <method name="Available">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Download the newest update from the update source and install it as Install does (the signature is always checked; version
+         must be newer than the running one, else InvalidArgument). Requires org.ersa.foundation.updates. Job result as Install. -->
+    <method name="InstallLatest">
+      <arg name="job" type="o" direction="out"/>
+    </method>
     <!-- Restart the computer into the update that was just installed. Needs the same authorization as Install (org.ersa.foundation.updates,
          which polkit keeps for a few minutes after the password, so install and restart ask once), and works only while an update waits
          for a restart (InvalidArgument otherwise); Busy while a job runs. A general restart is Boot.Reboot. -->

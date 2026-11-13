@@ -59,6 +59,19 @@ def register(service):
     def pending(call):
         return service.query(call, "updates.pending", {}, reply_dict)
 
+    def feed_args():
+        return {"url": service.config.get("ota.url"), "arch": os.uname().machine}
+
+    def check(call):
+        """Ask the update source (ota.url) whether a newer update exists. Reads only; no authorization."""
+        return service.query(call, "updates.check", feed_args(), reply_dict)
+
+    def available(call):
+        return service.query(call, "updates.available", {}, reply_dict)
+
+    def install_latest(call):
+        return service.start_job("updates.install_latest", feed_args(), LOCKS)
+
     def restart(call):
         """Restart into the update that was just installed. It is part of the update (same authorization as Install) and works only
         while an update waits for a restart: it is not a general reboot (that is Boot.Reboot, another authorization)."""
@@ -73,5 +86,8 @@ def register(service):
     return {
         (UPDATES, "Install"): Method(install, ACTION_UPDATES, check_locks),
         (UPDATES, "Restart"): Method(restart, ACTION_UPDATES),
+        (UPDATES, "Check"): Method(check),
+        (UPDATES, "Available"): Method(available),
+        (UPDATES, "InstallLatest"): Method(install_latest, ACTION_UPDATES, check_locks),
         (UPDATES, "Pending"): Method(pending),
     }

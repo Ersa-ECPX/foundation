@@ -441,6 +441,33 @@ def _install_update_file(client, args, path):
     return code
 
 
+def cmd_update_check(client, args):
+    """Ask the update source (the setting ota.url) whether a newer system update exists; with --install, install it."""
+    found = client.one("Updates", "Check")
+    if args.json and not args.install:
+        emit_json(found)
+        return 0
+    if not found["available"]:
+        if not args.json:
+            print(ui.badge("ok", f"this system is up to date (version {found['current'] or 'unknown'})"))
+        else:
+            emit_json(found)
+        return 0
+    if not args.install:
+        size = f" ({ui.human_size(found['size'])})" if found.get("size") else ""
+        print(ui.badge("ok", f"version {found['version']} is available{size}; you run {found['current'] or 'an unknown version'}"))
+        ui.note("Install it with: foundation update check --install")
+        return 0
+    ui.title(f"Install version {found['version']}") if not args.json else None
+    if not sure(args, f"Download and install version {found['version']}?"):
+        return 1
+    code, job = run_job(client, args, "Updates", "InstallLatest", "")
+    if job is not None and job.ok and not args.json:
+        print(ui.badge("ok", f"update {job.result['version']} is ready"))
+        ui.note("Restart to start using it: foundation reboot")
+    return code
+
+
 def cmd_update_status(client, args):
     waiting = client.one("Updates", "Pending")
     if args.json:
@@ -1264,6 +1291,8 @@ def build_parser():
     install_update.add_argument("--slot", help="install into this slot (default: the spare one)")
     install_update.add_argument("--unsigned", action="store_true", help="skip the signature check, for an image you built yourself")
     install_update.add_argument("--force", action="store_true", help="install again even if this version is already installed")
+    check_update = add(update, "check", cmd_update_check, "ask the update source whether a newer update exists", yes=True, wait=True)
+    check_update.add_argument("--install", action="store_true", help="download and install it if there is one")
     add(update, "status", cmd_update_status, "show whether an update is waiting for a restart")
 
     _, repo = group("repo", "package repositories (signed openSUSE and Packman metadata)")

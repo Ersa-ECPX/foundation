@@ -1,0 +1,81 @@
+#!/usr/bin/python3 -I
+"""Look for a system update now and then, and install it when the administrator turned that on (ota.auto_update).
+
+Run as root by foundation-autoupdate.timer (about ten minutes after start, then every six hours, each time a random delay later).
+It is a client of foundationd like any other: Updates.Check asks the update source (ota.url) and records what it found, which the
+update window and the desktop notification read; only if ota.auto_update is on does it start Updates.InstallLatest, which downloads the
+newest update, checks its signature and writes it into the spare slot. The new system starts at the next restart; nothing is restarted
+here. A failure is logged and tried again at the next run, so the service itself does not fail.
+"""
+import sys
+import time
+
+import gi
+
+gi.require_version("Gio", "2.0")
+from gi.repository import Gio, GLib  # noqa: E402
+
+NAME = "org.ersa.Foundation1"
+PATH = "/org/ersa/Foundation1"
+CONFIG = NAME + ".Config"
+UPDATES = NAME + ".Updates"
+JOB = NAME + ".Job"
+LIMIT = 3 * 3600          # a download and install should not take longer than this
+
+
+def call(bus, interface, method, signature=None, args=(), path=PATH, timeout=120_000):
+    reply = bus.call_sync(NAME, path, interface, method, GLib.Variant(signature, args) if signature else None, None,
+                          Gio.DBusCallFlags.NONE, timeout, None)
+    return reply.unpack() if reply is not None else ()
+
+
+def main(argv):
+    bus_type = Gio.BusType.SESSION if argv[1:] == ["--bus", "session"] else Gio.BusType.SYSTEM     # the session bus is for tests
+    try:
+        bus = Gio.bus_get_sync(bus_type, None)
+        if not call(bus, CONFIG, "Get", "(s)", ("ota.auto_check",))[0]:
+            print("automatic checks are off (ota.auto_check)")
+            return 0
+        auto_update = bool(call(bus, CONFIG, "Get", "(s)", ("ota.auto_update",))[0])
+        found = call(bus, UPDATES, "Check")[0]
+    except GLib.Error as error:
+        print(f"cannot check for an update: {error.message}")
+        return 0
+    if not found.get("available"):
+        print(f"this system is up to date (version {found.get('current', '')})")
+        return 0
+    print(f"version {found['version']} is available (running {found.get('current', '')})")
+    if not auto_update:
+        print("automatic installation is off (ota.auto_update): the update window offers it")
+        return 0
+    try:
+        if call(bus, UPDATES, "Pending")[0]:
+            print("an update is already installed and waits for a restart")
+            return 0
+        job = call(bus, UPDATES, "InstallLatest")[0]
+    except GLib.Error as error:
+        print(f"cannot start the update: {error.message}")
+        return 0
+    print(f"installing it ({job})")
+    end = time.monotonic() + LIMIT
+    while time.monotonic() < end:
+        try:
+            properties = call(bus, "org.freedesktop.DBus.Properties", "GetAll", "(s)", (JOB,), path=job)[0]
+        except GLib.Error as error:
+            print(f"lost track of the job: {error.message}")
+            return 0
+        if properties["State"] != "running":
+            break
+        time.sleep(5)
+    else:
+        print("the update is taking too long; it keeps running in foundationd")
+        return 0
+    if properties["State"] == "done":
+        print(f"installed version {properties['Result'].get('version', '')}; it starts at the next restart")
+    else:
+        print(f"the update was not installed ({properties['State']}): {properties.get('ErrorMessage', '')}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

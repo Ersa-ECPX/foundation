@@ -1,11 +1,24 @@
 #!/usr/bin/python3 -I
-"""Tell the desktop user that an installed update waits for a restart (run by foundation-update-notify.service)."""
+"""Tell the desktop user that a system update is installed and waits for a restart, or that a newer one is available
+(run by foundation-update-notify.service when foundationd changes one of its two records)."""
 import json
+import os
+import re
 import shutil
 import subprocess
 import sys
 
 PENDING = "/var/lib/foundation/update-pending.json"
+CHECK = "/var/lib/foundation/update-check.json"
+
+
+def load(path):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def running_version():
@@ -19,20 +32,45 @@ def running_version():
     return ""
 
 
-def main():
-    try:
-        with open(PENDING, encoding="utf-8") as handle:
-            version = str(json.load(handle).get("version", ""))
-    except (OSError, ValueError):
-        return 0                       # nothing waiting
-    if version and version == running_version():
-        return 0                       # already restarted into it
+def key(version):
+    return tuple(int(part) for part in re.findall(r"\d+", version or ""))
+
+
+def notify(title, body):
     program = shutil.which("notify-send")
-    if not program:
+    if program:
+        subprocess.run([program, "--app-name=Ersa Compute Platform", "--icon=system-software-update",
+                        "--urgency=normal", title, body], check=False)
+
+
+def notified_path():
+    base = os.environ.get("XDG_STATE_HOME") or os.path.join(os.path.expanduser("~"), ".local", "state")
+    return os.path.join(base, "foundation", "notified")
+
+
+def main():
+    running = running_version()
+    waiting = str(load(PENDING).get("version", ""))
+    if waiting and waiting != running:
+        notify("Update ready", f"Restart to start using version {waiting}." if waiting else "Restart to finish updating.")
         return 0
-    body = "Restart to start using version " + version + "." if version else "Restart to finish updating."
-    subprocess.run([program, "--app-name=Ersa Compute Platform", "--icon=system-software-update",
-                    "--urgency=normal", "Update ready", body], check=False)
+    version = str(load(CHECK).get("version", ""))
+    if not version or key(version) <= key(running):
+        return 0
+    path = notified_path()
+    try:
+        with open(path, encoding="utf-8") as handle:
+            if handle.read().strip() == version:
+                return 0                 # this version was announced already
+    except OSError:
+        pass
+    notify("Update available", f"Version {version} is available. Open System Update to install it.")
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(version + "\n")
+    except OSError:
+        pass
     return 0
 
 

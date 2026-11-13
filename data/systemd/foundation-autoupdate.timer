@@ -1,0 +1,12 @@
+[Unit]
+Description=Look for a system update now and then
+
+[Timer]
+# once about ten minutes after the computer starts (not during start-up), then every six hours; each run is delayed by a random
+# amount up to an hour so that many computers do not ask the update source at the same moment
+OnBootSec=10min
+OnUnitActiveSec=6h
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target

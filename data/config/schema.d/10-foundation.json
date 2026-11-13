@@ -13,12 +13,12 @@
   "ota.auto_check": {
     "type": "boolean",
     "default": true,
-    "description": "Check the update source periodically."
+    "description": "Check the update source now and then (about ten minutes after start and every six hours); a new update is announced, and installed only if ota.auto_update is on."
   },
-  "ota.auto_download": {
+  "ota.auto_update": {
     "type": "boolean",
     "default": false,
-    "description": "Download updates without being asked."
+    "description": "Install updates automatically: a service downloads and installs a newer signed update in the background (it starts at the next restart). Needs ota.auto_check."
   },
   "system.developer_mode": {
     "type": "boolean",

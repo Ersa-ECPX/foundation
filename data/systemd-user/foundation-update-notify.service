@@ -1,5 +1,5 @@
 [Unit]
-Description=Tell the user that a system update waits for a restart
+Description=Tell the user that a system update is available or waits for a restart
 
 [Service]
 Type=oneshot

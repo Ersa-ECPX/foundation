@@ -4,12 +4,10 @@ import os
 import tempfile
 import time
 import unittest
-from unittest import mock
 
 import support  # noqa: F401
 from test_foundationd_boot import BootDaemon
 
-from foundation import fetch
 from foundation_updater import model
 
 # The window tests open real windows, so they run only on request, on a virtual display:
@@ -58,9 +56,6 @@ class Text(unittest.TestCase):
             self.assertEqual(model.classify_source(good), ("file", None))
             self.assertEqual(model.classify_source(odd)[0], "")
             self.assertEqual(model.classify_source(os.path.join(tmp, "missing.tar.zst"))[0], "")
-        self.assertEqual(model.classify_source("https://updates.example.org/u.tar.zst"), ("url", None))
-        self.assertEqual(model.classify_source("http://10.0.2.2:8000/u.tar.zst"), ("url", None))
-        self.assertEqual(model.classify_source("http://updates.example.org/u.tar.zst")[0], "")
         self.assertEqual(model.classify_source("")[0], "")
 
     def test_result_and_errors(self):
@@ -74,35 +69,6 @@ class Text(unittest.TestCase):
         self.assertIn("password", model.error_text("NotAuthorized", "x"))
         self.assertEqual(model.error_text("InvalidArgument", "no standby slot"), "no standby slot")
 
-    def test_the_feed(self):
-        text = '{"version": "0.1.1", "file": "ecp_0.1.1-x86_64.tar.zst", "size": 1610612736, "sha256": "' + "ab" * 32 + '"}'
-        found = model.parse_feed(text, "http://10.0.2.2:8000/", "x86_64")
-        self.assertEqual(found, {"version": "0.1.1", "url": "http://10.0.2.2:8000/ecp_0.1.1-x86_64.tar.zst",
-                                 "size": 1610612736, "sha256": "ab" * 32})
-        self.assertEqual(model.size_text(found["size"]), "1.5 GB")
-        self.assertEqual(model.feed_url("https://u.example/ecp/", "aarch64"), "https://u.example/ecp/latest-aarch64.json")
-
-    def test_a_bad_feed_is_refused(self):
-        base = "https://u.example/ecp"
-        for text, why in (("not json", "valid"), ("[]", "name a version"), ('{"version": "1"}', "name a version"),
-                          ('{"version": "1", "file": "a", "arch": "aarch64"}', "aarch64"),
-                          ('{"version": "1", "file": "http://evil.example/a"}', "not allowed"),
-                          ('{"version": "1", "file": "a", "sha256": "xyz"}', "checksum")):
-            with self.assertRaisesRegex(model.FeedError, why):
-                model.parse_feed(text, base, "x86_64")
-
-    def test_versions_compare_number_by_number(self):
-        self.assertTrue(model.is_newer("0.1.10", "0.1.9"))
-        self.assertTrue(model.is_newer("0.2.0", "0.1.9"))
-        self.assertFalse(model.is_newer("0.1.0", "0.1.0"))
-        self.assertFalse(model.is_newer("0.0.9", "0.1.0"))
-        self.assertTrue(model.is_newer("0.1.0", ""))
-
-    def test_the_placeholder_update_source_is_recognised(self):
-        self.assertTrue(model.is_placeholder("https://updates.ersa.invalid/ecp"))   # an unset or fake source
-        self.assertTrue(model.is_placeholder(""))
-        self.assertFalse(model.is_placeholder("https://updates.example.org/ecp"))
-
     def test_no_internal_acronym_in_user_text(self):
         self.assertNotIn("ECP", model.PRODUCT)
         self.assertEqual(model.PRODUCT, "Ersa Compute Platform")
@@ -110,16 +76,53 @@ class Text(unittest.TestCase):
 
 @unittest.skipUnless(DISPLAY, "set ERSA_GUI_TESTS=1 and run on a virtual display (see the top of this file)")
 class Window(BootDaemon):
+    """The window against a real foundationd (fake system) and a local web server standing in for the update source."""
+
     def setUp(self):
         super().setUp()
+        import functools
+        import http.server
+        import json
+        import shutil
+        import threading
+        from gi.repository import GLib as _GLib
         from foundation.gbackend import Backend
         from foundation_updater.app import UpdaterWindow
+        self.json, self.glib = json, _GLib
+        with open(self.system.paths["os_release"], "w") as handle:           # the running system is 0.2.0
+            handle.write("ID=opensuse-tumbleweed\nIMAGE_ID=ecp\nIMAGE_VERSION=0.2.0\n")
+        self.www = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.www, True)
+        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=self.www)
+        handler.log_message = lambda *a, **k: None
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.addCleanup(self.server.server_close)
+        self.addCleanup(self.server.shutdown)
+        self.set_config("ota.url", f"http://127.0.0.1:{self.server.server_address[1]}")
         global APP
         if APP is None:
             APP = Adw.Application(application_id="org.ersa.UpdaterTest")
             APP.register(None)
-        self.window = UpdaterWindow(APP, Backend(connection=self.conn))
-        self.addCleanup(self.window.destroy)
+        self.Backend, self.UpdaterWindow = Backend, UpdaterWindow
+        self.window = self.new_window()
+
+    def new_window(self):
+        window = self.UpdaterWindow(APP, self.Backend(connection=self.conn))
+        self.addCleanup(window.destroy)
+        return window
+
+    def set_config(self, key, value):
+        from test_foundationd_bus import CONFIG
+        self.call(CONFIG, "Set", "(sv)", key, self.glib.Variant("b" if isinstance(value, bool) else "s", value))
+
+    def get_config(self, key):
+        from test_foundationd_bus import CONFIG
+        return self.call(CONFIG, "Get", "(s)", key)[0]
+
+    def feed(self, version, size=1024 ** 3):
+        with open(os.path.join(self.www, f"latest-{os.uname().machine}.json"), "w") as handle:
+            self.json.dump({"version": version, "file": f"ecp_{version}.tar.zst", "size": size}, handle)
 
     def pump(self, condition, timeout=30):
         context = GLib.MainContext.default()
@@ -133,63 +136,97 @@ class Window(BootDaemon):
     def page(self):
         return self.window.stack.get_visible_child_name()
 
+    def check(self):
+        self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
+        self.window.main_btn.emit("clicked")
+        self.pump(lambda: self.window.mode != "checking")
+
     def test_home_shows_what_runs_and_offers_one_button(self):
         self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
         self.assertIn("slot A", self.window.slot_label.get_label())
         self.assertEqual((self.window.mode, self.window.main_btn.get_label()), ("check", "Check for Updates"))
 
-    def test_checking_without_an_update_server_says_so_and_changes_nothing(self):
-        self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
-        with mock.patch.object(model, "is_placeholder", return_value=True), \
-                mock.patch.object(fetch, "fetch_text", side_effect=AssertionError("must not reach the network")):
-            self.window.main_btn.emit("clicked")
-            self.pump(lambda: self.window.mode != "checking")
-        self.assertIn("No update server", self.window.check_status.get_label())
+    def test_checking_without_an_update_source_says_so_and_changes_nothing(self):
+        self.set_config("ota.url", "https://updates.ersa.invalid/ecp")
+        self.check()
+        self.assertIn("No update source", self.window.check_status.get_label())
         self.assertEqual(self.window.mode, "check")
 
-    def test_an_unreachable_update_source_is_reported_and_can_be_retried(self):
-        """The default source is read from the service's settings; the download itself is stubbed (no network in tests)."""
-        self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
-        with mock.patch.object(fetch, "fetch_text", side_effect=fetch.FetchError("cannot reach the update source: Not Found")):
-            self.window.main_btn.emit("clicked")
-            self.pump(lambda: self.window.mode != "checking")
+    def test_a_newer_update_on_the_source_is_offered(self):
+        self.feed("0.3.0")
+        self.check()
+        self.assertEqual((self.window.mode, self.window.main_btn.get_label()), ("update", "Update to 0.3.0"))
+        self.assertIn("1.0 GB", self.window.check_status.get_label())
+
+    def test_an_update_that_is_not_newer_says_up_to_date(self):
+        self.feed("0.2.0")
+        self.check()
+        self.assertEqual((self.window.mode, self.window.main_btn.get_label()), ("check", "Check Again"))
+        self.assertIn("up to date", self.window.check_status.get_label())
+
+    def test_an_unreachable_source_is_reported_and_can_be_retried(self):
+        self.set_config("ota.url", "http://127.0.0.1:1")
+        self.check()
         self.assertIn("cannot reach", self.window.check_status.get_label())
         self.assertEqual((self.window.mode, self.window.main_btn.get_label()), ("check", "Try Again"))
 
-    def test_a_feed_with_a_newer_version_offers_the_update(self):
-        self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
-        feed = '{"version": "0.3.0", "file": "ecp_0.3.0-x86_64.tar.zst", "size": 1024}'
-        with mock.patch.object(fetch, "fetch_text", return_value=feed):
-            self.window.main_btn.emit("clicked")
-            self.pump(lambda: self.window.mode != "checking")
-        self.assertEqual((self.window.mode, self.window.main_btn.get_label()), ("update", "Update to 0.3.0"))
-        self.assertEqual(self.window.available["version"], "0.3.0")
+    def test_what_a_background_check_found_is_shown_when_the_window_opens(self):
+        directory = os.path.join(self.tmp.name, "state")
+        os.makedirs(directory, exist_ok=True)
+        with open(os.path.join(directory, "update-check.json"), "w") as handle:
+            self.json.dump({"version": "0.3.0", "size": 1024 ** 3, "checked": 1, "source": "x"}, handle)
+        self.window = self.new_window()
+        self.pump(lambda: self.window.mode == "update")
+        self.assertEqual(self.window.main_btn.get_label(), "Update to 0.3.0")
 
-    def test_what_the_feed_says_decides_the_button(self):
+    def test_the_two_switches_show_and_change_the_settings(self):
         self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
-        self.window._checked({"version": "0.3.0", "url": "https://u.example/a", "size": 1024 ** 3, "sha256": ""}, "")
-        self.assertEqual((self.window.mode, self.window.main_btn.get_label()), ("update", "Update to 0.3.0"))
-        self.assertIn("1.0 GB", self.window.check_status.get_label())
-        self.window._checked({"version": "0.2.0", "url": "https://u.example/a", "size": 0, "sha256": ""}, "")
-        self.assertEqual((self.window.mode, self.window.main_btn.get_label()), ("check", "Check Again"))
-        self.assertIn("up to date", self.window.check_status.get_label())
-        self.window._checked(None, "cannot reach the server")
-        self.assertEqual(self.window.main_btn.get_label(), "Try Again")
+        auto = self.window.lookup_action("auto-update")
+        self.assertFalse(auto.get_state().get_boolean())
+        auto.change_state(GLib.Variant.new_boolean(True))
+        self.pump(lambda: auto.get_state().get_boolean())
+        self.assertIs(self.get_config("ota.auto_update"), True)
+        self.set_config("ota.auto_check", False)
+        self.window.refresh()
+        check = self.window.lookup_action("auto-check")
+        self.pump(lambda: not check.get_state().get_boolean())
 
-    def test_a_bad_update_fails_cleanly_through_dbus_and_changes_nothing(self):
+    def test_the_boot_slots_dialog_opens_with_the_apps_own_mark_for_the_running_slot(self):
+        self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
+        self.window.show_slots()                    # builds the rows from Boot.GetSlots; must not need any icon the theme may lack
+        self.pump(lambda: self.window.get_visible_dialog() is not None)
+        self.assertIsNotNone(self.window.get_visible_dialog())
+
+    def test_a_bad_local_update_fails_cleanly_through_dbus_and_changes_nothing(self):
         """The whole path: the file goes to foundationd as a descriptor, the job runs, and the window says why it failed."""
         self.pump(lambda: self.window.version_label.get_label() == "0.2.0")
         with tempfile.NamedTemporaryFile(suffix=".tar.zst", delete=False) as handle:
             handle.write(b"this is not an update")
         self.addCleanup(os.unlink, handle.name)
         before = self.uki_files()
-        self.window.begin(handle.name, "", True, False)
+        self.window.install(handle.name, True, False)
         self.assertEqual(self.page(), "working")
         self.pump(lambda: self.page() == "done")
         self.assertEqual(self.window.done.get_title(), "The update was not installed")
         self.assertFalse(self.window.restart_btn.get_visible())
         self.assertEqual(self.uki_files(), before)
         self.assertFalse(self.window.working)
+
+    def test_installing_from_the_source_downloads_in_the_daemon_and_an_unsigned_update_is_refused(self):
+        """Update to X: Updates.InstallLatest downloads and verifies; with no trusted signing key installed the signature check fails."""
+        support.write_payload(self.www, "0.3.0")
+        with open(os.path.join(self.www, f"latest-{os.uname().machine}.json"), "w") as handle:
+            self.json.dump({"version": "0.3.0", "file": f"usr/share/ersa/payload/ecp_0.3.0-{os.uname().machine}.tar"}, handle)
+        self.check()
+        self.assertEqual(self.window.mode, "update")
+        before = self.uki_files()
+        self.window.install_latest()
+        self.assertEqual(self.page(), "working")
+        self.pump(lambda: self.page() == "done")
+        self.assertEqual(self.window.done.get_title(), "The update was not installed")
+        self.assertIn("signing key", self.window.done.get_description())
+        self.assertEqual(self.uki_files(), before)
+        self.assertEqual(os.listdir(os.path.join(self.tmp.name, "state", "staging")), [], "the download is removed")
 
 
 if __name__ == "__main__":
