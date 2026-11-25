@@ -90,15 +90,6 @@ class Converter(unittest.TestCase):
         self.assertIn('<h2 id="same">', out)
         self.assertIn('<h2 id="same-1">', out)
 
-    def test_status_badges(self):
-        badge = self.wiki.badge
-        self.assertEqual(badge("# T\n\n**Status:** built. Tested.\n")[1], "ok")
-        self.assertEqual(badge("**Status:** partly built. x\n")[1], "mid")
-        self.assertEqual(badge("**Status: scaffolding only.** The pieces\n")[1], "bad")
-        self.assertEqual(badge("**Status:** the package list is built; the rest is not\n")[1], "ok")
-        self.assertIsNone(badge("# No status here\n"))
-        self.assertIsNone(badge("**Status words.** *Tested* means a test proved it.\n"))
-
 
 class Site(unittest.TestCase):
     @classmethod
@@ -160,9 +151,16 @@ class Site(unittest.TestCase):
         self.assertNotIn("<link ", self.document)
         self.assertNotIn("<script src", self.document)
 
-    def test_the_unfinished_features_are_marked(self):
-        section = self.document.split('data-page="features/updates"', 1)[1].split("</section>", 1)[0]
-        self.assertIn('class="badge mid"', section)
+    def test_pages_carry_no_status_badges(self):
+        self.assertNotIn("badge", self.document)
+        self.assertFalse(hasattr(self.wiki, "badge"))
+        for group in self.nav().values():
+            for page in group["pages"]:
+                self.assertEqual(sorted(page), ["id", "title"])
+
+    def test_every_page_knows_its_group_and_source_for_the_edit_link(self):
+        for pid, src, group in self.wiki.page_list():
+            self.assertRegex(self.document, rf'data-page="{re.escape(pid)}"[^>]*data-group="[^"]+" data-src="{re.escape(src)}"')
 
     def test_a_publishable_site_gets_nojekyll_a_cname_and_the_images_it_uses(self):
         import tempfile
