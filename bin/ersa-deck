@@ -3,6 +3,6 @@ import sys
 
 sys.path.insert(0, "/usr/lib/foundation")
 
-from foundation_updater.app import main  # noqa: E402
+from foundation_deck.app import main  # noqa: E402
 
 sys.exit(main())

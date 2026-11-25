@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Deck
+Comment=Manage updates, boot slots and bundles on Ersa Compute Platform
+Exec=/usr/bin/ersa-deck
+Icon=org.ersa.Deck
+Terminal=false
+Categories=System;Settings;
+Keywords=system;update;slots;bundles;extensions;manage;
+StartupNotify=true

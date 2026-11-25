@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Deck: three layers stacked on the Ersa green, the top one carrying the Ersa ring: the system, its slots and what is added to it. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34493f"/>
+      <stop offset="1" stop-color="#1d2b25"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)"/>
+  <g filter="url(#soft)">
+    <rect x="30" y="84" width="68" height="22" rx="7" fill="#5fbf9a"/>
+    <rect x="24" y="58" width="80" height="24" rx="8" fill="#9db0a9"/>
+    <rect x="18" y="26" width="92" height="30" rx="9" fill="#f1f5f3"/>
+  </g>
+  <g transform="translate(26 31) scale(0.2)" stroke="#26342f" stroke-width="10" fill="none">
+    <circle cx="49" cy="49" r="30"/>
+    <path d="M49 19H113M27.7868 70.2132L74 116.4264"/>
+  </g>
+  <path d="M63.5 36h32M63.5 46h20" stroke="#26342f" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="92" cy="95" r="3.4" fill="#14201b"/>
+</svg>
