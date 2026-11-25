@@ -148,7 +148,7 @@ class Site(unittest.TestCase):
 
     def test_nothing_from_outside_the_site_is_loaded(self):
         self.assertNotRegex(self.document, r'(src|href)="https?://(?!github)[^"]*\.(js|css)')
-        self.assertNotIn("<link ", self.document)
+        self.assertEqual(re.findall(r"<link [^>]*>", self.document), [f'<link rel="icon" href="{self.wiki.favicon()}">'])   # a data: icon only
         self.assertNotIn("<script src", self.document)
 
     def test_pages_carry_no_status_badges(self):
