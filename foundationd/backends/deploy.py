@@ -33,6 +33,7 @@ import uuid
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
 from . import gpt, layout, osinfo, slots, updates, verity
+from . import preseed as preseed_backend
 from .runner import check, run
 
 SKIP_PREFIXES = ("loop", "ram", "zram", "dm-", "md", "sr", "nbd", "fd", "sg")
@@ -268,7 +269,7 @@ def _label(path, context):
         pass  # no SELinux on this host (tests)
 
 
-def _make_seed(stage, language="", timezone="", zoneinfo=ZONEINFO):
+def _make_seed(stage, language="", timezone="", zoneinfo=ZONEINFO, preseed=None):
     """The initial contents of the data volume: the /etc overlay directories (labelled etc_t, as the
     image build does, so SELinux accepts the overlay), an empty /home, and the chosen language and time
     zone as files in the overlay's upper layer, which is what /etc is: /etc/locale.conf and /etc/localtime."""
@@ -289,11 +290,30 @@ def _make_seed(stage, language="", timezone="", zoneinfo=ZONEINFO):
         link = os.path.join(upper, "localtime")
         os.symlink(f"../usr/share/zoneinfo/{timezone}", link)
         _label(link, "system_u:object_r:locale_t:s0")
+    preseed = preseed or {}
+    if preseed.get("hostname"):
+        name = os.path.join(upper, "hostname")
+        with open(name, "w") as handle:
+            handle.write(preseed["hostname"] + "\n")
+        _label(name, "system_u:object_r:hostname_etc_t:s0")
+    if preseed.get("config"):
+        directory = os.path.join(upper, "foundation", "foundation.conf.d")
+        os.makedirs(directory, mode=0o755)
+        for path in (os.path.join(upper, "foundation"), directory):
+            _label(path, "system_u:object_r:etc_t:s0")
+        conf = os.path.join(directory, preseed_backend.CONFIG_FILE)
+        with open(conf, "w", encoding="utf-8") as handle:
+            handle.write(preseed_backend.config_text(preseed["config"]))
+        os.chmod(conf, 0o644)
+        _label(conf, "system_u:object_r:etc_t:s0")
     return seed
 
 
 def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=False, language="", timezone="",
-           zoneinfo=ZONEINFO):
+           zoneinfo=ZONEINFO, preseed=None):
+    preseed = preseed or {}
+    language = language or preseed.get("language", "")           # what was asked for by hand wins over the file
+    timezone = timezone or preseed.get("timezone", "")
     if confirm != target:
         raise InvalidArgument("the confirmation must repeat the disk path exactly")
     if timezone and not os.path.isfile(os.path.join(zoneinfo, timezone)):
@@ -320,7 +340,7 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
             raise InvalidArgument("the system image does not fit the slots of the disk layout")
         esp = _stage_esp(layout_.esp, version, head["uki"], stage)
         definitions = os.path.join(stage, "repart.d")
-        _write_definitions(definitions, esp, _make_seed(stage, language, timezone, zoneinfo), root_uuid, verity_uuid)
+        _write_definitions(definitions, esp, _make_seed(stage, language, timezone, zoneinfo, preseed), root_uuid, verity_uuid)
         ctx.log(f"installing version {version} ({length} bytes of root image, root hash {roothash[:16]}...) to {target}")
 
         ctx.commit()

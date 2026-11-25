@@ -1,0 +1,115 @@
+#!/usr/bin/python3 -I
+"""Install the applications a computer should start with, once it is online (apps.default_apps; the app store, Bazaar, by default).
+
+Run as root by foundation-default-apps.service at every start. It is a client of foundationd like any other: Apps.SetupRemote adds the
+Flathub source, Apps.Install installs each application system-wide. An application is offered once: its id is then recorded in
+/var/lib/foundation/default-apps.json, so one the person removed later is not installed again, and one that is already installed is
+only recorded. A failure (no network yet, Flathub unreachable) exits with 1 and the service tries again later; nothing is recorded for
+an application that was not installed. Ids are Flatpak application ids separated by spaces or commas; an empty setting does nothing.
+"""
+import json
+import os
+import re
+import sys
+import time
+
+NAME = "org.ersa.Foundation1"
+PATH = "/org/ersa/Foundation1"
+CONFIG, APPS, JOB = NAME + ".Config", NAME + ".Apps", NAME + ".Job"
+STATE = os.environ.get("FOUNDATION_DEFAULT_APPS_STATE", "/var/lib/foundation/default-apps.json")
+LIMIT = 2 * 3600          # a runtime and an application can be a gigabyte or more
+APP_ID = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_-]+){2,}$")
+
+
+class Failed(Exception):
+    pass
+
+
+def ids_of(setting):
+    return [word for word in re.split(r"[\s,]+", str(setting or "")) if word]
+
+
+def load_state(path):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+        return [str(i) for i in data.get("offered", [])]
+    except (OSError, ValueError, AttributeError):
+        return []
+
+
+def save_state(path, offered):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    temporary = path + ".tmp"
+    with open(temporary, "w", encoding="utf-8") as handle:
+        json.dump({"offered": sorted(set(offered))}, handle, indent=1)
+        handle.write("\n")
+    os.replace(temporary, path)
+
+
+def run(call, wait, state=STATE, log=print):
+    """call(interface, method, signature, args) -> reply tuple; wait(job path) -> (ok, message). Returns the exit code."""
+    wanted = ids_of(call(CONFIG, "Get", "(s)", ("apps.default_apps",))[0])
+    bad = [i for i in wanted if not APP_ID.match(i)]
+    for name in bad:
+        log(f"ignoring {name!r}: not an application id")
+    wanted = [i for i in wanted if i not in bad]
+    offered = load_state(state)
+    todo = [i for i in wanted if i not in offered]
+    if not todo:
+        log("no default applications to install")
+        return 0
+    installed = {a["id"] for a in call(APPS, "ListInstalled", None, ())[0]}
+    missing = [i for i in todo if i not in installed]
+    offered += [i for i in todo if i in installed]
+    save_state(state, offered)
+    if not missing:
+        return 0
+    log("adding the application source")
+    ok, message = wait(call(APPS, "SetupRemote", None, ())[0])
+    if not ok:
+        log(f"the application source could not be added (no network yet?): {message}")
+        return 1
+    code = 0
+    for app in missing:
+        log(f"installing {app}")
+        ok, message = wait(call(APPS, "Install", "(s)", (app,))[0])
+        if ok:
+            offered.append(app)
+            save_state(state, offered)
+            log(f"installed {app}")
+        else:
+            log(f"{app} was not installed: {message}")
+            code = 1
+    return code
+
+
+def main(argv):
+    import gi
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gio, GLib
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION if argv[1:] == ["--bus", "session"] else Gio.BusType.SYSTEM, None)
+
+    def call(interface, method, signature=None, args=(), path=PATH):
+        reply = bus.call_sync(NAME, path, interface, method, GLib.Variant(signature, args) if signature else None, None,
+                              Gio.DBusCallFlags.NONE, 120_000, None)
+        return reply.unpack() if reply is not None else ()
+
+    def wait(job):
+        end = time.monotonic() + LIMIT
+        while time.monotonic() < end:
+            props = call("org.freedesktop.DBus.Properties", "GetAll", "(s)", (JOB,), path=job)[0]
+            if props["State"] != "running":
+                return props["State"] == "done", props.get("ErrorMessage", "") or props["State"]
+            time.sleep(5)
+        return False, "taking too long; it keeps running in foundationd"
+
+    try:
+        return run(call, wait)
+    except GLib.Error as error:
+        print(f"cannot do it now: {error.message}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

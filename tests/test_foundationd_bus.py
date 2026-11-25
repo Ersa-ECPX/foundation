@@ -128,7 +128,7 @@ class ManagerAndReadTests(BusCase):
     def test_list_contains_every_schema_key(self):
         (values,) = self.call(CONFIG, "List")
         self.assertEqual(sorted(values), [
-            "ota.auto_check", "ota.auto_update", "ota.channel", "ota.url", "system.developer_mode"])
+            "apps.default_apps", "ota.auto_check", "ota.auto_update", "ota.channel", "ota.url", "system.developer_mode"])
 
     def test_describe(self):
         (info,) = self.call(CONFIG, "Describe", "(s)", "ota.channel")
@@ -296,6 +296,11 @@ class PolkitMissing(BusCase):
     """No polkitd on the bus at all: the request must be denied, not hang or crash the daemon."""
 
     authorizer = "polkit"
+
+    def setUp(self):
+        if os.geteuid() == 0:
+            self.skipTest("root is authorized without asking polkit (see tests/test_auth.py), so this check means nothing as root")
+        super().setUp()
 
     def test_denied_and_daemon_survives(self):
         self.assertEqual(self.error_of(CONFIG, "Set", "(sv)", "ota.channel", GLib.Variant("s", "testing")),

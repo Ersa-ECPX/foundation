@@ -9,7 +9,7 @@ MIB = 1024 * 1024
 GIB = 1024 * MIB
 
 ESP = 1 * GIB
-RECOVERY = 1 * GIB
+RECOVERY = 2 * GIB
 ROOT_SLOT = 8 * GIB
 VERITY_SLOT = 96 * MIB           # the dm-verity hash tree of one root slot (about 65 MiB for 8 GiB)
 DATA_MIN = 10 * GIB              # the data volume has no maximum: it takes the rest of the disk

@@ -1,0 +1,20 @@
+[Unit]
+Description=Install the default applications (the app store) once the computer is online
+Documentation=file:///usr/share/doc/foundation/README.md
+Wants=network-online.target
+After=network-online.target foundationd.service
+# not on the installer medium: it carries the system to install and is not a computer in use
+ConditionPathExists=!/usr/share/ersa/payload
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/foundation-default-apps
+# No network yet, or Flathub is unreachable: try again later. An application is offered once, so a finished run costs nothing.
+Restart=on-failure
+RestartSec=10min
+Nice=19
+IOSchedulingClass=idle
+TimeoutStartSec=3h
+
+[Install]
+WantedBy=multi-user.target

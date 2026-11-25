@@ -78,6 +78,11 @@ class BootEndToEnd(BootDaemon):
                          (True, "a", "pending", 2))
         self.assertEqual(state["running_version"], "0.2.0")
 
+    def test_the_chosen_splash_can_be_read_back(self):
+        (splash,) = self.call(BOOT, "GetSplash")
+        self.assertEqual(splash["theme"], "light")
+        self.assertIn("uefi", splash)
+
     def test_slots(self):
         slots = self.slots()
         self.assertEqual(set(slots), {"a", "b"})

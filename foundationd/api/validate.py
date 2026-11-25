@@ -116,6 +116,32 @@ def repo_url(value):
     return value
 
 
+_REMOTE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$")
+
+
+def remote_name(value):
+    if not isinstance(value, str) or not _REMOTE_NAME.match(value):
+        raise InvalidArgument(f"not a valid name for an application source: {value!r}")
+    return value
+
+
+def remote_location(value):
+    if not isinstance(value, str) or len(value) > 2048 or not value.startswith(("https://", "file:///")) \
+            or any(c.isspace() or ord(c) < 32 for c in value):
+        raise InvalidArgument("an application source must be an https:// address (or a file:/// path)")
+    return value
+
+
+def optional_key_text(value):
+    return key_text(value) if isinstance(value, str) and value.strip() else ""
+
+
+def optional_title(value):
+    if not isinstance(value, str) or len(value) > 120 or "\n" in value or "\0" in value:
+        raise InvalidArgument("the title must be one line of up to 120 characters")
+    return value.strip()
+
+
 def description(value):
     if not isinstance(value, str) or len(value) > 120 or "\n" in value or "\0" in value:
         raise InvalidArgument("the description must be one line of up to 120 characters")

@@ -78,8 +78,9 @@ class _Scaled:
         return getattr(self._ctx, name)
 
 
-def install_latest(paths, base, arch, ctx, runner=None, fetch=feed.fetch_text, opener=open, mount=None):
-    """Download the newest update from the source and install it into the standby slot. The signature is always checked."""
+def install_latest(paths, base, arch, ctx, runner=None, fetch=feed.fetch_text, opener=open, mount=None, unsigned=False):
+    """Download the newest update from the source and install it into the standby slot. The signature is checked unless `unsigned`
+    (developer mode only; the daemon refuses it otherwise). The feed's checksum of the archive is checked either way."""
     ctx.step("check", "Looking for the update")
     found = feed.read_feed(base, arch, fetch)
     current = running_version(paths)
@@ -94,7 +95,7 @@ def install_latest(paths, base, arch, ctx, runner=None, fetch=feed.fetch_text, o
         kwargs = {"runner": runner} if runner else {}
         if mount is not None:
             kwargs["mount"] = mount
-        return updates.install(paths, archive, _Scaled(ctx, 0.3, 1.0), unsigned=False, force=False, opener=opener, **kwargs)
+        return updates.install(paths, archive, _Scaled(ctx, 0.3, 1.0), unsigned=unsigned, force=False, opener=opener, **kwargs)
     finally:
         try:
             os.unlink(archive)

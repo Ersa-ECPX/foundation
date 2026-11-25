@@ -26,8 +26,18 @@ def _remove(path):
         pass
 
 
+DEVELOPER_KEY = "system.developer_mode"
+
+
 def register(service):
     jobs = service.jobs
+
+    def require_developer_mode():
+        """An update without a signature is for images the person built. It is allowed only while developer mode is on: the
+        administrator turns that on deliberately (foundation config set system.developer_mode true)."""
+        if not service.config.get(DEVELOPER_KEY):
+            raise InvalidArgument("installing an update without checking its signature needs developer mode; "
+                                  "turn it on first (foundation config set system.developer_mode true)")
 
     def check_locks(call):
         jobs.check_locks(LOCKS)
@@ -38,6 +48,8 @@ def register(service):
             raise FoundationError("unsigned and force must be booleans")
         if target:
             validate.name(target)
+        if unsigned:
+            require_developer_mode()
         fd = call.take_fd(handle)
 
         def staged(path, error):
@@ -72,6 +84,14 @@ def register(service):
     def install_latest(call):
         return service.start_job("updates.install_latest", feed_args(), LOCKS)
 
+    def check_latest_unsigned(call):
+        require_developer_mode()
+        check_locks(call)
+
+    def install_latest_unsigned(call):
+        require_developer_mode()
+        return service.start_job("updates.install_latest", dict(feed_args(), unsigned=True), LOCKS)
+
     def restart(call):
         """Restart into the update that was just installed. It is part of the update (same authorization as Install) and works only
         while an update waits for a restart: it is not a general reboot (that is Boot.Reboot, another authorization)."""
@@ -89,5 +109,6 @@ def register(service):
         (UPDATES, "Check"): Method(check),
         (UPDATES, "Available"): Method(available),
         (UPDATES, "InstallLatest"): Method(install_latest, ACTION_UPDATES, check_locks),
+        (UPDATES, "InstallLatestUnsigned"): Method(install_latest_unsigned, ACTION_UPDATES, check_latest_unsigned),
         (UPDATES, "Pending"): Method(pending),
     }

@@ -7,7 +7,10 @@
   "ota.channel": {
     "type": "string",
     "default": "stable",
-    "choices": ["stable", "testing"],
+    "choices": [
+      "stable",
+      "testing"
+    ],
     "description": "Update channel."
   },
   "ota.auto_check": {
@@ -24,5 +27,10 @@
     "type": "boolean",
     "default": false,
     "description": "Enable developer features. Changing it requires administrator authentication."
+  },
+  "apps.default_apps": {
+    "type": "string",
+    "default": "io.github.kolunmi.Bazaar",
+    "description": "Applications installed automatically, once, when the computer is first online: Flatpak ids separated by spaces (the app store by default; empty for none). One you remove is not installed again."
   }
 }

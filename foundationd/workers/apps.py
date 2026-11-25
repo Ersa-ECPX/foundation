@@ -3,6 +3,7 @@
 import contextlib
 import signal
 
+from ..backends import flatpak
 from ..backends.flatpak import REMOTE_NAME, Flatpak
 from ..errors import Cancelled, Unavailable
 from ..workerlib import worker
@@ -53,11 +54,41 @@ def setup(ctx):
 
 @worker("apps.install")
 def install(ctx):
-    app_id = ctx.arg("id")
+    app_id, remote = ctx.arg("id"), ctx.arg("remote", str, REMOTE_NAME) or REMOTE_NAME
     ctx.step("install", f"Installing {app_id}")
     with cancellable_on_sigterm() as cancellable:
-        Flatpak().install(app_id, REMOTE_NAME, ctx.progress, cancellable)
-    return {"id": app_id, "remote": REMOTE_NAME}
+        Flatpak().install(app_id, remote, ctx.progress, cancellable)
+    return {"id": app_id, "remote": remote}
+
+
+@worker("apps.remotes")
+def remotes(ctx):
+    return Flatpak().remote_details()
+
+
+@worker("apps.inspect_remote")
+def inspect_remote(ctx):
+    info, _repo, _key = flatpak.inspect_remote(ctx.arg("location"), ctx.arg("key", str, ""))
+    return info
+
+
+@worker("apps.add_remote")
+def add_remote(ctx):
+    ctx.step("add", "Adding the application source")
+    return Flatpak().add_custom_remote(ctx.arg("name"), ctx.arg("location"), ctx.arg("key", str, ""), ctx.arg("title", str, ""))
+
+
+@worker("apps.set_remote_enabled")
+def set_remote_enabled(ctx):
+    enabled = ctx.arg("enabled", bool, True)
+    ctx.step("change", "Turning the application source " + ("on" if enabled else "off"))
+    return Flatpak().set_remote_enabled(ctx.arg("name"), enabled)
+
+
+@worker("apps.remove_remote")
+def remove_remote(ctx):
+    ctx.step("remove", "Removing the application source")
+    return Flatpak().remove_remote(ctx.arg("name"))
 
 
 @worker("apps.remove")

@@ -8,15 +8,131 @@ two are read-only.
 The Flatpak module is injected so tests can use a fake.
 """
 
+import base64
+import configparser
+import os
+import re
+import subprocess
 import urllib.request
 
-from ..errors import Failed, FoundationError, NotFound, Unavailable
-from .runner import check
+from ..errors import Failed, FoundationError, InvalidArgument, NotFound, Unavailable
+from .runner import check, run
 
 REMOTE_NAME = "flathub"
 REMOTE_URL = "https://dl.flathub.org/repo/flathub.flatpakrepo"
 DEFAULT_BRANCH = "stable"
 INFO_KEYS = ("ID", "Ref", "Arch", "Branch", "Version", "License", "Origin", "Download", "Installed")
+REMOTE_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$")
+MAX_REPO_FILE = 128 * 1024
+MAX_KEY = 256 * 1024
+
+
+def parse_flatpakrepo(data):
+    """The fields of a .flatpakrepo file: title, url, comment, homepage and gpg_key (the key's bytes, empty if it has none)."""
+    if len(data) > MAX_REPO_FILE:
+        raise InvalidArgument("the repository description is too large")
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
+    try:
+        parser.read_string(data.decode("utf-8"))
+    except (UnicodeDecodeError, configparser.Error) as error:
+        raise InvalidArgument(f"that is not a Flatpak repository description: {error}") from error
+    if not parser.has_section("Flatpak Repo"):
+        raise InvalidArgument("that is not a Flatpak repository description (no [Flatpak Repo] section)")
+    section = parser["Flatpak Repo"]
+    key = re.sub(r"\s+", "", section.get("GPGKey", ""))
+    try:
+        key_bytes = base64.b64decode(key, validate=True) if key else b""
+    except ValueError as error:
+        raise InvalidArgument("the repository's signing key is not valid") from error
+    return {"title": section.get("Title", "").strip(), "url": section.get("Url", "").strip(),
+            "comment": section.get("Comment", "").strip(), "homepage": section.get("Homepage", "").strip(), "gpg_key": key_bytes}
+
+
+def _check_location(value):
+    if not isinstance(value, str) or len(value) > 2048 or not value.startswith(("https://", "file:///")) \
+            or any(c.isspace() or ord(c) < 32 for c in value):
+        raise InvalidArgument("an application source must be an https:// address (or a file:/// path)")
+    return value
+
+
+def _read_location(location, fetch):
+    """The bytes at an https:// address or a file:/// path (at most MAX_REPO_FILE)."""
+    try:
+        if location.startswith("file:///"):
+            with open(location[len("file://"):], "rb") as handle:
+                return handle.read(MAX_REPO_FILE + 1)
+        with (fetch or urllib.request.urlopen)(location, timeout=30) as response:
+            return response.read(MAX_REPO_FILE + 1)
+    except OSError as error:
+        raise Unavailable(f"cannot read {location}: {error}") from error
+
+
+def key_summary(key, runner=run):
+    """Fingerprints and owners of a public key given as bytes (binary or armoured). Refuses a secret key or no key."""
+    if not key or len(key) > MAX_KEY or b"PRIVATE KEY" in key:
+        raise InvalidArgument("the signing key is missing, too large, or a private key")
+    code, out, error = runner(["gpg", "--batch", "--no-tty", "--with-colons", "--show-keys", "-"], 30, input_bytes=key)
+    if code != 0:
+        raise InvalidArgument(f"cannot read the signing key: {error.strip()[:200]}")
+    keys, current = [], None
+    for line in out.splitlines():
+        fields = line.split(":")
+        if fields[0] == "sec":
+            raise InvalidArgument("that is a private key")
+        if fields[0] == "pub":
+            current = {"fingerprint": "", "owner": ""}
+            keys.append(current)
+        elif fields[0] == "fpr" and current is not None and not current["fingerprint"]:
+            current["fingerprint"] = fields[9]
+        elif fields[0] == "uid" and current is not None and not current["owner"]:
+            current["owner"] = fields[9]
+    if not keys:
+        raise InvalidArgument("the file holds no public key")
+    return keys
+
+
+def _dearmor(text, dearmor=None):
+    """The binary form of an armoured key (what a repository description carries)."""
+    raw = text.encode() if isinstance(text, str) else text
+    if b"BEGIN PGP PUBLIC KEY BLOCK" not in raw:
+        return raw                                                    # already binary
+    result = (dearmor or (lambda data: subprocess.run(["gpg", "--batch", "--no-tty", "--dearmor"], input=data, capture_output=True,
+                                                       timeout=30)))(raw)
+    if result.returncode != 0 or not result.stdout:
+        raise InvalidArgument("cannot read the signing key")
+    return result.stdout
+
+
+def suggested_name(location):
+    stem = os.path.basename(re.sub(r"^[a-z]+://", "", location).rstrip("/")).split(".")[0] or "remote"
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip("-.") or "remote"
+    return cleaned[:63]
+
+
+def inspect_remote(location, key_text="", fetch=None, runner=run):
+    """What an application source is, before it is trusted: a .flatpakrepo address (its title, address and signing key come from
+    the file) or a plain repository address with its public key given as text. A source without a signing key is refused: every
+    application source must be signed. Returns name (a suggestion), title, url, comment, homepage, fingerprints, owners and
+    description (the .flatpakrepo bytes to use, or b'' for a plain address) is kept inside the backend, not returned."""
+    location = _check_location(location)
+    info, repo_bytes, key = {"comment": "", "homepage": ""}, b"", b""
+    if location.endswith(".flatpakrepo"):
+        repo_bytes = _read_location(location, fetch)
+        parsed = parse_flatpakrepo(repo_bytes)
+        info.update(title=parsed["title"], url=_check_location(parsed["url"]) if parsed["url"] else "", comment=parsed["comment"],
+                    homepage=parsed["homepage"])
+        if not info["url"]:
+            raise InvalidArgument("the repository description has no address")
+        key = key_text.strip().encode() if key_text.strip() else parsed["gpg_key"]
+    else:
+        info.update(title="", url=location)
+        key = key_text.strip().encode()
+    if not key:
+        raise InvalidArgument("an application source must be signed: give its public signing key")
+    keys = key_summary(key, runner)
+    info.update(name=suggested_name(location), fingerprints=[k["fingerprint"] for k in keys], owners=[k["owner"] for k in keys],
+                from_file=bool(repo_bytes))
+    return info, repo_bytes, key
 
 
 def load_flatpak():
@@ -67,6 +183,19 @@ class Flatpak:
     def remotes(self):
         return [{"name": r.get_name(), "url": r.get_url() or ""} for r in self.installation.list_remotes(None)]
 
+    def remote_details(self):
+        """Every application source with what a person wants to see: name, title, url, enabled, signed, default, apps (installed from it)."""
+        installed = self.installed()
+        rows = []
+        for remote in self.installation.list_remotes(None):
+            name = remote.get_name()
+            title = getattr(remote, "get_title", lambda: "")() or ""
+            rows.append({"name": name, "title": title or name, "url": remote.get_url() or "",
+                         "enabled": not getattr(remote, "get_disabled", lambda: False)(),
+                         "signed": bool(getattr(remote, "get_gpg_verify", lambda: True)()),
+                         "default": name == REMOTE_NAME, "apps": sum(1 for a in installed if a["origin"] == name)})
+        return sorted(rows, key=lambda r: (not r["default"], r["name"]))
+
     def has_remote(self, name=REMOTE_NAME):
         return any(r["name"] == name for r in self.remotes())
 
@@ -112,6 +241,59 @@ class Flatpak:
         except Exception as error:  # noqa: BLE001 - GLib.Error
             raise Failed(f"cannot add the remote: {error}") from error
         return True
+
+    def add_custom_remote(self, name, location, key_text="", title="", fetch=None, runner=run, dearmor=None):
+        """Add a signed application source of the person's own, system-wide. Returns its details."""
+        if not isinstance(name, str) or not REMOTE_NAME_PATTERN.match(name):
+            raise InvalidArgument(f"not a usable name for an application source: {name!r}")
+        if self.has_remote(name):
+            raise InvalidArgument(f"an application source named {name} exists already")
+        title = (title or "").strip()
+        if len(title) > 120 or "\n" in title:
+            raise InvalidArgument("the title must be one line of up to 120 characters")
+        info, repo_bytes, key = inspect_remote(location, key_text, fetch, runner)
+        from gi.repository import GLib
+        if repo_bytes and not key_text.strip():
+            remote = self.f.Remote.new_from_file(name, GLib.Bytes.new(repo_bytes))
+        else:
+            lines = ["[Flatpak Repo]", f"Title={title or info['title'] or name}", f"Url={info['url']}",
+                     "GPGKey=" + base64.b64encode(_dearmor(key, dearmor)).decode()]
+            remote = self.f.Remote.new_from_file(name, GLib.Bytes.new("\n".join(lines).encode()))
+        if title:
+            remote.set_title(title)
+        remote.set_gpg_verify(True)
+        remote.set_disabled(False)
+        try:
+            self.installation.add_remote(remote, False, None)
+        except Exception as error:  # noqa: BLE001 - GLib.Error
+            raise Failed(f"cannot add the application source: {error}") from error
+        return {"name": name, "url": info["url"], "fingerprints": info["fingerprints"]}
+
+    def _find_remote(self, name):
+        for remote in self.installation.list_remotes(None):
+            if remote.get_name() == name:
+                return remote
+        raise NotFound(f"there is no application source named {name}")
+
+    def set_remote_enabled(self, name, enabled):
+        remote = self._find_remote(name)
+        remote.set_disabled(not enabled)
+        try:
+            self.installation.modify_remote(remote, None)
+        except Exception as error:  # noqa: BLE001 - GLib.Error
+            raise Failed(f"cannot change the application source: {error}") from error
+        return {"name": name, "enabled": bool(enabled)}
+
+    def remove_remote(self, name):
+        self._find_remote(name)
+        using = [a["id"] for a in self.installed() if a["origin"] == name]
+        if using:
+            raise Failed(f"{len(using)} application(s) are installed from {name} ({', '.join(using[:5])}); remove them first")
+        try:
+            self.installation.remove_remote(name, None)
+        except Exception as error:  # noqa: BLE001 - GLib.Error
+            raise Failed(f"cannot remove the application source: {error}") from error
+        return {"name": name}
 
     def _installed_ref(self, app_id):
         for ref in self.installation.list_installed_refs_by_kind(self.f.RefKind.APP, None):

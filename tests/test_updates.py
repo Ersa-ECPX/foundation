@@ -256,7 +256,7 @@ class Installing(Base):
         self.install(self.archive(), mount=mount)
         self.assertEqual(mounted, [self.system.paths["dev"] + "/vda3"])
 
-    def test_the_default_boot_entry_is_set_when_booted_through_uefi(self):
+    def test_the_new_entry_is_booted_once_and_not_pinned_when_booted_through_uefi(self):
         calls = []
 
         def runner(cmd, timeout=60, input_bytes=None):
@@ -265,7 +265,8 @@ class Installing(Base):
         self.system.efivar("LoaderInfo", "systemd-boot")
         updates.install(self.paths, self.archive(), self.ctx, unsigned=True, runner=runner, opener=self.system.opener(),
                         mount=self.fake_mount)
-        self.assertIn(["bootctl", "set-default", "ecp_0.3.0.efi"], calls)
+        self.assertIn(["bootctl", "set-oneshot", "ecp_0.3.0.efi"], calls)
+        self.assertNotIn(["bootctl", "set-default", "ecp_0.3.0.efi"], calls)
 
     def test_without_uefi_the_install_still_completes_and_says_what_to_do(self):
         shutil.rmtree(self.paths["efivars"])
@@ -273,10 +274,24 @@ class Installing(Base):
         self.assertFalse(result["default_set"])
         self.assertTrue(any("boot menu" in note for note in result["notes"]))
 
+    def test_the_same_system_image_is_not_written_into_a_second_slot(self):
+        layout = slots.discover(self.paths)
+        running = layout.running
+        same = slots._uuid_on_disk(layout, running.number).hex + "0" * 32          # the running slot's identity, as a root hash
+        with self.assertRaisesRegex(InvalidArgument, "same system image as the running system"):
+            self.install(self.archive(manifest=self.manifest(roothash=same, version="0.9.0")))
+        self.untouched()
+
     def test_the_version_already_running_is_refused(self):
         with self.assertRaisesRegex(InvalidArgument, "already runs"):
             self.install(self.archive(manifest=self.manifest(version="0.2.0")))
         self.untouched()
+
+    def test_an_older_version_than_the_running_one_needs_force(self):
+        with self.assertRaisesRegex(InvalidArgument, "older than the running"):
+            self.install(self.archive(manifest=self.manifest(version="0.1.9")))
+        self.untouched()
+        self.assertEqual(self.install(self.archive(manifest=self.manifest(version="0.1.9")), force=True)["version"], "0.1.9")
 
     def test_installing_the_same_version_twice_needs_force(self):
         self.install(self.archive())

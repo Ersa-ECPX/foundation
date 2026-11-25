@@ -37,7 +37,7 @@ import tempfile
 import uuid
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
-from . import bundles, compat, osinfo, repos, slots, verity
+from . import bundles, compat, feed, osinfo, repos, slots, verity
 from .runner import run
 
 FORMAT = 1
@@ -234,6 +234,10 @@ def read_archive(path, stage, paths, unsigned=False, runner=run, progress=lambda
 # -- installing --------------------------------------------------------------------------------
 
 def _choose_target(layout, wanted, version, force):
+    running = layout.running.version if layout.running else ""
+    if running and feed.version_key(version) and feed.version_key(version) < feed.version_key(running) and not force:
+        raise InvalidArgument(f"version {version} is older than the running version {running}; "
+                              "an older system is not installed unless you pass force")
     for slot in layout.slots:
         if slot.version == version and slot.state != "empty":
             if slot.running:
@@ -253,6 +257,20 @@ def _choose_target(layout, wanted, version, force):
     if target.running:
         raise InvalidArgument("the running slot cannot be updated")
     return target
+
+
+def _refuse_same_image_elsewhere(layout, target, data_uuid):
+    """A slot is named by the root hash of its image (the partition's GPT UUID): the kernel image has one fixed command line, so
+    that name is how it finds its root. The same image in two slots would give two partitions one name, and the two boot entries
+    could not be told apart. It is also the same system twice, so nothing is gained: refuse, and say where it is. (Installing it
+    again into the slot that holds it, to repair that slot, is fine.)"""
+    for other in layout.slots:
+        if other is target or other.live or other.state == "empty":
+            continue
+        if slots._uuid_on_disk(layout, other.number) == data_uuid:
+            where = "the running system" if other.running else f"slot {other.name}"
+            raise InvalidArgument(f"this is the same system image as {where} (identical root hash), so a second copy cannot be "
+                                  f"told apart from it; install a different image, or reinstall into slot {other.name} itself")
 
 
 @contextlib.contextmanager
@@ -278,6 +296,7 @@ def _write_slot(layout, manifest, files, target, force, ctx, runner, opener):
     roothash = manifest["roothash"].lower()
     data_uuid, hash_uuid = verity.uuids(roothash)
     slot = _choose_target(layout, target, version, force)
+    _refuse_same_image_elsewhere(layout, slot, data_uuid)
     slots._check_free(layout, slot)
     if not slot.verity_number:
         raise InvalidArgument(f"slot {slot.name} has no hash partition, so it cannot take a dm-verity update")
@@ -366,9 +385,9 @@ def install(paths, archive, ctx, target="", unsigned=False, force=False, runner=
         result["bundles"]["failed"] = [{"name": b["name"], "error": str(error)} for b in bundles.list_bundles(paths)]
     ctx.progress(0.97)
 
-    ctx.step("boot", "Choosing the new system for the next start")
+    ctx.step("boot", "Choosing the new system for the next start only")
     try:
-        slots.select(paths, slot.name, False, runner)
+        slots.select(paths, slot.name, True, runner)   # one-shot: it becomes the default only after a good boot
         result["default_set"] = True
     except (Unavailable, InvalidArgument, Failed) as error:
         result["notes"].append(f"the new system is not the default yet ({error}); choose it in the boot menu")

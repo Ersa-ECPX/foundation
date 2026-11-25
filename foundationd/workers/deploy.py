@@ -22,4 +22,5 @@ def plan(ctx):
 def run(ctx):
     disk = ctx.arg("disk")
     return deploy.deploy(ctx.paths, disk, ctx.arg("confirm"), ctx, allow_file=_allow_file(ctx),
-                         language=ctx.arg("language") or "", timezone=ctx.arg("timezone") or "")
+                         language=ctx.arg("language") or "", timezone=ctx.arg("timezone") or "",
+                         preseed=ctx.arg("preseed", dict, {}))

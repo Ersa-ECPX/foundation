@@ -190,6 +190,27 @@
       <arg name="timezone" type="s" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
+    <!--
+      As Deploy, with a preseed file (text, at most 64 KiB) for an unattended installation: `key=value` lines holding any setting of the
+      configuration schema, which become /etc/foundation/foundation.conf.d/50-preseed.conf on the installed system, and deploy.language,
+      deploy.timezone and deploy.hostname (the first two apply only where `language` and `timezone` are empty). The file is checked
+      completely first; a bad one is refused with InvalidArgument listing every problem, before anything is erased. Requires
+      org.ersa.foundation.deploy. Result as Deploy.
+    -->
+    <method name="DeployPreseeded">
+      <arg name="disk" type="s" direction="in"/>
+      <arg name="confirm" type="s" direction="in"/>
+      <arg name="language" type="s" direction="in"/>
+      <arg name="timezone" type="s" direction="in"/>
+      <arg name="preseed" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Check a preseed file without installing. Fields: config (a{ss}: the settings, as they will be written), language, timezone,
+         hostname (s, empty if not given). InvalidArgument lists every problem. No authorization. -->
+    <method name="CheckPreseed">
+      <arg name="preseed" type="s" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
   </interface>
 
   <!--
@@ -239,6 +260,11 @@
       Requires org.ersa.foundation.splash (allowed for the active local user).
       Result: theme (s), changed (as, what was changed), skipped (aa{ss}: file, reason).
     -->
+    <!-- The boot splash theme that is chosen. Keys: theme (s: light or dark), uefi (b: whether this computer has the UEFI
+         variables the choice is kept in; without them the boot splash cannot follow it). No authorization. -->
+    <method name="GetSplash">
+      <arg name="splash" type="a{sv}" direction="out"/>
+    </method>
     <method name="SetSplash">
       <arg name="theme" type="s" direction="in"/>
       <arg name="job" type="o" direction="out"/>
@@ -284,6 +310,47 @@
     </method>
     <!-- Update every installed application. -->
     <method name="Update">
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Install an application from a named application source (Install uses Flathub). Requires org.ersa.foundation.apps. -->
+    <method name="InstallFrom">
+      <arg name="remote" type="s" direction="in"/>
+      <arg name="id" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Every application source (Flatpak remote) of the system installation. Fields: name, title, url, enabled (b), signed (b: every
+         source added through this interface is), default (b: Flathub), apps (i: installed from it). -->
+    <method name="ListRemotes">
+      <arg name="remotes" type="aa{sv}" direction="out"/>
+    </method>
+    <!-- What a source is, before it is trusted. `location` is the address of a .flatpakrepo file (its title, address and signing key come
+         from it) or of a repository, in which case `key` must be its public signing key (armoured text). A source without a signing
+         key is refused: every application source must be signed. Fields: name (a suggestion), title, url, comment, homepage,
+         fingerprints (as), owners (as), from_file (b). https:// or file:/// only. Reads only (it fetches the description); no authorization. -->
+    <method name="InspectRemote">
+      <arg name="location" type="s" direction="in"/>
+      <arg name="key" type="s" direction="in"/>
+      <arg name="info" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Add a signed application source, system-wide. `name` is its identifier (letters, digits, . _ -), `location` and `key` as for
+         InspectRemote, `title` an optional display name. Applications from it then appear in app stores and in InstallFrom. Requires
+         org.ersa.foundation.apps-sources. Result: name, url, fingerprints (as). -->
+    <method name="AddRemote">
+      <arg name="name" type="s" direction="in"/>
+      <arg name="location" type="s" direction="in"/>
+      <arg name="key" type="s" direction="in"/>
+      <arg name="title" type="s" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Turn a source on or off. Requires org.ersa.foundation.apps-sources. Result: name, enabled. -->
+    <method name="SetRemoteEnabled">
+      <arg name="name" type="s" direction="in"/>
+      <arg name="enabled" type="b" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- Remove a source. Refused while applications installed from it remain. Requires org.ersa.foundation.apps-sources. -->
+    <method name="RemoveRemote">
+      <arg name="name" type="s" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
   </interface>
@@ -452,7 +519,7 @@
          uki.efi). The archive is a file descriptor. The image goes to the standby slot (named in `target`,
          or chosen if empty), the user's bundles are rebuilt for it, and it becomes the next boot. The
          signature must verify against an installed image signing key unless `unsigned` is true (an image
-         built locally). `force` allows reinstalling a version that is installed already. Requires
+         built locally; refused with InvalidArgument unless developer mode, the setting system.developer_mode, is on). `force` allows reinstalling a version that is installed already. Requires
          org.ersa.foundation.updates. Result: version, slot, entry, bytes, signed, bundles (ready, failed),
          default_set, notes (as), reboot_required. -->
     <method name="Install">
@@ -476,6 +543,12 @@
     <!-- Download the newest update from the update source and install it as Install does (the signature is always checked; version
          must be newer than the running one, else InvalidArgument). Requires org.ersa.foundation.updates. Job result as Install. -->
     <method name="InstallLatest">
+      <arg name="job" type="o" direction="out"/>
+    </method>
+    <!-- As InstallLatest, but the archive's signature is not checked (the feed's checksum of the archive still is). For images you
+         publish yourself while testing. Refused with InvalidArgument unless developer mode (system.developer_mode) is on. Requires
+         org.ersa.foundation.updates. -->
+    <method name="InstallLatestUnsigned">
       <arg name="job" type="o" direction="out"/>
     </method>
     <!-- Restart the computer into the update that was just installed. Needs the same authorization as Install (org.ersa.foundation.updates,

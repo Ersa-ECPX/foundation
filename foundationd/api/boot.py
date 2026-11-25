@@ -50,6 +50,9 @@ def register(service):
     def state(call):
         return service.query(call, "boot.state", {}, reply_dict)
 
+    def splash_state(call):
+        return service.query(call, "boot.splash_state", {}, reply_dict)
+
     def slots(call):
         return service.query(call, "boot.slots", {}, reply_list)
 
@@ -105,6 +108,7 @@ def register(service):
         (BOOT, "SetDefaultSlot"): Method(set_default, ACTION_BOOT, check_default),
         (BOOT, "SetNextBoot"): Method(set_next, ACTION_BOOT, check_next),
         (BOOT, "ReleaseSlot"): Method(release, ACTION_SLOTS, check_release),
+        (BOOT, "GetSplash"): Method(splash_state),
         (BOOT, "SetSplash"): Method(set_splash, ACTION_SPLASH, check_splash),
         (BOOT, "Reboot"): Method(reboot_handler(False), ACTION_BOOT),
         (BOOT, "RebootToFirmware"): Method(reboot_handler(True), ACTION_BOOT),

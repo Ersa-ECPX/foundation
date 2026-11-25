@@ -501,7 +501,44 @@ def cmd_deploy_list(client, args):
     return 0
 
 
+def read_preseed(path):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read(64 * 1024 + 1)
+    except (OSError, UnicodeDecodeError) as error:
+        raise UserError(f"Cannot read the preseed file {path}: {error}") from error
+    if len(text.encode()) > 64 * 1024:
+        raise UserError(f"The preseed file {path} is larger than 64 KiB")
+    return text
+
+
+def show_preseed(result):
+    rows = [(key, value) for key, value in sorted(result["config"].items())]
+    rows += [(f"deploy.{name}", result[name]) for name in ("language", "timezone", "hostname") if result.get(name)]
+    ui.kv(rows or [("Nothing", "the preseed file sets nothing")])
+
+
+def cmd_deploy_check_preseed(client, args):
+    try:
+        result = client.one("Deploy", "CheckPreseed", "(s)", read_preseed(args.file))
+    except ClientError as error:
+        raise UserError(error.message) from error
+    if args.json:
+        emit_json(result)
+        return 0
+    ui.title("Preseed file")
+    show_preseed(result)
+    ui.note("The file is valid.")
+    return 0
+
+
 def cmd_deploy_install(client, args):
+    preseed = read_preseed(args.preseed) if getattr(args, "preseed", None) else ""
+    if preseed:            # a bad file is found now, before anything is shown or erased
+        try:
+            checked = client.one("Deploy", "CheckPreseed", "(s)", preseed)
+        except ClientError as error:
+            raise UserError(error.message) from error
     plan = client.one("Deploy", "PlanDeploy", "(s)", args.disk)
     if args.json and args.dry_run:
         emit_json(plan)
@@ -521,13 +558,21 @@ def cmd_deploy_install(client, args):
     ui.warn(f"everything on {plan['disk']} will be erased and cannot be recovered"
             + (f" ({len(erased)} existing partition(s))" if erased else ""))
     print()
+    if preseed:
+        ui.note(f"The preseed file {args.preseed} sets:")
+        show_preseed(checked)
+        print()
     if args.dry_run:
         ui.note("Dry run: nothing was changed.")
         return 0
     if not sure(args, f"Erase {plan['disk']} and install {PRODUCT}?", expected=plan["disk"]):
         return 1
-    code, job = run_job(client, args, "Deploy", "Deploy", "(ssss)", plan["disk"], plan["disk"],
-                        args.language or "", args.timezone or "")
+    if preseed:
+        code, job = run_job(client, args, "Deploy", "DeployPreseeded", "(sssss)", plan["disk"], plan["disk"],
+                            args.language or "", args.timezone or "", preseed)
+    else:
+        code, job = run_job(client, args, "Deploy", "Deploy", "(ssss)", plan["disk"], plan["disk"],
+                            args.language or "", args.timezone or "")
     if job is not None and job.ok and not args.json:
         ui.kv([("Installed", f"version {job.result.get('version')} ({ui.human_size(job.result.get('bytes', 0))})")])
         ui.note("Remove the installation medium and restart the computer to start the new system.")
@@ -589,17 +634,20 @@ def cmd_apps_info(client, args):
 
 def cmd_apps_install(client, args):
     info = {}
-    try:
-        info = client.one("Apps", "GetInfo", "(s)", args.app, timeout=120_000)
-    except ClientError as error:
-        if error.name == "NotFound":
-            raise
+    if not getattr(args, "source", None):          # the details come from Flathub; another source has no such lookup
+        try:
+            info = client.one("Apps", "GetInfo", "(s)", args.app, timeout=120_000)
+        except ClientError as error:
+            if error.name == "NotFound":
+                raise
     ui.title(f"Install {args.app}")
     ui.kv([(k, v) for k, v in info.items() if k in ("Ref", "Version", "License", "Download", "Installed")]
-          + [("Scope", "system-wide, stored in /var/lib/flatpak")])
+          + [("Source", getattr(args, "source", None) or "flathub"), ("Scope", "system-wide, stored in /var/lib/flatpak")])
     print()
     if not sure(args, "Install this application?"):
         return 1
+    if getattr(args, "source", None):
+        return run_job(client, args, "Apps", "InstallFrom", "(ss)", args.source, args.app)[0]
     return run_job(client, args, "Apps", "Install", "(s)", args.app)[0]
 
 
@@ -633,6 +681,59 @@ def cmd_apps_setup(client, args):
     if not sure(args, "Add the Flathub remote?"):
         return 1
     return run_job(client, args, "Apps", "SetupRemote", None)[0]
+
+
+def cmd_apps_remotes(client, args):
+    remotes = client.one("Apps", "ListRemotes")
+    if args.json:
+        emit_json(remotes)
+        return 0
+    if not remotes:
+        ui.note("No application sources. Add Flathub with: foundation apps setup")
+        return 0
+    ui.table(["Name", "Title", "Address", "State", "Apps"],
+             [[r["name"], r["title"], r["url"], ("on" if r["enabled"] else "off") + (", default" if r["default"] else ""), str(r["apps"])]
+              for r in remotes])
+    return 0
+
+
+def cmd_apps_remote_add(client, args):
+    key = ""
+    if args.key:
+        try:
+            with open(args.key, encoding="utf-8") as handle:
+                key = handle.read(256 * 1024 + 1)
+        except (OSError, UnicodeDecodeError) as error:
+            ui.error(f"Cannot read the key file {args.key}: {error}")
+            return 1
+    try:
+        info = client.one("Apps", "InspectRemote", "(ss)", args.location, key, timeout=60_000)
+    except ClientError as error:
+        raise UserError(error.message) from error
+    if not args.json:
+        ui.title(f"Add the application source {args.name}")
+        ui.kv([("Title", args.title or info.get("title") or args.name), ("Address", info["url"]),
+               ("Signing key", ", ".join(info["fingerprints"])), ("Key owner", ", ".join(o or "-" for o in info["owners"]))])
+        print()
+        ui.warn("Applications from this source are installed system-wide and run with the permissions they ask for. They are trusted if "
+                "they are signed by that key: check the fingerprint with the publisher. They are not part of the Ersa Compute Platform.")
+    if not sure(args, f"Trust this key and add {args.name}?"):
+        return 1
+    return run_job(client, args, "Apps", "AddRemote", "(ssss)", args.name, args.location, key, args.title or "")[0]
+
+
+def cmd_apps_remote_remove(client, args):
+    if not sure(args, f"Remove the application source {args.name}?"):
+        return 1
+    return run_job(client, args, "Apps", "RemoveRemote", "(s)", args.name)[0]
+
+
+def cmd_apps_remote_enable(client, args):
+    return run_job(client, args, "Apps", "SetRemoteEnabled", "(sb)", args.name, True)[0]
+
+
+def cmd_apps_remote_disable(client, args):
+    return run_job(client, args, "Apps", "SetRemoteEnabled", "(sb)", args.name, False)[0]
 
 
 # ----------------------------------------------------------------------------- compat RPMs
@@ -1257,15 +1358,29 @@ def build_parser():
     inst.add_argument("--dry-run", action="store_true", help="show what would happen and change nothing")
     inst.add_argument("--language", metavar="LOCALE", help="the installed system's language, such as de_DE.UTF-8")
     inst.add_argument("--timezone", metavar="ZONE", help="the installed system's time zone, such as Europe/Berlin")
+    inst.add_argument("--preseed", metavar="FILE", help="answers for an unattended installation: settings, language, time zone and host name "
+                      "(see: foundation deploy check-preseed); with --yes nothing is asked")
+    add(deploy, "check-preseed", cmd_deploy_check_preseed, "check a preseed file without installing").add_argument("file")
 
     _, apps = group("apps", "manage applications (Flatpak, system-wide)")
     add(apps, "list", cmd_apps_list, "list installed applications")
     add(apps, "search", cmd_apps_search, "search for applications").add_argument("term")
     add(apps, "info", cmd_apps_info, "show details of an application").add_argument("app")
-    add(apps, "install", cmd_apps_install, "install an application", yes=True, wait=True).add_argument("app")
+    install_app = add(apps, "install", cmd_apps_install, "install an application", yes=True, wait=True)
+    install_app.add_argument("app")
+    install_app.add_argument("--from", dest="source", metavar="SOURCE", help="the application source (default: flathub); see: foundation apps remotes")
     add(apps, "remove", cmd_apps_remove, "remove an application", yes=True, wait=True).add_argument("app")
     add(apps, "update", cmd_apps_update, "update installed applications", yes=True, wait=True)
     add(apps, "setup", cmd_apps_setup, "add the Flathub application source", yes=True, wait=True)
+    add(apps, "remotes", cmd_apps_remotes, "list the application sources")
+    remote_add = add(apps, "remote-add", cmd_apps_remote_add, "add an application source of your own (https, signed)", yes=True, wait=True)
+    remote_add.add_argument("name", help="a short name, for example acme")
+    remote_add.add_argument("location", help="a .flatpakrepo address, or a repository address together with --key")
+    remote_add.add_argument("--key", metavar="FILE", help="the publisher's armoured public key (.asc); not needed with a .flatpakrepo that carries it")
+    remote_add.add_argument("--title", help="a name to show in lists")
+    add(apps, "remote-remove", cmd_apps_remote_remove, "remove an application source", yes=True, wait=True).add_argument("name")
+    add(apps, "remote-enable", cmd_apps_remote_enable, "turn an application source on", wait=True).add_argument("name")
+    add(apps, "remote-disable", cmd_apps_remote_disable, "turn an application source off", wait=True).add_argument("name")
 
     _, compat = group("compat", "run legacy RPMs as system extensions")
     add(compat, "inspect", cmd_compat_inspect, "check an RPM against this system").add_argument("rpm")
@@ -1289,8 +1404,8 @@ def build_parser():
     install_update = add(update, "install", cmd_update_install, "install an update file (.tar.zst) into the spare slot", yes=True, wait=True)
     install_update.add_argument("archive", metavar="FILE")
     install_update.add_argument("--slot", help="install into this slot (default: the spare one)")
-    install_update.add_argument("--unsigned", action="store_true", help="skip the signature check, for an image you built yourself")
-    install_update.add_argument("--force", action="store_true", help="install again even if this version is already installed")
+    install_update.add_argument("--unsigned", action="store_true", help="skip the signature check, for an image you built yourself (needs developer mode: foundation config set system.developer_mode true)")
+    install_update.add_argument("--force", action="store_true", help="install even if this version is already installed or is older than the running system")
     check_update = add(update, "check", cmd_update_check, "ask the update source whether a newer update exists", yes=True, wait=True)
     check_update.add_argument("--install", action="store_true", help="download and install it if there is one")
     add(update, "status", cmd_update_status, "show whether an update is waiting for a restart")

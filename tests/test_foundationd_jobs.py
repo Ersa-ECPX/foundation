@@ -295,6 +295,28 @@ class StagedFiles(JobCase):
         self.assertEqual((props["State"], props["Result"]["content"], props["Result"]["force"]), ("done", "payload", True))
         self.assertEqual(self.staging(), [])
 
+    def update_error(self, method, *args):
+        try:
+            self.send_fd(UPDATES, method, *args) if method == "Install" else self.call(UPDATES, method)
+        except Exception as error:      # a GLib.Error carrying the D-Bus error name
+            return str(error)
+        return ""
+
+    def test_an_unsigned_update_needs_developer_mode(self):
+        self.assertIn("InvalidArgument", self.update_error("Install", "(hsbb)", b"x", "", True, False))
+        self.assertIn("developer mode", self.update_error("Install", "(hsbb)", b"x", "", True, False))
+        self.assertIn("InvalidArgument", self.update_error("InstallLatestUnsigned"))
+
+    def test_a_signed_update_does_not_need_developer_mode(self):
+        self.assertNotIn("developer mode", self.update_error("Install", "(hsbb)", b"x", "", False, False))
+
+    def test_with_developer_mode_on_the_unsigned_update_is_accepted_for_work(self):
+        self.call(CONFIG, "Set", "(sv)", "system.developer_mode", GLib.Variant("b", True))
+        self.assertNotIn("developer mode", self.update_error("Install", "(hsbb)", b"x", "", True, False))
+        self.assertNotIn("developer mode", self.update_error("InstallLatestUnsigned"))
+        self.call(CONFIG, "Set", "(sv)", "system.developer_mode", GLib.Variant("b", False))
+        self.assertIn("developer mode", self.update_error("InstallLatestUnsigned"))
+
     def test_a_large_file_does_not_block_the_daemon(self):
         big = b"x" * (20 * 1024 * 1024)
         (report,) = self.send_fd(COMPAT, "Inspect", "(h)", big)

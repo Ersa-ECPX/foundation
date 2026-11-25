@@ -28,4 +28,4 @@ def available(ctx):
 
 @worker("updates.install_latest")
 def install_latest(ctx):
-    return ota.install_latest(ctx.paths, ctx.arg("url"), ctx.arg("arch"), ctx)
+    return ota.install_latest(ctx.paths, ctx.arg("url"), ctx.arg("arch"), ctx, unsigned=ctx.arg("unsigned", bool, False))

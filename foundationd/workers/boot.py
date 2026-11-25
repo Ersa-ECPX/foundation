@@ -36,3 +36,8 @@ def release(ctx):
 @worker("boot.splash")
 def set_splash(ctx):
     return splash.set_theme(ctx.paths, ctx.arg("theme"), ctx)
+
+
+@worker("boot.splash_state")
+def splash_state(ctx):
+    return splash.current(ctx.paths)
