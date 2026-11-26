@@ -26,13 +26,14 @@ protects; its checksums against the manifest are still checked. `mtools` renames
 """
 
 import os
+import re
 import shutil
 import stat
 import tempfile
 import uuid
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
-from . import gpt, layout, osinfo, slots, updates, verity
+from . import efi, gpt, layout, osinfo, slots, updates, verity
 from . import preseed as preseed_backend
 from .runner import check, run
 
@@ -387,11 +388,44 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
             raise Failed("the kernel image is not in place on the new ESP")
         with open(target, "rb") as disk:
             os.fsync(disk.fileno())
+        ctx.step("firmware", "Registering the new system with the firmware")
+        registered, note = register_firmware_entry(paths, target, esp_part.number, runner, allow_file)
+        ctx.log(note)
         ctx.progress(1.0)
         return {"disk": target, "version": version, "root_partition": root_a.number, "bytes": length, "roothash": roothash,
-                "partitions": [{"label": p.name, "size": p.size} for p in table]}
+                "partitions": [{"label": p.name, "size": p.size} for p in table], "firmware_entry": registered, "notes": [note]}
     finally:
         shutil.rmtree(stage, ignore_errors=True)
+
+
+FIRMWARE_LABEL = "Ersa Compute Platform"
+LOADERS = {"x86_64": "BOOTX64.EFI", "aarch64": "BOOTAA64.EFI"}
+
+
+def register_firmware_entry(paths, target, esp_number, runner=run, allow_file=False, machine=None):
+    """Give the firmware a boot entry for the new disk and put it first. Without one, a computer with the installer medium still
+    plugged in starts the installer again (the firmware boots the medium first, or takes the first disk it finds), however the
+    person chose "disk". Best effort: returns (registered, note); the disk is bootable either way, through the firmware's
+    fallback path. Not done for a file target or a computer that was not started through UEFI."""
+    if allow_file:
+        return False, "not registered with the firmware: the target is a file"
+    if not efi.booted_with_efi(paths["efivars"]):
+        return False, "not registered with the firmware: this computer was not started through UEFI"
+    loader = LOADERS.get(machine or os.uname().machine)
+    if loader is None:
+        return False, "not registered with the firmware: unknown architecture"
+    code, out, error = runner(["efibootmgr"], 30)
+    if code != 0:
+        return False, f"not registered with the firmware (efibootmgr: {error.strip()[:120] or 'failed'})"
+    for line in out.splitlines():                      # earlier installs left entries of the same name; they point at disks that are gone
+        match = re.match(r"^Boot([0-9A-Fa-f]{4})\*?\s+" + re.escape(FIRMWARE_LABEL) + r"(\t|\s*$)", line)
+        if match:
+            runner(["efibootmgr", "--delete-bootnum", "--bootnum", match.group(1)], 30)
+    code, _out, error = runner(["efibootmgr", "--create", "--disk", target, "--part", str(esp_number), "--label", FIRMWARE_LABEL,
+                                "--loader", "\\EFI\\BOOT\\" + loader], 30)
+    if code != 0:
+        return False, f"not registered with the firmware (efibootmgr: {error.strip()[:120] or 'failed'}); start the new disk from the firmware's boot menu"
+    return True, "registered with the firmware as the first boot choice"
 
 
 def _repart(target, definitions, runner):

@@ -575,6 +575,8 @@ def cmd_deploy_install(client, args):
                             args.language or "", args.timezone or "")
     if job is not None and job.ok and not args.json:
         ui.kv([("Installed", f"version {job.result.get('version')} ({ui.human_size(job.result.get('bytes', 0))})")])
+        for note in job.result.get("notes", []):
+            ui.note(note[:1].upper() + note[1:] + ".")
         ui.note("Remove the installation medium and restart the computer to start the new system.")
     return code
 

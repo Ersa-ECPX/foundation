@@ -298,6 +298,11 @@ def remote_summary(status):
     return text, extra
 
 
+def ssh_needs_a_way_in(has_keys, allow_password):
+    """True when turning SSH on would be refused: nobody could sign in (no key anywhere and password sign-in off)."""
+    return not has_keys and not allow_password
+
+
 def key_title(key):
     return key.get("comment") or key.get("user", "")
 

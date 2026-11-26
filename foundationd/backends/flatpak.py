@@ -226,8 +226,10 @@ class Flatpak:
     # -- changing --------------------------------------------------------------------------------
 
     def add_remote(self, fetch=None):
-        """Add the Flathub remote. Returns True if it was added, False if it was already there."""
+        """Add the Flathub remote. Returns True if it was added, False if it was already there (and then makes sure it verifies
+        signatures: an earlier version added it without, and a person could not refresh its application data)."""
         if self.has_remote():
+            self._verify_signatures(REMOTE_NAME)
             return False
         try:
             with (fetch or urllib.request.urlopen)(REMOTE_URL, timeout=30) as response:
@@ -236,11 +238,24 @@ class Flatpak:
             raise Unavailable(f"cannot download the Flathub remote description: {error}") from error
         from gi.repository import GLib  # only needed here; the fake module test passes `fetch` too
         remote = self.f.Remote.new_from_file(REMOTE_NAME, GLib.Bytes.new(data))
+        # The description carries the signing key, but loading it does not switch verification on. Without gpg-verify and
+        # gpg-verify-summary in the remote's configuration, libflatpak refuses a person's request to refresh its application data
+        # ("Can't pull from untrusted non-gpg verified remote"), so an app store showed no applications.
+        remote.set_gpg_verify(True)
         try:
             self.installation.add_remote(remote, True, None)
         except Exception as error:  # noqa: BLE001 - GLib.Error
             raise Failed(f"cannot add the remote: {error}") from error
         return True
+
+    def _verify_signatures(self, name):
+        """Write gpg-verify (and gpg-verify-summary) into an existing remote's configuration."""
+        remote = self._find_remote(name)
+        remote.set_gpg_verify(True)
+        try:
+            self.installation.modify_remote(remote, None)
+        except Exception as error:  # noqa: BLE001 - GLib.Error
+            raise Failed(f"cannot update the remote's settings: {error}") from error
 
     def add_custom_remote(self, name, location, key_text="", title="", fetch=None, runner=run, dearmor=None):
         """Add a signed application source of the person's own, system-wide. Returns its details."""

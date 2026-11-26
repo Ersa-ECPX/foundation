@@ -688,39 +688,68 @@ class Appearance(Page):
 class Remote(Page):
     def __init__(self, win):
         super().__init__(win)
-        self.status = {}
+        self.status, self.keys, self.want_password = {}, [], False
         self.ssh_group = self.group("SSH", "Sign in from another computer over the network.")
         self.ssh_row = Adw.SwitchRow(title="Remote login (SSH)")
         self.password_row = Adw.SwitchRow(title="Allow password sign-in", subtitle="Keys are safer than passwords.")
         for row in (self.ssh_row, self.password_row):
             row._loading = False
-            row.connect("notify::active", lambda r, _p: self.apply(r))
             self.ssh_group.add(row)
-        self.keys_group = self.group("Authorized keys", "Computers that may sign in without a password.", text_button("Add…", self.add_dialog))
+        self.ssh_row.connect("notify::active", lambda r, _p: None if r._loading else self.request_ssh(r.get_active()))
+        self.password_row.connect("notify::active", lambda r, _p: None if r._loading else self.choose_password(r.get_active()))
+        self.keys_group = self.group("Authorized keys", "Computers that may sign in without a password.", text_button("Add\u2026", self.add_dialog))
 
     def load(self):
         self.ask("Remote", "GetStatus", None, None, self.show_status)
         self.ask("Remote", "ListKeys", "(s)", ("",), self.show_keys)
 
+    def is_on(self):
+        return bool(self.status.get("enabled") or self.status.get("active"))
+
     def show_status(self, status):
         self.status = status
         title, detail = model.remote_summary(status)
-        self.ssh_row.set_subtitle(f"{title}" + (f" · {detail}" if detail else ""))
+        self.ssh_row.set_subtitle(f"{title}" + (f" \u00b7 {detail}" if detail else ""))
         installed = status.get("installed", False)
         for row in (self.ssh_row, self.password_row):
             row.set_sensitive(installed)
+        if self.is_on():
+            self.want_password = bool(status.get("password_auth", False))      # the server's setting is the truth while it runs
+        self.set_switches()
+
+    def set_switches(self):
         self.ssh_row._loading = self.password_row._loading = True
-        self.ssh_row.set_active(bool(status.get("enabled") or status.get("active")))
-        self.password_row.set_active(bool(status.get("password_auth", False)))
+        self.ssh_row.set_active(self.is_on())
+        self.password_row.set_active(self.want_password)
         self.ssh_row._loading = self.password_row._loading = False
 
-    def apply(self, row):
-        if row._loading:
+    def choose_password(self, allowed):
+        """The password switch. While SSH is off it only records the choice for when SSH is turned on; while it is on, it applies it."""
+        self.want_password = allowed
+        if self.is_on():
+            self.apply(True)
+
+    def request_ssh(self, enable):
+        if enable and model.ssh_needs_a_way_in(bool(self.keys), self.want_password):
+            self.set_switches()                                  # nothing has changed yet: put the switch back until the person chooses
+            self.win.confirm_choice(
+                "Remote login needs a way to sign in",
+                "No user has an SSH key, and password sign-in is off, so nobody could sign in. Allow password sign-in, or add a key first.",
+                [("password", "Allow Password Sign-in", "suggested"), ("key", "Add a Key\u2026", "suggested")],
+                lambda response: self.password_chosen() if response == "password" else self.add_dialog())
             return
-        self.win.run_job(self.win.job_call("Remote", "SetSsh", "(bb)", (self.ssh_row.get_active(), self.password_row.get_active())),
-                         None, "Changing remote access…")
+        self.apply(enable)
+
+    def password_chosen(self):
+        self.want_password = True
+        self.apply(True)
+
+    def apply(self, enable):
+        self.win.run_job(self.win.job_call("Remote", "SetSsh", "(bb)", (bool(enable), bool(self.want_password))),
+                         None, "Changing remote access\u2026")
 
     def show_keys(self, keys):
+        self.keys = list(keys or [])
         clear(self.keys_group)
         if not keys:
             self.empty(self.keys_group, "No keys")

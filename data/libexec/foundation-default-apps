@@ -18,6 +18,7 @@ PATH = "/org/ersa/Foundation1"
 CONFIG, APPS, JOB = NAME + ".Config", NAME + ".Apps", NAME + ".Job"
 STATE = os.environ.get("FOUNDATION_DEFAULT_APPS_STATE", "/var/lib/foundation/default-apps.json")
 LIMIT = 2 * 3600          # a runtime and an application can be a gigabyte or more
+FLATHUB = "flathub"
 APP_ID = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_-]+){2,}$")
 
 
@@ -30,31 +31,44 @@ def ids_of(setting):
 
 
 def load_state(path):
+    """{"offered": [ids offered so far], "repaired": [remotes whose signature settings were repaired]}"""
     try:
         with open(path, encoding="utf-8") as handle:
             data = json.load(handle)
-        return [str(i) for i in data.get("offered", [])]
+        return {"offered": [str(i) for i in data.get("offered", [])], "repaired": [str(i) for i in data.get("repaired", [])]}
     except (OSError, ValueError, AttributeError):
-        return []
+        return {"offered": [], "repaired": []}
 
 
-def save_state(path, offered):
+def save_state(path, data):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     temporary = path + ".tmp"
     with open(temporary, "w", encoding="utf-8") as handle:
-        json.dump({"offered": sorted(set(offered))}, handle, indent=1)
+        json.dump({"offered": sorted(set(data["offered"])), "repaired": sorted(set(data["repaired"]))}, handle, indent=1)
         handle.write("\n")
     os.replace(temporary, path)
 
 
 def run(call, wait, state=STATE, log=print):
     """call(interface, method, signature, args) -> reply tuple; wait(job path) -> (ok, message). Returns the exit code."""
+    data = load_state(state)
+    # An earlier version added Flathub without turning signature checking on in the remote's settings, and then nobody could
+    # refresh its application data (the app store stayed empty). Setting the remote up again repairs that; once is enough.
+    remotes = call(APPS, "ListRemotes", None, ())[0]
+    if any(r["name"] == FLATHUB for r in remotes) and FLATHUB not in data["repaired"]:
+        ok, message = wait(call(APPS, "SetupRemote", None, ())[0])
+        if ok:
+            data["repaired"].append(FLATHUB)
+            save_state(state, data)
+            log("repaired the Flathub source's signature settings")
+        else:
+            log(f"the Flathub source could not be repaired: {message}")
     wanted = ids_of(call(CONFIG, "Get", "(s)", ("apps.default_apps",))[0])
     bad = [i for i in wanted if not APP_ID.match(i)]
     for name in bad:
         log(f"ignoring {name!r}: not an application id")
     wanted = [i for i in wanted if i not in bad]
-    offered = load_state(state)
+    offered = data["offered"]
     todo = [i for i in wanted if i not in offered]
     if not todo:
         log("no default applications to install")
@@ -62,7 +76,7 @@ def run(call, wait, state=STATE, log=print):
     installed = {a["id"] for a in call(APPS, "ListInstalled", None, ())[0]}
     missing = [i for i in todo if i not in installed]
     offered += [i for i in todo if i in installed]
-    save_state(state, offered)
+    save_state(state, data)
     if not missing:
         return 0
     log("adding the application source")
@@ -76,7 +90,7 @@ def run(call, wait, state=STATE, log=print):
         ok, message = wait(call(APPS, "Install", "(s)", (app,))[0])
         if ok:
             offered.append(app)
-            save_state(state, offered)
+            save_state(state, data)
             log(f"installed {app}")
         else:
             log(f"{app} was not installed: {message}")

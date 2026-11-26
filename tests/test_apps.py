@@ -71,10 +71,14 @@ class FakeFlatpak:
     class Remote:
         created = []
 
+        class Created(tuple):
+            def set_gpg_verify(self, value):
+                self.verify = value
+
         @classmethod
         def new_from_file(cls, name, data):
             cls.created.append((name, bytes(data.get_data())))
-            return ("remote", name)
+            return cls.Created(("remote", name))
 
     @staticmethod
     def get_default_arch():
@@ -87,6 +91,7 @@ class FakeFlatpak:
         self.operations = operations
         self.fail_with = fail_with
         self.added = []
+        self.verified = []
         self.transactions = []
         self.updatable = []
 
@@ -99,6 +104,9 @@ class FakeFlatpak:
 
             def get_url(self):
                 return "https://example/repo"
+
+            def set_gpg_verify(self, value):
+                fake.verified.append((self.name, value))
 
         class Installation:
             @staticmethod
@@ -159,6 +167,9 @@ class FakeFlatpak:
     def add_remote(self, remote, if_needed, cancellable):
         self.added.append(remote)
         self.remote_names.append(remote[1])
+
+    def modify_remote(self, remote, cancellable):
+        self.modified = getattr(self, "modified", []) + [remote.name]
 
 
 def make(**kw):
@@ -242,6 +253,22 @@ class Changing(unittest.TestCase):
         self.assertEqual(urls, [backend.REMOTE_URL])
         self.assertEqual(FakeFlatpak.Remote.created[-1], ("flathub", b"[Flatpak Repo]\nUrl=x\n"))
         self.assertFalse(api.add_remote(fetch=lambda *a, **k: self.fail("downloaded again")))
+
+    def test_a_new_flathub_remote_verifies_signatures_and_an_existing_one_is_repaired(self):
+        api, fake = make(remotes=())
+
+        class Response(contextlib.AbstractContextManager):
+            def read(self):
+                return b"[Flatpak Repo]\nUrl=x\n"
+
+            def __exit__(self, *exc):
+                return False
+        api.add_remote(fetch=lambda url, timeout: Response())
+        self.assertTrue(fake.added[0].verify)                      # without gpg-verify a person cannot refresh the application data
+        fake.verified.clear()
+        self.assertFalse(api.add_remote(fetch=lambda *a, **k: self.fail("downloaded again")))
+        self.assertEqual(fake.verified, [("flathub", True)])       # an existing remote gets the setting written
+        self.assertEqual(fake.modified, ["flathub"])
 
     def test_add_remote_network_failure(self):
         api, _ = make(remotes=())

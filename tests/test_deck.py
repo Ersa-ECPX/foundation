@@ -138,6 +138,11 @@ class Text(unittest.TestCase):
         self.assertEqual(model.software_rows("0.1.0", ""), [("Deck", "0.1.0")])
         self.assertEqual(model.software_rows("0.1.0", "1")[1], ("foundationd", "1"))
 
+    def test_ssh_needs_a_way_in(self):
+        self.assertTrue(model.ssh_needs_a_way_in(False, False))
+        self.assertFalse(model.ssh_needs_a_way_in(True, False))
+        self.assertFalse(model.ssh_needs_a_way_in(False, True))
+
     def test_application_sources_text_and_form(self):
         remote = {"name": "acme", "title": "Acme", "url": "https://a/repo", "signed": True, "apps": 2, "default": False}
         self.assertEqual(model.remote_subtitle(remote), "https://a/repo \u00b7 signed \u00b7 2 apps installed")
@@ -224,6 +229,22 @@ class Window(BootDaemon):
     def test_application_sources_page_builds_and_lists_nothing_without_flatpak(self):
         page = self.show("appsources")
         self.pump(lambda: page.error.get_revealed() or self.rows(page.group_), 15)
+
+    def test_turning_ssh_on_without_a_way_in_asks_instead_of_failing_and_remembers_the_password_choice(self):
+        page = self.show("remote")
+        page.status, page.keys, page.want_password = {"installed": True}, [], False
+        asked, jobs = [], []
+        page.win.confirm_choice = lambda heading, body, responses, action: asked.append((heading, [r[0] for r in responses], action))
+        page.win.run_job = lambda call, on_ok=None, label="": jobs.append(label)
+        page.request_ssh(True)
+        self.assertEqual(jobs, [])                                  # nothing was sent: it would have been refused
+        self.assertEqual(asked[0][1], ["password", "key"])
+        self.assertFalse(page.ssh_row.get_active())                 # the switch went back
+        page.choose_password(True)                                  # password switch while SSH is off: only remembered
+        self.assertEqual((page.want_password, jobs), (True, []))
+        page.request_ssh(True)                                      # now it goes through, with the password choice
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(len(asked), 1)
 
     def test_the_task_panel_follows_a_job_to_its_end(self):
         panel = self.window.tasks

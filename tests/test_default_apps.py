@@ -25,8 +25,9 @@ def load():
 class Fake:
     """Stands in for foundationd: the setting, what is installed, and what a job ends with."""
 
-    def __init__(self, setting=BAZAAR, installed=(), remote_ok=True, install_ok=True):
+    def __init__(self, setting=BAZAAR, installed=(), remote_ok=True, install_ok=True, remotes=()):
         self.setting, self.installed, self.remote_ok, self.install_ok = setting, list(installed), remote_ok, install_ok
+        self.remotes = list(remotes)
         self.calls, self.jobs = [], {}
 
     def call(self, interface, method, signature=None, args=()):
@@ -35,6 +36,8 @@ class Fake:
             return (self.setting,)
         if method == "ListInstalled":
             return ([{"id": i} for i in self.installed],)
+        if method == "ListRemotes":
+            return ([{"name": r} for r in self.remotes],)
         job = f"/job/{len(self.jobs)}"
         self.jobs[job] = self.remote_ok if method == "SetupRemote" else self.install_ok
         if method == "Install" and self.install_ok:
@@ -69,7 +72,7 @@ class DefaultApps(unittest.TestCase):
     def test_a_missing_default_app_gets_the_source_and_is_installed_and_recorded(self):
         fake = Fake()
         self.assertEqual(self.run_it(fake), 0)
-        self.assertEqual(fake.methods(), ["Get", "ListInstalled", "SetupRemote", "Install"])
+        self.assertEqual(fake.methods(), ["ListRemotes", "Get", "ListInstalled", "SetupRemote", "Install"])
         self.assertEqual(fake.calls[-1], ("Install", (BAZAAR,)))
         self.assertEqual(self.offered(), [BAZAAR])
 
@@ -83,7 +86,7 @@ class DefaultApps(unittest.TestCase):
         self.run_it(Fake())
         fake = Fake()                                  # removed since: not installed, but already offered
         self.assertEqual(self.run_it(fake), 0)
-        self.assertEqual(fake.methods(), ["Get"])
+        self.assertEqual(fake.methods(), ["ListRemotes", "Get"])
 
     def test_no_network_fails_so_that_the_service_tries_again_and_records_nothing(self):
         fake = Fake(remote_ok=False)
@@ -96,10 +99,29 @@ class DefaultApps(unittest.TestCase):
         self.assertEqual(self.run_it(fake), 1)
         self.assertEqual(self.offered(), [])
 
+    def test_an_existing_flathub_source_is_repaired_once(self):
+        fake = Fake(remotes=["flathub"], installed=[BAZAAR])
+        self.assertEqual(self.run_it(fake), 0)
+        self.assertEqual(fake.methods().count("SetupRemote"), 1)
+        self.assertEqual(json.load(open(self.state))["repaired"], ["flathub"])
+        again = Fake(remotes=["flathub"], installed=[BAZAAR])
+        self.run_it(again)
+        self.assertNotIn("SetupRemote", again.methods())                # recorded: not again
+
+    def test_a_failed_repair_is_tried_again_next_time_and_does_not_stop_the_rest(self):
+        fake = Fake(remotes=["flathub"], remote_ok=False, installed=[BAZAAR])
+        self.assertEqual(self.run_it(fake), 0)
+        self.assertEqual(json.load(open(self.state))["repaired"], [])
+
+    def test_a_system_without_flathub_does_not_get_it_back_just_for_the_repair(self):
+        fake = Fake(remotes=["acme"], setting="")
+        self.run_it(fake)
+        self.assertNotIn("SetupRemote", fake.methods())
+
     def test_an_empty_setting_does_nothing(self):
         fake = Fake(setting="")
         self.assertEqual(self.run_it(fake), 0)
-        self.assertEqual(fake.methods(), ["Get"])
+        self.assertEqual(fake.methods(), ["ListRemotes", "Get"])
 
     def test_several_ids_and_a_bad_one(self):
         fake = Fake(setting=f"{BAZAAR}, org.gnome.Calculator ; rm -rf /")
