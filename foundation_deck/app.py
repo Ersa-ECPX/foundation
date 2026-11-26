@@ -58,7 +58,7 @@ class DeckWindow(Adw.ApplicationWindow):
         self.split = Adw.NavigationSplitView(min_sidebar_width=190, max_sidebar_width=260, sidebar_width_fraction=0.23)
         self.content_page = Adw.NavigationPage(title="Overview", tag="content")
         header = Adw.HeaderBar()
-        refresh = icons.button("view-refresh-symbolic", "Refresh (Ctrl+R)", css=())
+        refresh = icons.button("view-refresh-symbolic", "Refresh (Ctrl+R)")
         refresh.connect("clicked", lambda _b: self.refresh())
         header.pack_end(refresh)
         self.pending_banner = Adw.Banner(title="", button_label="Restart\u2026", revealed=False)

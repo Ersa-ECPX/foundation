@@ -686,17 +686,16 @@ class Appearance(Page):
 # -- Remote access -------------------------------------------------------------------------------
 
 class Remote(Page):
+    """SSH on or off. Sign-in is by key only: password sign-in is not offered here (`foundation remote ssh on --allow-password` still exists)."""
+
     def __init__(self, win):
         super().__init__(win)
-        self.status, self.keys, self.want_password = {}, [], False
-        self.ssh_group = self.group("SSH", "Sign in from another computer over the network.")
+        self.status, self.keys = {}, []
+        self.ssh_group = self.group("SSH", "Sign in from another computer over the network, with an authorized key.")
         self.ssh_row = Adw.SwitchRow(title="Remote login (SSH)")
-        self.password_row = Adw.SwitchRow(title="Allow password sign-in", subtitle="Keys are safer than passwords.")
-        for row in (self.ssh_row, self.password_row):
-            row._loading = False
-            self.ssh_group.add(row)
+        self.ssh_row._loading = False
+        self.ssh_group.add(self.ssh_row)
         self.ssh_row.connect("notify::active", lambda r, _p: None if r._loading else self.request_ssh(r.get_active()))
-        self.password_row.connect("notify::active", lambda r, _p: None if r._loading else self.choose_password(r.get_active()))
         self.keys_group = self.group("Authorized keys", "Computers that may sign in without a password.", text_button("Add\u2026", self.add_dialog))
 
     def load(self):
@@ -706,46 +705,34 @@ class Remote(Page):
     def is_on(self):
         return bool(self.status.get("enabled") or self.status.get("active"))
 
+    def password_allowed(self):
+        return bool(self.status.get("password_auth", False))       # only set elsewhere (the command line); kept as it is
+
     def show_status(self, status):
         self.status = status
         title, detail = model.remote_summary(status)
         self.ssh_row.set_subtitle(f"{title}" + (f" \u00b7 {detail}" if detail else ""))
-        installed = status.get("installed", False)
-        for row in (self.ssh_row, self.password_row):
-            row.set_sensitive(installed)
-        if self.is_on():
-            self.want_password = bool(status.get("password_auth", False))      # the server's setting is the truth while it runs
+        self.ssh_row.set_sensitive(status.get("installed", False))
         self.set_switches()
 
     def set_switches(self):
-        self.ssh_row._loading = self.password_row._loading = True
+        self.ssh_row._loading = True
         self.ssh_row.set_active(self.is_on())
-        self.password_row.set_active(self.want_password)
-        self.ssh_row._loading = self.password_row._loading = False
-
-    def choose_password(self, allowed):
-        """The password switch. While SSH is off it only records the choice for when SSH is turned on; while it is on, it applies it."""
-        self.want_password = allowed
-        if self.is_on():
-            self.apply(True)
+        self.ssh_row._loading = False
 
     def request_ssh(self, enable):
-        if enable and model.ssh_needs_a_way_in(bool(self.keys), self.want_password):
-            self.set_switches()                                  # nothing has changed yet: put the switch back until the person chooses
+        if enable and model.ssh_needs_a_way_in(bool(self.keys), self.password_allowed()):
+            self.set_switches()                                  # nothing has changed yet: put the switch back
             self.win.confirm_choice(
-                "Remote login needs a way to sign in",
-                "No user has an SSH key, and password sign-in is off, so nobody could sign in. Allow password sign-in, or add a key first.",
-                [("password", "Allow Password Sign-in", "suggested"), ("key", "Add a Key\u2026", "suggested")],
-                lambda response: self.password_chosen() if response == "password" else self.add_dialog())
+                "Add a key first",
+                "No user has an SSH key, so nobody could sign in. Add a key, then turn remote login on.",
+                [("key", "Add a Key\u2026", "suggested")],
+                lambda response: self.add_dialog() if response == "key" else None)
             return
         self.apply(enable)
 
-    def password_chosen(self):
-        self.want_password = True
-        self.apply(True)
-
     def apply(self, enable):
-        self.win.run_job(self.win.job_call("Remote", "SetSsh", "(bb)", (bool(enable), bool(self.want_password))),
+        self.win.run_job(self.win.job_call("Remote", "SetSsh", "(bb)", (bool(enable), self.password_allowed())),
                          None, "Changing remote access\u2026")
 
     def show_keys(self, keys):

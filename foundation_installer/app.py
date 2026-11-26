@@ -6,6 +6,7 @@ Pages are plain Gtk.Stack children so the flow is easy to follow in one file. No
 whether a disk is allowed; the service says so (`usable`, `reason`, `possible`, `problems`).
 """
 
+import threading
 import math
 import os
 
@@ -211,6 +212,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.disks, self.selected, self.plan, self.installing = [], None, None, False
         self.version, self.started_at = "", 0.0
         self.language, self.timezone = model.DEFAULT_LANGUAGE, model.current_timezone()
+        self.timezone_chosen = False          # true once the person picked a zone: detection never overrides it
         self._back_target, self._next_handler = None, None
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
@@ -372,8 +374,37 @@ class InstallerWindow(Adw.ApplicationWindow):
             items.append((city.replace("_", " ") if city else zone, region if city else "", zone))
         outer, self.timezone_list, self.timezone_rows = self._chooser(
             "Select your time zone", "This sets the clock of the installed system.", items, self.timezone,
-            lambda value: setattr(self, "timezone", value))
+            self._pick_timezone)
+        self.timezone_note = Gtk.Label(label="", xalign=0.5, css_classes=["dim-label"], visible=False)
+        outer.insert_child_after(self.timezone_note, outer.get_first_child().get_next_sibling())
         self.stack.add_named(outer, "timezone")
+        threading.Thread(target=self._detect_timezone, daemon=True).start()
+
+    def _pick_timezone(self, value):
+        if not getattr(self, "_detecting", False):
+            self.timezone_chosen = True
+            self.timezone_note.set_visible(False)
+        self.timezone = value
+
+    def _detect_timezone(self):
+        zone = model.detect_timezone(model.timezones(), url=model.timezone_service(model.installer_settings()))
+        if zone:
+            GLib.idle_add(self._apply_detected_timezone, zone)
+
+    def _apply_detected_timezone(self, zone):
+        if self.timezone_chosen:
+            return False
+        for row in self.timezone_rows:
+            if row.value == zone:
+                self._detecting = True
+                try:
+                    self.timezone_list.select_row(row)
+                finally:
+                    self._detecting = False
+                self.timezone_note.set_label("Detected from your network. Change it if it is wrong.")
+                self.timezone_note.set_visible(True)
+                break
+        return False
 
     def _reveal_selected(self, listbox):
         row = listbox.get_selected_row()

@@ -5,6 +5,7 @@ import tempfile
 import shutil
 import time
 import unittest
+import unittest.mock
 
 import support  # noqa: F401
 from test_foundationd_boot import BootDaemon
@@ -78,6 +79,35 @@ class Text(unittest.TestCase):
         self.assertEqual(model.current_timezone(link), "Asia/Kolkata")
         self.assertEqual(model.current_timezone(os.path.join(zones, "missing")), "UTC")
 
+    def test_installer_settings_come_from_the_first_preseed_and_choose_the_service(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first, second = os.path.join(tmp, "a"), os.path.join(tmp, "b")
+            with open(second, "w") as handle:
+                handle.write("# default\ninstaller.timezone_url = https://tz.example/zone\nota.url=x\n")
+            self.assertEqual(model.installer_settings([first, second]), {"installer.timezone_url": "https://tz.example/zone"})
+            with open(first, "w") as handle:
+                handle.write("installer.timezone_url=\n")
+            settings = model.installer_settings([first, second])
+            self.assertEqual(model.timezone_service(settings), "")          # empty: detection off
+            self.assertIsNone(model.detect_timezone(["UTC"], url=""))
+        self.assertEqual(model.installer_settings([os.path.join(tmp, "none")]), {})
+        self.assertEqual(model.timezone_service({}), model.TIMEZONE_URL)    # nothing set: the default service
+        self.assertEqual(model.timezone_service({"installer.timezone_url": "http://plain"}), "")
+
+    def test_detect_timezone(self):
+        import io
+
+        def answering(text):
+            return lambda request, timeout: io.BytesIO(text.encode())
+        zones = ["Europe/Berlin", "UTC"]
+        self.assertEqual(model.detect_timezone(zones, opener=answering("Europe/Berlin\n")), "Europe/Berlin")
+        self.assertIsNone(model.detect_timezone(zones, opener=answering("Mars/Base")))
+        self.assertIsNone(model.detect_timezone(zones, opener=answering("<html>rate limited</html>")))
+
+        def offline(request, timeout):
+            raise OSError("no network")
+        self.assertIsNone(model.detect_timezone(zones, opener=offline))
+
     def test_no_internal_acronym_in_user_text(self):
         for text in (model.PRODUCT, *model.PARTITION_TITLES.values()):
             self.assertNotIn("ECP", text)
@@ -92,6 +122,10 @@ class Window(BootDaemon):
         super().setUp()
         from foundation_installer.app import InstallerWindow
         from foundation.gbackend import Backend
+        self.detected = None                                   # no test asks a real time zone service
+        patch = unittest.mock.patch.object(model, "detect_timezone", lambda zones, **_k: self.detected)
+        patch.start()
+        self.addCleanup(patch.stop)
         from foundationd.backends import layout
         support.write_payload(self.system.paths["root"])      # the medium carries the operating system to install
         self.target = os.path.join(self.system.tmp, "target.img")
@@ -129,6 +163,20 @@ class Window(BootDaemon):
         running = [d for d in by_path.values() if d["boot_medium"]]
         self.assertTrue(running and not running[0]["usable"])
         self.assertFalse(self.window.next_btn.get_sensitive())
+
+    def test_detected_timezone_is_preselected_unless_chosen(self):
+        self.pump(lambda: self.page() == "welcome")
+        window = self.window
+        window._apply_detected_timezone("Europe/Berlin")
+        self.assertEqual(window.timezone, "Europe/Berlin")
+        self.assertTrue(window.timezone_note.get_visible())
+        self.assertFalse(window.timezone_chosen)
+        other = [r for r in window.timezone_rows if r.value == "Asia/Tokyo"][0]
+        window.timezone_list.select_row(other)                 # the person chooses
+        self.assertTrue(window.timezone_chosen)
+        self.assertFalse(window.timezone_note.get_visible())
+        window._apply_detected_timezone("Europe/Berlin")       # a late answer must not override it
+        self.assertEqual(window.timezone, "Asia/Tokyo")
 
     def test_plan_then_install_then_done(self):
         self.pump(lambda: self.page() == "welcome")

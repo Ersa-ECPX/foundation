@@ -1,6 +1,7 @@
 """Text and small decisions for the installer, with no GTK in it so they can be tested anywhere."""
 
 import os
+import urllib.request
 
 from foundation.ui import human_size  # noqa: F401  (re-exported for the windows)
 
@@ -139,6 +140,54 @@ def current_timezone(localtime="/etc/localtime"):
         return "UTC"
     marker = "zoneinfo/"
     return target.split(marker, 1)[1] if marker in target else "UTC"
+
+
+TIMEZONE_URL = "https://ipapi.co/timezone/"
+
+
+INSTALLER_PRESEEDS = ("/etc/foundation/installer.preseed", "/usr/share/ersa/installer.preseed")
+
+
+def installer_settings(paths=INSTALLER_PRESEEDS):
+    """The `installer.*` lines of the first preseed file that exists (key=value, `#` comments). Later duplicates win."""
+    for path in paths:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read(64 * 1024)
+        except OSError:
+            continue
+        found = {}
+        for raw in text.splitlines():
+            line = raw.strip()
+            if line and not line.startswith(("#", ";")) and "=" in line:
+                key, _, value = line.partition("=")
+                if key.strip().startswith("installer."):
+                    found[key.strip()] = value.strip()
+        return found
+    return {}
+
+
+def timezone_service(settings):
+    """The address to ask for the time zone: the preseed's `installer.timezone_url` (empty turns detection off), else the default."""
+    url = settings.get("installer.timezone_url", TIMEZONE_URL)
+    return url if url.startswith("https://") else ""
+
+
+def detect_timezone(zones, url=TIMEZONE_URL, opener=urllib.request.urlopen, timeout=5):
+    """Ask a time zone service which zone this network address is in. Returns a zone from `zones`, or None.
+
+    The service sees the public address of the computer, as any web server does; nothing else is sent. Offline, a slow
+    answer or an unknown name all give None, and the person simply picks the zone.
+    """
+    if not url:
+        return None
+    try:
+        request = urllib.request.Request(url, headers={"User-Agent": "ersa-installer"})
+        with opener(request, timeout=timeout) as response:
+            zone = response.read(256).decode("ascii", "ignore").strip()
+    except (OSError, ValueError):
+        return None
+    return zone if zone in set(zones) else None
 
 
 # "Welcome" in many languages, shown one after another on the welcome page.

@@ -31,6 +31,12 @@ class Parsing(unittest.TestCase):
     def parse(self, text):
         return preseed.parse(text, SCHEMA, zones())
 
+    def test_installer_timezone_url_is_checked_and_not_written_to_the_system(self):
+        self.assertEqual(self.parse("installer.timezone_url=https://tz.example/z\n")["config"], {})
+        self.assertEqual(self.parse("installer.timezone_url=\n")["config"], {})
+        with self.assertRaises(InvalidArgument):
+            self.parse("installer.timezone_url=http://plain.example\n")
+
     def test_settings_language_timezone_and_hostname(self):
         result = self.parse("""
             # an office laptop
