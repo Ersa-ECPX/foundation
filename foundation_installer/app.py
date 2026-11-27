@@ -659,7 +659,11 @@ class InstallerWindow(Adw.ApplicationWindow):
         def start(callback):
             def got(values, error):
                 callback(values[0] if error is None else None, error)
-            self.backend.call("Deploy", "Deploy", "(ssss)", (disk, disk, self.language, self.timezone), got, 600_000)
+            text = model.installer_preseed()
+            if text:                # the medium's default settings (and any admin's file) go into the installed system
+                self.backend.call("Deploy", "DeployPreseeded", "(sssss)", (disk, disk, self.language, self.timezone, text), got, 600_000)
+            else:
+                self.backend.call("Deploy", "Deploy", "(ssss)", (disk, disk, self.language, self.timezone), got, 600_000)
 
         self.backend.follow(start, self._event, self._finished)
 

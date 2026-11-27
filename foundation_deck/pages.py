@@ -5,12 +5,16 @@ to its end), win.confirm, win.toast and win.open_fd (a descriptor for a file the
 """
 
 import os
+import threading
+import time
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
+
+from foundation import identity  # noqa: E402
 
 from . import __version__, icons, model  # noqa: E402
 
@@ -865,5 +869,149 @@ class Activity(Page):
         add_row(self.jobs_group, row)
 
 
-PAGE_CLASSES = {"overview": Overview, "appsources": AppSources, "updates": Updates, "bundles": Bundles, "repositories": Repositories, "packages": Packages,
+# -- Ersa ID -------------------------------------------------------------------------------------
+
+class ErsaId(Page):
+    """The person's identity at the provider named in the settings: profile (photo, name, email), sign in and sign out. The sign-in is
+    the device flow (a code to approve on any device), run in a thread so the window stays alive. Devices are not shown: there is no
+    devices service yet."""
+
+    def __init__(self, win):
+        super().__init__(win)
+        self.settings, self.cancelled, self.signing_in, self.pictures = identity.settings_from({}), False, False, {}
+        hero = hero_box()
+        self.avatar = Adw.Avatar(size=96, show_initials=True, halign=Gtk.Align.CENTER)
+        self.name = Gtk.Label(label="", css_classes=["title-1"], halign=Gtk.Align.CENTER, wrap=True)
+        self.email = Gtk.Label(label="", css_classes=["dim-label"], halign=Gtk.Align.CENTER, wrap=True, selectable=True)
+        for widget in (self.avatar, self.name, self.email):
+            hero.append(widget)
+        self.add(hero)
+        self.details = self.group()
+        self.code_group = self.group("Approve this sign-in", "Open the page on any device and enter this code.")
+        self.code = Gtk.Label(label="", css_classes=["title-1"], selectable=True, halign=Gtk.Align.CENTER, margin_top=6, margin_bottom=6)
+        self.code.add_css_class("monospace")
+        code_row = Adw.PreferencesRow(child=self.code, activatable=False)
+        self.code_group.add(code_row)
+        self.open_button = text_button("Open the Sign-in Page", lambda: self.open_page(), "suggested-action", "pill")
+        self.cancel_button = text_button("Cancel", lambda: self.cancel(), "pill")
+        self.sign_in_button = text_button("Sign In", lambda: self.sign_in(), "suggested-action", "pill")
+        self.sign_out_button = text_button("Sign Out", lambda: self.sign_out(), "pill")
+        buttons = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER)
+        for button in (self.sign_in_button, self.open_button, self.cancel_button, self.sign_out_button):
+            buttons.append(button)
+        self.add(buttons)
+        self.verification = ""
+        self.render({"state": "out", "name": "", "email": "", "initials": "", "provider": ""})
+
+    def load(self):
+        if self.signing_in:
+            return
+        self.ask("Config", "List", None, None, self.got_settings)
+
+    def got_settings(self, values):
+        self.settings = identity.settings_from(values or {})
+        session = identity.load_session(self.settings["issuer"]) if self.settings["configured"] and self.settings["enabled"] else None
+        view = model.identity_view(self.settings, session)
+        self.render(view)
+        if view["state"] == "in":
+            threading.Thread(target=self.fetch_profile, args=(dict(self.settings),), daemon=True).start()
+
+    def fetch_profile(self, settings):
+        """In a thread: the current profile, then the photo."""
+        identity.refresh_profile(settings)
+        session = identity.load_session(settings["issuer"])
+        view = model.identity_view(settings, session)
+        picture = view.get("picture", "")
+        if picture and picture not in self.pictures:
+            self.pictures[picture] = identity.fetch_picture(picture)
+        GLib.idle_add(self.show_profile, view)
+
+    def show_profile(self, view):
+        self.render(view)
+        return False
+
+    def render(self, view):
+        state = view["state"]
+        self.name.set_label({"in": view["name"], "out": "Ersa ID", "unset": "Ersa ID", "off": "Ersa ID"}[state])
+        self.email.set_label({"in": view["email"], "out": "Sign in to link this computer to your account.",
+                              "unset": "No account provider is set up on this computer.",
+                              "off": "Account sign-in is turned off on this computer."}[state])
+        self.avatar.set_text(view["initials"] or "")
+        self.avatar.set_show_initials(state == "in")
+        texture = None
+        data = self.pictures.get(view.get("picture", "")) if state == "in" else None
+        if data:
+            try:
+                texture = Gdk.Texture.new_from_bytes(GLib.Bytes.new(data))
+            except GLib.Error:
+                texture = None
+        self.avatar.set_custom_image(texture)
+        if state != "in" and not self.signing_in:
+            self.avatar.set_icon_name("avatar-default-symbolic")
+        clear(self.details)
+        if state == "in":
+            add_row(self.details, Adw.ActionRow(title="Account provider", subtitle=view["provider"]))
+        elif state == "out":
+            add_row(self.details, Adw.ActionRow(title="Account provider", subtitle=view["provider"]))
+        self.details.set_visible(state in ("in", "out"))
+        self.code_group.set_visible(self.signing_in)
+        self.sign_in_button.set_visible(state == "out" and not self.signing_in)
+        self.open_button.set_visible(self.signing_in)
+        self.cancel_button.set_visible(self.signing_in)
+        self.sign_out_button.set_visible(state == "in")
+
+    # -- signing in ----------------------------------------------------------------------------
+
+    def sign_in(self):
+        self.cancelled, self.signing_in = False, True
+        self.code.set_label("\u2026")
+        self.render({"state": "out", "name": "", "email": "", "initials": "", "provider": model.identity_view(self.settings, None)["provider"]})
+        threading.Thread(target=self.run_sign_in, args=(dict(self.settings),), daemon=True).start()
+
+    def run_sign_in(self, settings):
+        try:
+            started = identity.start_login(settings)
+            GLib.idle_add(self.show_code, started)
+
+            def sleep(seconds):
+                for _step in range(int(seconds * 4)):
+                    if self.cancelled:
+                        raise identity.IdentityError("cancelled")
+                    time.sleep(0.25)
+            session = identity.finish_login(settings, started, sleep=sleep)
+            identity.save_session(session)
+            GLib.idle_add(self.sign_in_done, None)
+        except identity.IdentityError as error:
+            GLib.idle_add(self.sign_in_done, None if self.cancelled else str(error))
+
+    def show_code(self, started):
+        self.code.set_label(started["user_code"])
+        self.verification = started.get("verification_uri_complete") or started["verification_uri"]
+        self.open_button.set_label("Open the Sign-in Page")
+        return False
+
+    def open_page(self):
+        if self.verification:
+            Gtk.UriLauncher.new(self.verification).launch(self.win, None, lambda *_a: None)
+
+    def cancel(self):
+        self.cancelled = True
+
+    def sign_in_done(self, error):
+        self.signing_in = False
+        if error:
+            self.error.set_title(error)
+            self.error.set_revealed(True)
+        self.reload()
+        return False
+
+    def sign_out(self):
+        def done(result):
+            self.win.toast(result.capitalize() + ".")
+            self.reload()
+        self.win.confirm("Sign out of Ersa ID?", "This computer forgets your account. Your files and settings stay.", "Sign Out",
+                         lambda: done(identity.logout(self.settings)))
+
+
+PAGE_CLASSES = {"ersaid": ErsaId, "overview": Overview, "appsources": AppSources, "updates": Updates, "bundles": Bundles, "repositories": Repositories, "packages": Packages,
                 "slots": Slots, "appearance": Appearance, "remote": Remote, "advanced": Advanced, "activity": Activity}

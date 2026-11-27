@@ -32,5 +32,25 @@
     "type": "string",
     "default": "io.github.kolunmi.Bazaar",
     "description": "Applications installed automatically, once, when the computer is first online: Flatpak ids separated by spaces (the app store by default; empty for none). One you remove is not installed again."
+  },
+  "identity.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Offer sign-in with an identity provider (Ersa ID by default). Off: no identity features, and nothing contacts the provider."
+  },
+  "identity.issuer": {
+    "type": "string",
+    "default": "https://id.ersa.dev",
+    "description": "The OpenID Connect provider's issuer address (https://...). Ersa ID by default. A company sets its own here or in a preseed file; empty means no provider."
+  },
+  "identity.client_id": {
+    "type": "string",
+    "default": "prism_l5bUeHzyXLJ4EnhRqnwMXg",
+    "description": "This computer's client id at the identity provider (a public client: no secret). Ersa ID's by default; set it together with identity.issuer."
+  },
+  "identity.scopes": {
+    "type": "string",
+    "default": "openid profile email offline_access",
+    "description": "Scopes asked for at sign-in, separated by spaces."
   }
 }

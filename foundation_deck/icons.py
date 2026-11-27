@@ -19,7 +19,7 @@ ALIASES = {
     "preferences-other-symbolic": "advanced", "document-open-recent-symbolic": "activity", "view-refresh-symbolic": "refresh",
     "user-trash-symbolic": "trash", "window-close-symbolic": "close", "emblem-ok-symbolic": "check",
     "dialog-warning-symbolic": "warning", "pan-up-symbolic": "chevron-up", "pan-down-symbolic": "chevron-down",
-    "view-list-symbolic": "tasks", "system-software-install-symbolic": "appsources", "adw-external-link-symbolic": "external",
+    "view-list-symbolic": "tasks", "system-software-install-symbolic": "appsources", "adw-external-link-symbolic": "external", "avatar-default-symbolic": "ersaid",
 }
 
 

@@ -100,6 +100,7 @@ def rollback_text(version):
 # The sidebar, in the order a person looks for things: (heading, [(page id, title, icon)]). The first group has no heading.
 SECTIONS = (
     (None, (("overview", "Overview", "computer-symbolic"),)),
+    ("Account", (("ersaid", "Ersa ID", "avatar-default-symbolic"),)),
     ("Software", (("updates", "Updates", "system-software-update-symbolic"),
                   ("bundles", "Bundles and Extensions", "extension-symbolic"),
                   ("repositories", "Repositories", "folder-remote-symbolic"),
@@ -117,6 +118,7 @@ SEARCH_TERMS = {
     "appsources": "application sources flatpak remotes flathub apps store add signed key",
     "packages": "base packages rpm list installed", "slots": "boot slots rollback restart start a b default",
     "appearance": "boot splash light dark theme", "remote": "remote ssh login keys password network",
+    "ersaid": "ersa id account sign in sign out profile name email photo picture login identity oidc",
     "advanced": "advanced settings config developer channel url", "activity": "activity history jobs log tasks",
 }
 
@@ -449,3 +451,24 @@ def remote_trust_text(info):
     lines.append("Applications from it are installed for everyone and run with the permissions they ask for. "
                  "Check the fingerprint with the publisher.")
     return "\n\n".join(l for l in lines if l)
+
+
+def identity_view(settings, session):
+    """What the Ersa ID page shows. `settings` is identity.settings_from(...); `session` the stored session or None.
+    state: off (switched off), unset (no provider named), out (not signed in), in (signed in)."""
+    if not settings.get("enabled", True):
+        return {"state": "off", "name": "", "email": "", "initials": "", "provider": ""}
+    issuer = settings.get("issuer", "")
+    provider = issuer.split("://", 1)[-1].rstrip("/")
+    if not settings.get("configured"):
+        return {"state": "unset", "name": "", "email": "", "initials": "", "provider": provider}
+    if not session:
+        return {"state": "out", "name": "", "email": "", "initials": "", "provider": provider}
+    claims = session.get("claims", {})
+    email = claims.get("email", "")
+    known = claims.get("name") or claims.get("preferred_username") or email.split("@")[0]
+    name = known or "Signed in"
+    words = [w for w in known.replace(".", " ").replace("_", " ").split() if w]
+    initials = "".join(w[0] for w in (words[:2] if len(words) > 1 else words[:1])).upper()
+    return {"state": "in", "name": name, "email": email, "initials": initials, "provider": provider,
+            "picture": claims.get("picture", "")}

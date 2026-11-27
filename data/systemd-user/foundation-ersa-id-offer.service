@@ -1,0 +1,7 @@
+[Unit]
+Description=Offer Ersa ID sign-in once (if a provider is set up and nobody is signed in)
+ConditionPathExists=!%S/ersa-id/offered
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ersa-deck --offer-sign-in

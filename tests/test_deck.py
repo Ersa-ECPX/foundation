@@ -26,6 +26,20 @@ APP = None
 
 
 class Text(unittest.TestCase):
+    def test_identity_view_states_and_initials(self):
+        from foundation import identity
+        view = model.identity_view
+        base = {"identity.issuer": "https://id.example/", "identity.client_id": "c"}
+        self.assertEqual(view(identity.settings_from({**base, "identity.enabled": False}), None)["state"], "off")
+        self.assertEqual(view(identity.settings_from({}), None)["state"], "unset")
+        self.assertEqual(view(identity.settings_from(base), None)["state"], "out")
+        signed = lambda **claims: view(identity.settings_from(base), {"claims": claims})
+        self.assertEqual((signed(name="Ada Lovelace", email="a@x.org")["initials"], signed(name="Ada Lovelace")["state"]), ("AL", "in"))
+        self.assertEqual((signed(email="grace.hopper@x.org")["name"], signed(email="grace.hopper@x.org")["initials"]), ("grace.hopper", "GH"))
+        self.assertEqual((signed()["name"], signed()["initials"]), ("Signed in", ""))
+        self.assertEqual(signed(name="Ada", email="a@x.org")["provider"], "id.example")
+
+
     def test_slot_actions(self):
         base = {"name": "b", "bootable": True, "running": False, "default": False}
         self.assertEqual(model.slot_actions(base), ["once", "default"])
@@ -115,7 +129,7 @@ class Text(unittest.TestCase):
         self.assertFalse(model.slot_can_release({"name": "b", "version": ""}))
 
     def test_sections_are_grouped_like_a_settings_app(self):
-        self.assertEqual([h for h, _p in model.SECTIONS], [None, "Software", "System", "History"])
+        self.assertEqual([h for h, _p in model.SECTIONS], [None, "Account", "Software", "System", "History"])
         software = dict(model.SECTIONS)["Software"]
         self.assertEqual([p[0] for p in software], ["updates", "bundles", "repositories", "appsources", "packages"])
 
@@ -198,11 +212,61 @@ class Window(BootDaemon):
         self.window.select(name)
         return self.window.pages[name]
 
+    def test_the_ersa_id_page_shows_the_signed_in_person_and_no_devices(self):
+        import tempfile
+        from foundation import identity
+        home = tempfile.mkdtemp()
+        os.environ["XDG_STATE_HOME"] = home
+        self.addCleanup(os.environ.pop, "XDG_STATE_HOME", None)
+        page = self.show("ersaid")
+        values = {"identity.enabled": True, "identity.issuer": "https://id.example", "identity.client_id": "c"}
+        page.got_settings(values)
+        self.assertEqual((page.name.get_label(), page.sign_in_button.get_visible(), page.sign_out_button.get_visible()),
+                         ("Ersa ID", True, False))
+        identity.save_session({"issuer": "https://id.example", "client_id": "c", "token_endpoint": "https://id.example/t",
+                               "access_token": "a", "refresh_token": None, "expires_at": 9e9,
+                               "claims": {"sub": "u", "name": "Ada Lovelace", "email": "ada@example.org"}})
+        page.got_settings(values)
+        self.assertEqual((page.name.get_label(), page.email.get_label(), page.avatar.get_text()), ("Ada Lovelace", "ada@example.org", "AL"))
+        self.assertEqual((page.sign_in_button.get_visible(), page.sign_out_button.get_visible()), (False, True))
+        page.got_settings({**values, "identity.enabled": False})
+        self.assertFalse(page.sign_out_button.get_visible())
+        self.assertIn("turned off", page.email.get_label())
+
+    def test_the_one_time_offer_window_has_sign_in_and_not_now(self):
+        from foundation_deck.app import OfferWindow
+        calls = []
+
+        class FakeApp:
+            def accept_offer(self):
+                calls.append("accept")
+
+            def decline_offer(self):
+                calls.append("decline")
+        app = self.window.get_application()
+        app.accept_offer, app.decline_offer = lambda: calls.append("accept"), lambda: calls.append("decline")
+        offer = OfferWindow(app)
+        labels = []
+
+        def walk(widget):
+            if isinstance(widget, Gtk.Button):
+                labels.append(widget)
+            child = widget.get_first_child()
+            while child:
+                walk(child)
+                child = child.get_next_sibling()
+        walk(offer)
+        by_label = {b.get_label(): b for b in labels if b.get_label()}
+        self.assertEqual(sorted(by_label), ["Not Now", "Sign In"])
+        by_label["Not Now"].emit("clicked")
+        by_label["Sign In"].emit("clicked")
+        self.assertEqual(calls, ["decline", "accept"])
+
     def test_every_page_in_the_sidebar_exists_and_the_sidebar_is_grouped(self):
         for name, _title, _icon in model.PAGES:
             self.assertIn(name, self.window.pages)
             self.assertIn(name, self.window.rows)
-        self.assertEqual([h for h, _p in model.SECTIONS], [None, "Software", "System", "History"])
+        self.assertEqual([h for h, _p in model.SECTIONS], [None, "Account", "Software", "System", "History"])
 
     def test_overview_shows_the_running_version(self):
         page = self.window.pages["overview"]
@@ -298,7 +362,7 @@ class Window(BootDaemon):
     def test_advanced_lists_the_settings_by_group(self):
         page = self.show("advanced")
         self.pump(lambda: len(getattr(page, "_rows", {})) >= 6)
-        self.assertEqual(sorted(page.groups), ["Applications", "System", "Updates"])
+        self.assertEqual(sorted(page.groups), ["Applications", "Identity", "System", "Updates"])
 
     def test_remote_and_repositories_and_activity_build(self):
         for name in ("remote", "repositories", "activity", "appearance", "packages"):

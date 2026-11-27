@@ -1,0 +1,11 @@
+[Unit]
+Description=Offer Ersa ID sign-in once, after first-boot setup is done
+# Initial Setup writes this file during the new account's first session; the offer comes after it, never beside it.
+ConditionPathExists=!%S/ersa-id/offered
+
+[Path]
+PathExists=%h/.config/gnome-initial-setup-done
+Unit=foundation-ersa-id-offer.service
+
+[Install]
+WantedBy=default.target

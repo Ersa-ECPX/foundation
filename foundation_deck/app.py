@@ -12,6 +12,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
+from foundation import identity  # noqa: E402
 from foundation.gbackend import Backend, ClientError  # noqa: E402
 
 from . import __version__, icons, model, pages  # noqa: E402
@@ -293,13 +294,68 @@ class DeckWindow(Adw.ApplicationWindow):
         self.confirm("Restart now?", "Open applications will be closed.", "Restart", lambda: self.ask("Boot", "Reboot", "(b)", (False,)))
 
 
+class OfferWindow(Adw.Window):
+    """Shown once, after the first login, when a provider is set up: sign in to Ersa ID (opens Deck on that page) or not now (asked once,
+    never forced)."""
+
+    def __init__(self, app):
+        super().__init__(application=app, title="Ersa ID", default_width=420, resizable=False)
+        page = Adw.StatusPage(icon_name="avatar-default-symbolic", title="Sign in to Ersa ID",
+                              description="Link this computer to your account. You can skip this and sign in later in Deck.")
+        sign_in = Gtk.Button(label="Sign In", css_classes=["suggested-action", "pill"], halign=Gtk.Align.CENTER)
+        later = Gtk.Button(label="Not Now", css_classes=["flat"], halign=Gtk.Align.CENTER)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, halign=Gtk.Align.CENTER)
+        box.append(sign_in)
+        box.append(later)
+        page.set_child(box)
+        view = Adw.ToolbarView(content=page)
+        view.add_top_bar(Adw.HeaderBar(show_title=False))
+        self.set_content(view)
+        sign_in.connect("clicked", lambda _b: app.accept_offer())
+        later.connect("clicked", lambda _b: app.decline_offer())
+
+
 class DeckApp(Adw.Application):
-    def __init__(self, bus="system"):
+    def __init__(self, bus="system", offer=False, page=None):
         super().__init__(application_id=APP_ID)
-        self.bus, self.window = bus, None
+        self.bus, self.window, self.offer, self.page = bus, None, offer, page
         self.connect("activate", self._activate)
 
+    # -- the one-time offer after the first login ----------------------------------------------
+
+    def _offer(self):
+        self.hold()                                  # no window yet: keep running until the answer is in
+        try:
+            backend = Backend(self.bus)
+        except ClientError:
+            self.release()
+            return
+
+        def got(values, error):
+            provider = identity.settings_from(values[0] if values and error is None else {})
+            if error is None and identity.offer_needed(provider):
+                self.offer_window = OfferWindow(self)
+                self.offer_window.present()
+            else:
+                self.release()
+        backend.call("Config", "List", None, None, got, 15_000)
+
+    def accept_offer(self):
+        identity.mark_offered()
+        self.offer_window.close()
+        self.page = "ersaid"
+        self._activate(self)                         # opens Deck on the Ersa ID page, which does the sign-in
+        self.release()
+
+    def decline_offer(self):
+        identity.mark_offered()
+        self.offer_window.close()
+        self.release()
+
     def _activate(self, _app):
+        if self.offer and self.window is None and not getattr(self, "offer_window", None):
+            self.offer = False
+            return self._offer()
         if self.window is None:
             try:
                 backend = Backend(self.bus)
@@ -312,6 +368,9 @@ class DeckApp(Adw.Application):
                 dialog.present(holder)
                 return
             self.window = DeckWindow(self, backend)
+        if self.page:
+            self.window.select(self.page)
+            self.page = None
         self.window.present()
 
 
@@ -321,6 +380,9 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="ersa-deck", description=f"{model.PRODUCT} management window")
     parser.add_argument("--version", action="version", version=f"ersa-deck {__version__}")
     parser.add_argument("--bus", choices=("system", "session"), default="system", help=argparse.SUPPRESS)
+    parser.add_argument("--page", choices=[name for name, _t, _i in model.PAGES], help="open this page")
+    parser.add_argument("--offer-sign-in", action="store_true",
+                        help="after the first login: offer Ersa ID sign-in once, if a provider is set up (used by a user service)")
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     GLib.set_application_name("Deck")
-    return DeckApp(args.bus).run([sys.argv[0]])
+    return DeckApp(args.bus, offer=args.offer_sign_in, page=args.page).run([sys.argv[0]])

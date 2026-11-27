@@ -94,6 +94,17 @@ class Text(unittest.TestCase):
         self.assertEqual(model.timezone_service({}), model.TIMEZONE_URL)    # nothing set: the default service
         self.assertEqual(model.timezone_service({"installer.timezone_url": "http://plain"}), "")
 
+    def test_the_installer_sends_the_first_preseed_that_holds_settings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            empty, real, none = (os.path.join(tmp, n) for n in ("empty", "real", "none"))
+            with open(empty, "w") as handle:
+                handle.write("# nothing set\n\n")
+            with open(real, "w") as handle:
+                handle.write("# defaults\nidentity.issuer=https://id.example\n")
+            self.assertEqual(model.installer_preseed([none, real]), "# defaults\nidentity.issuer=https://id.example\n")
+            self.assertEqual(model.installer_preseed([empty, real]), "")      # the first file that exists decides, as for the settings
+            self.assertEqual(model.installer_preseed([none]), "")
+
     def test_detect_timezone(self):
         import io
 

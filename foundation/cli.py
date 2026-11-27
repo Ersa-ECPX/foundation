@@ -10,7 +10,7 @@ import json
 import os
 import sys
 
-from . import __version__, fetch, ui
+from . import __version__, fetch, identity, ui
 from .client import Client, ClientError
 
 PRODUCT = "Ersa Compute Platform"
@@ -1139,6 +1139,86 @@ def ext_operation(method, question):
 
 # ----------------------------------------------------------------------------- settings
 
+def _provider(client):
+    """The identity provider from the configuration (read through the service; reading needs no authorization)."""
+    return identity.settings_from(client.one("Config", "List"))
+
+
+def _identity_ready(provider):
+    if not provider["enabled"]:
+        raise UserError("Identity is switched off on this computer (identity.enabled).")
+    if not provider["configured"]:
+        raise UserError("No identity provider is set up: identity.issuer and identity.client_id are empty.")
+
+
+def cmd_identity_status(client, args):
+    provider = _provider(client)
+    session = identity.load_session(provider["issuer"]) if provider["configured"] else None
+    claims = (session or {}).get("claims", {})
+    if args.json:
+        emit_json({"enabled": provider["enabled"], "configured": provider["configured"], "issuer": provider["issuer"],
+                   "client_id": provider["client_id"], "signed_in": bool(session), "account": claims})
+        return 0
+    ui.title("Identity")
+    if not provider["enabled"]:
+        ui.kv([("State", "off (identity.enabled is false)")])
+    elif not provider["configured"]:
+        ui.kv([("State", ui.badge("warn", "no provider set up")), ("Set", "identity.issuer and identity.client_id")])
+    else:
+        who = claims.get("email") or claims.get("preferred_username") or claims.get("name") or claims.get("sub")
+        ui.kv([("Provider", provider["issuer"]), ("Client", provider["client_id"]),
+               ("Signed in", ui.badge("ok", who) if session and who else (ui.badge("ok", "yes") if session else "no"))])
+    print()
+    return 0
+
+
+def cmd_identity_check(client, args):
+    provider = _provider(client)
+    _identity_ready(provider)
+    rows = identity.check(provider)
+    if args.json:
+        emit_json([{"check": name, "ok": ok, "detail": detail} for name, ok, detail in rows])
+    else:
+        ui.title("Identity provider")
+        ui.kv([(name, ui.badge("ok" if ok else "fail", detail)) for name, ok, detail in rows])
+        print()
+    return 0 if all(ok for name, ok, _d in rows if name in ("Discovery", "Device sign-in")) else 1
+
+
+def cmd_identity_login(client, args):
+    provider = _provider(client)
+    _identity_ready(provider)
+    try:
+        started = identity.start_login(provider)
+        print(f"Open {started.get('verification_uri_complete') or started['verification_uri']} on any device")
+        if not started.get("verification_uri_complete"):
+            print(f"and enter the code {started['user_code']}")
+        print("Waiting for you to approve it\u2026")
+        session = identity.finish_login(provider, started)
+    except identity.IdentityError as error:
+        raise UserError(str(error))
+    path = identity.save_session(session)
+    who = session["claims"].get("email") or session["claims"].get("preferred_username") or session["claims"].get("sub", "")
+    if args.json:
+        emit_json({"signed_in": True, "account": session["claims"]})
+    else:
+        print(ui.badge("ok", f"Signed in{' as ' + who if who else ''}."))
+        ui.note(f"The session is kept in {path} (readable only by you).")
+    return 0
+
+
+def cmd_identity_logout(client, args):
+    provider = _provider(client)
+    if not provider["configured"]:
+        raise UserError("No identity provider is set up.")
+    result = identity.logout(provider)
+    if args.json:
+        emit_json({"result": result})
+    else:
+        print(result.capitalize() + ".")
+    return 0
+
+
 def cmd_config_list(client, args):
     values = client.one("Config", "List")
     if args.json:
@@ -1447,6 +1527,12 @@ def build_parser():
     setter.add_argument("key")
     setter.add_argument("value")
     add(config, "reset", cmd_config_reset, "return a setting to its default").add_argument("key")
+
+    _, ident = group("identity", "sign in with the identity provider (Ersa ID by default)")
+    add(ident, "status", cmd_identity_status, "show the provider and whether you are signed in")
+    add(ident, "check", cmd_identity_check, "check that the provider offers what this computer needs")
+    add(ident, "login", cmd_identity_login, "sign in: approve a code on any device")
+    add(ident, "logout", cmd_identity_logout, "sign out and revoke the session")
 
     _, job = group("job", "follow operations started earlier")
     add(job, "list", cmd_job_list, "list running and recent jobs")

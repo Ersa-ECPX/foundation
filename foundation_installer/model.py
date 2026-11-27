@@ -167,6 +167,21 @@ def installer_settings(paths=INSTALLER_PRESEEDS):
     return {}
 
 
+def installer_preseed(paths=INSTALLER_PRESEEDS):
+    """The text of the first preseed file that exists and holds at least one setting (comments and blank lines do not count), else "".
+    The installer sends it with the install, so a medium's default settings (the identity provider, say) reach the installed system."""
+    for path in paths:
+        try:
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read(64 * 1024)
+        except OSError:
+            continue
+        if any(line.strip() and not line.strip().startswith(("#", ";")) and "=" in line for line in text.splitlines()):
+            return text
+        return ""
+    return ""
+
+
 def timezone_service(settings):
     """The address to ask for the time zone: the preseed's `installer.timezone_url` (empty turns detection off), else the default."""
     url = settings.get("installer.timezone_url", TIMEZONE_URL)

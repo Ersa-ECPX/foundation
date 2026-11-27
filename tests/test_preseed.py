@@ -17,6 +17,7 @@ from test_foundationd_bus import BusCase, gi  # noqa: E402
 
 SCHEMA = schema_module.Schema.load(os.path.join(HERE, "..", "data", "config", "schema.d"))
 DEPLOY = "org.ersa.Foundation1.Deploy"
+MEDIUM_PRESEED = os.path.join(HERE, "..", "..", "mkosi.profiles", "installer", "mkosi.extra", "usr", "share", "ersa", "installer.preseed")
 
 
 def zones():
@@ -36,6 +37,18 @@ class Parsing(unittest.TestCase):
         self.assertEqual(self.parse("installer.timezone_url=\n")["config"], {})
         with self.assertRaises(InvalidArgument):
             self.parse("installer.timezone_url=http://plain.example\n")
+
+    @unittest.skipUnless(os.path.isfile(MEDIUM_PRESEED), "the installer profile of the mkosi repository is not here")
+    def test_the_installer_medium_default_preseed_is_valid_and_sets_ersa_id(self):
+        with open(MEDIUM_PRESEED, encoding="utf-8") as handle:
+            result = self.parse(handle.read())
+        self.assertEqual(result["config"], {"identity.enabled": "true", "identity.issuer": "https://id.ersa.dev",
+                                            "identity.client_id": "prism_l5bUeHzyXLJ4EnhRqnwMXg"})     # installer.* is not written
+
+    def test_a_company_can_switch_identity_off_or_name_its_own_provider(self):
+        result = self.parse("identity.enabled=false\nidentity.issuer=https://sso.corp.example\nidentity.client_id=corp-ecp\n")
+        self.assertEqual(result["config"], {"identity.enabled": "false", "identity.issuer": "https://sso.corp.example",
+                                            "identity.client_id": "corp-ecp"})
 
     def test_settings_language_timezone_and_hostname(self):
         result = self.parse("""
