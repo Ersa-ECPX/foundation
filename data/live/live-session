@@ -46,3 +46,8 @@ DESK
 
 install -d -m 0700 -o liveuser -g liveuser /home/liveuser/.config
 install -m 0644 -o liveuser -g liveuser /dev/null /home/liveuser/.config/gnome-initial-setup-done
+
+# The live session is not a person's account: no Ersa ID sign-in offer (foundation-ersa-id-offer.path fires on the file above).
+# The offer's own "asked already" marker is what its units check, so mark it asked.
+install -d -m 0700 -o liveuser -g liveuser /home/liveuser/.local /home/liveuser/.local/state /home/liveuser/.local/state/ersa-id
+install -m 0600 -o liveuser -g liveuser /dev/null /home/liveuser/.local/state/ersa-id/offered

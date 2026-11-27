@@ -227,6 +227,17 @@ class Units(unittest.TestCase):
         self.assertIn("ConditionEnvironment=|DISPLAY", service)
 
 
+class LiveMedium(unittest.TestCase):
+    SCRIPT = os.path.join(os.path.dirname(__file__), "..", "data", "live", "live-session")
+
+    def test_the_live_session_never_gets_the_sign_in_offer(self):
+        with open(self.SCRIPT, encoding="utf-8") as handle:
+            text = handle.read()
+        # the offer's units stop when this marker exists; the live session also writes the Initial Setup file that would start them
+        self.assertIn("gnome-initial-setup-done", text)
+        self.assertIn("/home/liveuser/.local/state/ersa-id/offered", text)
+
+
 class Commands(unittest.TestCase):
     """The commands with a stub for the service's configuration."""
 
