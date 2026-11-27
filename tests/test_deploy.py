@@ -309,3 +309,100 @@ class LayoutDrift(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+KEY = "cbdefghi-jklnrtuv-cbdefghi-jklnrtuv-cbdefghi-jklnrtuv-cbdefghi-jklnrtuv"
+PUBKEY = b"-----BEGIN PUBLIC KEY-----\nTEST\n-----END PUBLIC KEY-----\n"
+
+
+@unittest.skipUnless(TOOLS, "needs systemd-repart, mtools and mkfs tools")
+class EncryptedInstall(Medium):
+    """The encrypted data volume. Real dm-crypt needs real devices, so the second (online) run of systemd-repart is replaced by an
+    offline run that creates the same partition plain; what is checked is the sequence of commands and what they are given."""
+
+    def setUp(self):
+        super().setUp()
+        self.uki = support.build_pe(f"ro quiet roothash={ROOTHASH}".encode(), raw_size=1024, pcrpkey=PUBKEY)
+        self.write_payload()
+        self.calls, self.env = [], []
+
+    def runner(self, cmd, timeout=60, env=None):
+        self.calls.append(list(cmd))
+        self.env.append(env)
+        if cmd[0] == "systemd-repart" and "--offline=no" in cmd:
+            definitions = next(a.split("=", 1)[1] for a in cmd if a.startswith("--definitions="))
+            self.online_definitions = open(os.path.join(definitions, "30-data.conf")).read()
+            self.key_file_mode = os.stat(next(a.split("=", 1)[1] for a in cmd if a.startswith("--key-file="))).st_mode & 0o777
+            with open(os.path.join(definitions, "30-data.conf"), "w") as handle:      # create it plain, as a stand-in
+                handle.write(self.online_definitions.replace("Encrypt=key-file\n", ""))
+            cmd = [c for c in cmd if not c.startswith("--key-file=")]
+            cmd = [("--offline=yes" if c == "--offline=no" else c) for c in cmd]
+        if cmd[0] in ("systemd-cryptenroll", "udevadm"):
+            return 0, "", ""
+        code, out, err = deploy.run(cmd, timeout)
+        return code, out, err
+
+    def deploy(self, secrets, tpm):
+        paths = dict(self.system.paths)
+        paths["tpm_class"], paths["tpmrm"] = os.path.join(self.system.tmp, "tpm-class"), os.path.join(self.system.tmp, "tpmrm0")
+        if tpm:
+            os.makedirs(os.path.join(paths["tpm_class"], "tpm0"), exist_ok=True)
+            open(paths["tpmrm"], "w").close()
+        ctx = Ctx()
+        return deploy.deploy(paths, self.target, self.target, ctx, allow_file=True, runner=self.runner, secrets=secrets), ctx
+
+    def enroll_calls(self):
+        return [c for c in self.calls if c[0] == "systemd-cryptenroll"]
+
+    def test_with_a_tpm_the_slots_are_recovery_key_and_tpm_and_the_one_time_key_is_wiped(self):
+        result, ctx = self.deploy({"recovery_key": KEY, "passphrase": ""}, tpm=True)
+        self.assertEqual((result["encrypted"], result["unlock"]), (True, {"tpm": True, "passphrase": False, "recovery_key": True}))
+        self.assertIn("encrypt", ctx.steps)
+        self.assertIn("Encrypt=key-file", self.online_definitions)
+        self.assertEqual(self.key_file_mode, 0o600)
+        enroll = self.enroll_calls()
+        self.assertEqual(len(enroll), 3)
+        self.assertIn("--password", enroll[0])
+        self.assertIn("--tpm2-device=auto", enroll[1])
+        self.assertIn("--tpm2-pcrs=", enroll[1])
+        self.assertIn("--tpm2-public-key-pcrs=11", enroll[1])
+        self.assertIn("--wipe-slot=0", enroll[2])
+        self.assertTrue(enroll[0][-1].startswith(self.target), enroll[0])      # the data partition's node, here target + number
+        self.assertEqual(self.env[self.calls.index(enroll[0])], {"NEWPASSWORD": KEY})
+
+    def test_no_secret_is_ever_on_a_command_line(self):
+        self.deploy({"recovery_key": KEY, "passphrase": "correct horse battery"}, tpm=False)
+        for call in self.calls:
+            self.assertFalse(any(KEY in part or "correct horse" in part for part in call), call)
+        passphrase_env = [e for e in self.env if e and e.get("NEWPASSWORD") == "correct horse battery"]
+        self.assertEqual(len(passphrase_env), 1)
+
+    def test_without_a_tpm_a_passphrase_is_the_way_in_and_without_one_the_install_is_refused_before_anything_is_written(self):
+        result, _ctx = self.deploy({"recovery_key": KEY, "passphrase": "correct horse battery"}, tpm=False)
+        self.assertEqual(result["unlock"], {"tpm": False, "passphrase": True, "recovery_key": True})
+        self.assertFalse(any("--tpm2-device=auto" in c for c in self.enroll_calls()))
+        with open(self.target, "wb") as handle:
+            handle.truncate(layout.MIN_DISK + 64 * MIB)
+        with self.assertRaises(InvalidArgument):
+            self.deploy({"recovery_key": KEY, "passphrase": ""}, tpm=False)
+        self.assertEqual(open(self.target, "rb").read(4096).count(b"\0"), 4096)        # nothing written
+
+    def test_an_image_without_a_signed_boot_policy_cannot_use_the_tpm(self):
+        self.uki = support.build_pe(f"ro quiet roothash={ROOTHASH}".encode(), raw_size=1024)
+        self.write_payload()
+        with self.assertRaises(InvalidArgument):
+            self.deploy({"recovery_key": KEY, "passphrase": ""}, tpm=True)
+
+    def test_secrets_are_checked(self):
+        from foundationd.backends import encryption
+        self.assertEqual(encryption.parse_secrets(json.dumps({"recovery_key": KEY}))["passphrase"], "")
+        for bad in ("nope", "[]", json.dumps({"recovery_key": "short"}), json.dumps({"recovery_key": KEY, "passphrase": "x"}),
+                    json.dumps({"recovery_key": KEY, "passphrase": "line\nbreak and more"})):
+            with self.assertRaises(InvalidArgument):
+                encryption.parse_secrets(bad)
+
+    def test_partition_nodes(self):
+        from foundationd.backends import encryption
+        self.assertEqual(encryption.partition_node("/dev/vda", 7), "/dev/vda7")
+        self.assertEqual(encryption.partition_node("/dev/nvme0n1", 7), "/dev/nvme0n1p7")
+        self.assertEqual(encryption.partition_node("/dev/mmcblk0", 7), "/dev/mmcblk0p7")

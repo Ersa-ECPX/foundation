@@ -50,7 +50,7 @@ class BootDaemon(JobCase):
              "--schema-path", os.path.join(HERE, "../data/config/schema.d"),
              "--defaults-path", os.path.join(self.tmp.name, "defaults.d"), "--conf-path", self.conf,
              "--state-path", os.path.join(self.tmp.name, "state"),
-             "--efivars-path", s.efivars, "--mountinfo-path", s.mountinfo, "--sysfs-path", s.paths["sysfs"],
+             "--efivars-path", s.efivars, "--mountinfo-path", s.mountinfo, "--sysfs-path", s.paths["sysfs"], "--tpm-class-path", s.paths["tpm_class"], "--tpmrm-path", s.paths["tpmrm"],
              "--dev-path", s.paths["dev"], "--esp-path", s.esp, "--os-release-path", s.paths["os_release"],
              "--root-path", s.paths["root"], *self.extra_args],
             env=env, stderr=subprocess.PIPE, text=True)

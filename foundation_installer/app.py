@@ -6,6 +6,7 @@ Pages are plain Gtk.Stack children so the flow is easy to follow in one file. No
 whether a disk is allowed; the service says so (`usable`, `reason`, `possible`, `problems`).
 """
 
+import json
 import threading
 import math
 import os
@@ -14,10 +15,14 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, GLib, Graphene, Gsk, Gtk  # noqa: E402
+from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk  # noqa: E402
 
 from . import __version__, model  # noqa: E402
 from foundation.gbackend import Backend, ClientError  # noqa: E402
+from foundation import recovery  # noqa: E402
+from foundation.i18n import Domain
+
+_ = Domain("ersa-installer")
 
 APP_ID = "org.ersa.Installer"
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -204,15 +209,17 @@ def _button(label, handler, style=None):
 class InstallerWindow(Adw.ApplicationWindow):
     """One centred page at a time with Go Back and Continue at the bottom right."""
 
-    FOOTER_PAGES = ("language", "timezone", "disks", "review", "done")   # the welcome page has its own round button
+    FOOTER_PAGES = ("language", "timezone", "disks", "encryption", "review", "done")   # the welcome page has its own round button
 
     def __init__(self, app, backend):
-        super().__init__(application=app, title=f"Install {model.PRODUCT}", default_width=880, default_height=600)
+        super().__init__(application=app, title=_("Install {product}").format(product=model.PRODUCT), default_width=880, default_height=600)
         self.backend = backend
         self.disks, self.selected, self.plan, self.installing = [], None, None, False
         self.version, self.started_at = "", 0.0
         self.language, self.timezone = model.DEFAULT_LANGUAGE, model.current_timezone()
+        _.set_language(self.language)
         self.timezone_chosen = False          # true once the person picked a zone: detection never overrides it
+        self.encrypt, self.tpm, self.passphrase, self.passphrase_again, self.recovery_key = True, False, "", "", ""   # encryption is the default
         self._back_target, self._next_handler = None, None
         provider = Gtk.CssProvider()
         provider.load_from_data(CSS)
@@ -226,16 +233,16 @@ class InstallerWindow(Adw.ApplicationWindow):
         view.set_content(self.stack)
         self.footer = Gtk.ActionBar()
         self.footer.add_css_class("installer-footer")
-        self.back_btn = Gtk.Button(label="Go Back")
+        self.back_btn = Gtk.Button(label=_("Go Back"))
         self.back_btn.connect("clicked", lambda _b: self._back())
-        self.next_btn = Gtk.Button(label="Continue")
+        self.next_btn = Gtk.Button(label=_("Continue"))
         self.next_btn.add_css_class("suggested-action")
         self.next_btn.connect("clicked", lambda _b: self._next())
-        self.refresh_btn = Gtk.Button(label="Refresh Disks", visible=False)
+        self.refresh_btn = Gtk.Button(label=_("Refresh Disks"), visible=False)
         self.refresh_btn.add_css_class("flat")
         self.refresh_btn.connect("clicked", lambda _b: self._load_disks())
         self.footer.pack_start(self.back_btn)
-        self.customize_btn = Gtk.Button(label="Customize\u2026", visible=False, sensitive=False)
+        self.customize_btn = Gtk.Button(label=_("Customize…"), visible=False, sensitive=False)
         self.customize_btn.add_css_class("flat")
         self.customize_btn.connect("clicked", lambda _b: self._go_review(review=True))
         self.footer.pack_start(self.refresh_btn)
@@ -248,6 +255,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         self._build_language()
         self._build_timezone()
         self._build_disks()
+        self._build_encryption()
         self._build_review()
         self._build_progress()
         self.show("loading")
@@ -255,7 +263,7 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     # -- navigation ----------------------------------------------------------------------------
 
-    ORDER = ("loading", "welcome", "language", "timezone", "disks", "review", "progress", "done")
+    ORDER = ("loading", "welcome", "language", "timezone", "disks", "encryption", "review", "progress", "done")
 
     def show(self, name):
         previous = self.stack.get_visible_child_name()
@@ -276,11 +284,11 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.refresh_btn.set_visible(name == "disks")
         self.customize_btn.set_visible(name == "disks")
 
-    def _nav(self, back=None, label="Continue", handler=None, sensitive=True, style="suggested-action"):
+    def _nav(self, back=None, label=None, handler=None, sensitive=True, style="suggested-action"):
         """Configure the footer: where Go Back leads (None hides it) and what Continue does."""
         self._back_target, self._next_handler = back, handler
         self.back_btn.set_visible(back is not None)
-        self.next_btn.set_label(label)
+        self.next_btn.set_label(label if label is not None else _("Continue"))
         self.next_btn.set_sensitive(sensitive)
         for css in ("suggested-action", "destructive-action"):
             self.next_btn.remove_css_class(css)
@@ -298,18 +306,18 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     def _build_welcome(self):
         spinner = Gtk.Spinner(spinning=True, halign=Gtk.Align.CENTER, width_request=32, height_request=32)
-        self.stack.add_named(_page(model.PRODUCT, "Starting\u2026", "system-software-install-symbolic", spinner),
+        self.stack.add_named(_page(model.PRODUCT, _("Starting…"), "system-software-install-symbolic", spinner),
                              "loading")
         self.logo = Gtk.Image(pixel_size=96, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
         self.greeting = GreetingFlow(model.GREETINGS)
         self.welcome_title = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, css_classes=["title-3"])
         self.welcome_body = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, max_width_chars=60,
                                       css_classes=["dim-label"])
-        self.welcome_next = Gtk.Button(halign=Gtk.Align.CENTER, margin_top=18, tooltip_text="Continue",
+        self.welcome_next = Gtk.Button(halign=Gtk.Align.CENTER, margin_top=18, tooltip_text=_("Continue"),
                                        css_classes=["circular", "suggested-action", "welcome-next"])
         arrow = Gdk.Texture.new_from_filename(os.path.join(HERE, "arrow-next.svg"))
         self.welcome_next.set_child(Gtk.Image(paintable=arrow, pixel_size=30))
-        self.welcome_next.update_property([Gtk.AccessibleProperty.LABEL], ["Continue"])
+        self.welcome_next.update_property([Gtk.AccessibleProperty.LABEL], [_("Continue")])
         self.welcome_next.connect("clicked", lambda _b: self._next())
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, valign=Gtk.Align.CENTER, vexpand=True,
                        margin_start=32, margin_end=32)
@@ -339,7 +347,7 @@ class InstallerWindow(Adw.ApplicationWindow):
     def _chooser(self, title, hint, items, current, on_pick):
         """A page with a search box and a list; items are (name, detail, value)."""
         outer = self._heading(title, hint)
-        search = Gtk.SearchEntry(placeholder_text="Search", halign=Gtk.Align.CENTER, width_request=360)
+        search = Gtk.SearchEntry(placeholder_text=_("Search"), halign=Gtk.Align.CENTER, width_request=360)
         outer.append(search)
         listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE, margin_top=6, margin_bottom=6,
                               margin_start=6, margin_end=6, width_request=480, halign=Gtk.Align.CENTER)
@@ -363,9 +371,44 @@ class InstallerWindow(Adw.ApplicationWindow):
     def _build_language(self):
         items = [(name, code.split(".")[0], code) for name, code in model.LANGUAGES]
         outer, self.language_list, self.language_rows = self._chooser(
-            "Select your language", "This sets the language of the installed system.", items, self.language,
-            lambda value: setattr(self, "language", value))
+            _("Select your language"), _("This sets the language of the installed system."), items, self.language,
+            self._pick_language)
         self.stack.add_named(outer, "language")
+
+    def _pick_language(self, value):
+        if value == self.language:
+            return
+        self.language = value
+        _.set_language(value)
+        Gtk.Widget.set_default_direction(Gtk.TextDirection.RTL if value.split("_")[0] in
+                                         {"ar", "he", "fa", "ur", "ps", "sd"} else Gtk.TextDirection.LTR)
+        current = self.stack.get_visible_child_name()
+        chosen, disks = self.selected, list(self.disks)
+        # These pages contain static text; rebuilding also updates their search hints and rows.
+        for name, builder in (("language", self._build_language), ("timezone", self._build_timezone),
+                              ("disks", self._build_disks), ("encryption", self._build_encryption), ("review", self._build_review),
+                              ("progress", self._build_progress)):
+            old = self.stack.get_child_by_name(name)
+            self.stack.remove(old)
+            builder()
+        if disks:
+            self._fill_disks(disks)
+            for index, disk in enumerate(self.disks):
+                if disk["path"] == chosen:
+                    self.flow.select_child(self.flow.get_child_at_index(index))
+                    break
+        if self.plan and getattr(self, "_show_review", False):
+            self._fill_partitions(self.plan)
+        self.set_title(_("Install {product}").format(product=model.PRODUCT))
+        self.back_btn.set_label(_("Go Back"))
+        self.refresh_btn.set_label(_("Refresh Disks"))
+        self.customize_btn.set_label(_("Customize…"))
+        self._set_welcome_text()
+        self.welcome_next.set_tooltip_text(_("Continue"))
+        self.welcome_next.update_property([Gtk.AccessibleProperty.LABEL], [_("Continue")])
+        if current == "language":
+            self._nav(back=self._go_welcome, handler=self._go_timezone)
+        self.show(current)
 
     def _build_timezone(self):
         items = []
@@ -373,7 +416,7 @@ class InstallerWindow(Adw.ApplicationWindow):
             region, _slash, city = zone.partition("/")
             items.append((city.replace("_", " ") if city else zone, region if city else "", zone))
         outer, self.timezone_list, self.timezone_rows = self._chooser(
-            "Select your time zone", "This sets the clock of the installed system.", items, self.timezone,
+            _("Select your time zone"), _("This sets the clock of the installed system."), items, self.timezone,
             self._pick_timezone)
         self.timezone_note = Gtk.Label(label="", xalign=0.5, css_classes=["dim-label"], visible=False)
         outer.insert_child_after(self.timezone_note, outer.get_first_child().get_next_sibling())
@@ -401,7 +444,7 @@ class InstallerWindow(Adw.ApplicationWindow):
                     self.timezone_list.select_row(row)
                 finally:
                     self._detecting = False
-                self.timezone_note.set_label("Detected from your network. Change it if it is wrong.")
+                self.timezone_note.set_label(_("Detected from your network. Change it if it is wrong."))
                 self.timezone_note.set_visible(True)
                 break
         return False
@@ -412,8 +455,8 @@ class InstallerWindow(Adw.ApplicationWindow):
             GLib.idle_add(lambda: row.grab_focus() and False)
 
     def _build_disks(self):
-        outer = self._heading("Select the disk where you want to install",
-                              f"{model.PRODUCT} is installed on the whole disk. Nothing is changed until you confirm.")
+        outer = self._heading(_("Select the disk where you want to install"),
+                              _("{product} is installed on the whole disk. Nothing is changed until you confirm.").format(product=model.PRODUCT))
         self.flow = Gtk.FlowBox(margin_top=12, margin_bottom=12, margin_start=12, margin_end=12,selection_mode=Gtk.SelectionMode.SINGLE, max_children_per_line=4,
                                 min_children_per_line=2, homogeneous=True, halign=Gtk.Align.CENTER, row_spacing=12, column_spacing=12,
                                 valign=Gtk.Align.START)
@@ -421,18 +464,82 @@ class InstallerWindow(Adw.ApplicationWindow):
         scroll = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         scroll.set_child(self.flow)
         outer.append(scroll)
-        self.disks_empty = Gtk.Label(label="No disks were found.", visible=False)
+        self.disks_empty = Gtk.Label(label=_("No disks were found."), visible=False)
         outer.append(self.disks_empty)
         self.stack.add_named(outer, "disks")
 
+    def _build_encryption(self):
+        outer = self._heading(_("Protect your data"),
+                              _("Encryption keeps your files and settings private if this computer is lost or stolen."))
+        group = Adw.PreferencesGroup()
+        self.encrypt_row = Adw.SwitchRow(title=_("Encrypt your data"),
+                                         subtitle=_("Your files and settings can only be read with this computer's key or your recovery key."))
+        self.encrypt_row.set_active(self.encrypt)
+        self.encrypt_row.connect("notify::active", lambda row, _p: self._encryption_changed())
+        group.add(self.encrypt_row)
+        self.encryption_note = Gtk.Label(label="", wrap=True, xalign=0, css_classes=["dim-label"])
+        self.pass_group = Adw.PreferencesGroup(title=_("Passphrase"))
+        self.pass_entry = Adw.PasswordEntryRow(title=_("Passphrase"))
+        self.pass_again_entry = Adw.PasswordEntryRow(title=_("Confirm passphrase"))
+        self.pass_entry.set_text(self.passphrase)
+        self.pass_again_entry.set_text(self.passphrase_again)
+        for entry in (self.pass_entry, self.pass_again_entry):
+            entry.connect("changed", lambda _e: self._encryption_changed())
+            self.pass_group.add(entry)
+        self.pass_hint = Gtk.Label(label="", wrap=True, xalign=0, css_classes=["dim-label"])
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, margin_top=6)
+        for widget in (group, self.encryption_note, self.pass_group, self.pass_hint):
+            box.append(widget)
+        scroll = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+        scroll.set_child(Adw.Clamp(maximum_size=520, child=box))
+        outer.append(scroll)
+        self.stack.add_named(outer, "encryption")
+        self._encryption_view()
+
+    def _encryption_view(self):
+        """Show what the current choice means, and whether the page may be left."""
+        need_passphrase = self.encrypt and not self.tpm
+        if not self.encrypt:
+            note = _("Without encryption, anyone who has the disk can read your files and settings.")
+        elif self.tpm:
+            note = _("This computer unlocks your data by itself with its security chip (TPM). You also get a recovery key.")
+        else:
+            note = _("Your data is unlocked with a passphrase each time the computer starts. You also get a recovery key.")
+        self.encryption_note.set_label(note)
+        self.pass_group.set_visible(need_passphrase)
+        problem = model.passphrase_problem(self.passphrase, self.passphrase_again) if need_passphrase else ""
+        hint = {"short": _("Use at least 8 characters."), "mismatch": _("The passphrases do not match.")}.get(problem, "")
+        self.pass_hint.set_label(hint if self.passphrase or self.passphrase_again else "")
+        self.pass_hint.set_visible(need_passphrase and bool(self.pass_hint.get_label()))
+        if self._next_handler == self._after_encryption:
+            self.next_btn.set_sensitive(model.encryption_ready(self.encrypt, self.tpm, self.passphrase, self.passphrase_again))
+
+    def _encryption_changed(self):
+        self.encrypt = self.encrypt_row.get_active()
+        self.passphrase, self.passphrase_again = self.pass_entry.get_text(), self.pass_again_entry.get_text()
+        self._encryption_view()
+
+    def _go_encryption(self):
+        self.tpm = bool((self.plan or {}).get("tpm"))
+        self._nav(back=self._go_disks_keep, label=_("Install"), handler=self._after_encryption, style="destructive-action",
+                  sensitive=model.encryption_ready(self.encrypt, self.tpm, self.passphrase, self.passphrase_again))
+        self._encryption_view()
+        self.show("encryption")
+
+    def _after_encryption(self):
+        if getattr(self, "_show_review", False):
+            self._fill_partitions(self.plan)
+        else:
+            self._confirm()
+
     def _build_review(self):
-        outer = self._heading("Ready to install", "Review what will happen.")
+        outer = self._heading(_("Ready to install"), _("Review what will happen."))
         self.review_banner = Adw.Banner(revealed=True)
         outer.append(self.review_banner)
         self.problem_label = Gtk.Label(xalign=0, wrap=True, visible=False)
         self.problem_label.add_css_class("error")
         outer.append(self.problem_label)
-        self.partition_group = Adw.PreferencesGroup(title="What will be installed")
+        self.partition_group = Adw.PreferencesGroup(title=_("What will be installed"))
         scroll = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         scroll.set_child(self.partition_group)
         outer.append(scroll)
@@ -442,13 +549,13 @@ class InstallerWindow(Adw.ApplicationWindow):
     def _build_progress(self):
         self.progress_bar = Gtk.ProgressBar(width_request=420)
         self.progress_bar.add_css_class("install-progress")
-        self.progress_step = Gtk.Label(label="Preparing…")
+        self.progress_step = Gtk.Label(label=_("Preparing…"))
         self.progress_left = Gtk.Label(label="")
         self.progress_left.add_css_class("dim-label")
         self.progress_icon = Gtk.Image(icon_name="drive-harddisk-symbolic", pixel_size=96, margin_bottom=12,
                                        css_classes=["dim-label"])
         self._breath = self._bar_anim = None
-        self.stack.add_named(_page(f"Installing {model.PRODUCT}", "Do not turn off the computer or remove the disk.",
+        self.stack.add_named(_page(_("Installing {product}").format(product=model.PRODUCT), _("Do not turn off the computer or remove the disk."),
                                    None, self.progress_bar, self.progress_step, self.progress_left,
                                    visual=self.progress_icon), "progress")
 
@@ -492,19 +599,21 @@ class InstallerWindow(Adw.ApplicationWindow):
             self._fatal(model.failure_text(error))
             return
         if "deploy" not in values[0].get("capabilities", []):
-            self._fatal("This system's management service cannot install to a disk.")
+            self._fatal(_("This system's management service cannot install to a disk."))
             return
-        version = f" {self.version}" if self.version else ""
-        self.welcome_title.set_label(f"Install {model.PRODUCT}{version}")
-        self.welcome_body.set_label(
-            "This installs the system on a disk in this computer. You choose the disk next, and you see "
-            "exactly what will be erased before anything is changed.")
+        self._set_welcome_text()
         self._nav(handler=self._go_language)
         self.show("welcome")
 
+    def _set_welcome_text(self):
+        version = f" {self.version}" if self.version else ""
+        self.welcome_title.set_label(_("Install {product}{version}").format(product=model.PRODUCT, version=version))
+        self.welcome_body.set_label(
+            _("This installs the system on a disk in this computer. You choose the disk next, and you see exactly what will be erased before anything is changed."))
+
     def _fatal(self, message):
-        self._replace("fatal", _page("The installer cannot start", message, "dialog-error-symbolic",
-                                     _button("Try Again", self._retry), _button("Quit", self.close)))
+        self._replace("fatal", _page(_("The installer cannot start"), message, "dialog-error-symbolic",
+                                     _button(_("Try Again"), self._retry), _button(_("Quit"), self.close)))
         self.show("fatal")
 
     def _retry(self):
@@ -522,7 +631,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         self._reveal_selected(self.timezone_list)
 
     def _go_disks(self):
-        self._nav(back=self._go_timezone, label="Install", handler=self._go_review, sensitive=False)
+        self._nav(back=self._go_timezone, label=_("Install"), handler=self._go_review, sensitive=False)
         self.show("disks")
         self._load_disks()
 
@@ -553,7 +662,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         for widget in (icon, name, detail):
             box.append(widget)
         if not disk["usable"]:
-            reason = Gtk.Label(label=disk.get("reason") or "cannot be used", wrap=True, justify=Gtk.Justification.CENTER)
+            reason = Gtk.Label(label=disk.get("reason") or _("cannot be used"), wrap=True, justify=Gtk.Justification.CENTER)
             reason.add_css_class("caption")
             box.append(reason)
         return box
@@ -596,15 +705,12 @@ class InstallerWindow(Adw.ApplicationWindow):
         self.next_btn.set_sensitive(True)
         problems = plan.get("problems", [])
         if not plan["possible"]:
-            dialog = Adw.AlertDialog(heading="This disk cannot be used",
-                                     body="\n".join(problems) or "The service refused this disk.")
-            dialog.add_response("ok", "OK")
+            dialog = Adw.AlertDialog(heading=_("This disk cannot be used"),
+                                     body="\n".join(problems) or _("The service refused this disk."))
+            dialog.add_response("ok", _("OK"))
             dialog.present(self)
             return
-        if getattr(self, "_show_review", False):
-            self._fill_partitions(plan)
-            return
-        self._confirm()
+        self._go_encryption()
 
     def _fill_partitions(self, plan):
         self.review_banner.set_title(model.erase_summary(plan))
@@ -612,7 +718,8 @@ class InstallerWindow(Adw.ApplicationWindow):
         for row in self._partition_rows:
             self.partition_group.remove(row)
         self._partition_rows = []
-        for title, value in (("Language", model.language_name(self.language)), ("Time zone", self.timezone)):
+        for title, value in ((_("Language"), model.language_name(self.language)), (_("Time zone"), self.timezone),
+                             (_("Encryption"), _("On") if self.encrypt else _("Off"))):
             row = Adw.ActionRow(title=title)
             row.add_suffix(Gtk.Label(label=value, css_classes=["dim-label"]))
             self.partition_group.add(row)
@@ -622,19 +729,19 @@ class InstallerWindow(Adw.ApplicationWindow):
             row.add_suffix(Gtk.Label(label=model.partition_size(part), css_classes=["dim-label"]))
             self.partition_group.add(row)
             self._partition_rows.append(row)
-        self._nav(back=self._go_disks_keep, label="Install", handler=self._confirm, style="destructive-action")
+        self._nav(back=self._go_disks_keep, label=_("Install"), handler=self._confirm, style="destructive-action")
         self.show("review")
 
     def _go_disks_keep(self):
         """Back from the review page to the disk list, keeping the choice."""
-        self._nav(back=self._go_timezone, label="Install", handler=self._go_review, sensitive=self.selected is not None)
+        self._nav(back=self._go_timezone, label=_("Install"), handler=self._go_review, sensitive=self.selected is not None)
         self.show("disks")
 
     def _confirm(self):
         plan = self.plan
-        dialog = Adw.AlertDialog(heading=f"Erase {model.disk_title(plan)}?", body=model.erase_summary(plan))
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("install", "Erase and Install")
+        dialog = Adw.AlertDialog(heading=_("Erase {disk}?").format(disk=model.disk_title(plan)), body=model.erase_summary(plan))
+        dialog.add_response("cancel", _("Cancel"))
+        dialog.add_response("install", _("Erase and Install"))
         dialog.set_response_appearance("install", Adw.ResponseAppearance.DESTRUCTIVE)
         dialog.set_default_response("cancel")
         dialog.set_close_response("cancel")
@@ -650,7 +757,7 @@ class InstallerWindow(Adw.ApplicationWindow):
         if self._bar_anim is not None:
             self._bar_anim.pause()
         self.progress_bar.set_fraction(0)
-        self.progress_step.set_label("Preparing\u2026")
+        self.progress_step.set_label(_("Preparing…"))
         self.progress_left.set_label("")
         self.show("progress")
         GLib.timeout_add(700, self._breathe_if_installing)
@@ -660,7 +767,18 @@ class InstallerWindow(Adw.ApplicationWindow):
             def got(values, error):
                 callback(values[0] if error is None else None, error)
             text = model.installer_preseed()
-            if text:                # the medium's default settings (and any admin's file) go into the installed system
+            if self.encrypt:        # the recovery key is made here and travels as a file descriptor: the service never sends a secret back
+                self.recovery_key = recovery.new_recovery_key()
+                descriptor = os.memfd_create("ecp-secrets", os.MFD_CLOEXEC)
+                os.write(descriptor, json.dumps({"recovery_key": self.recovery_key,
+                                                 "passphrase": "" if self.tpm else self.passphrase}).encode())
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                fds = Gio.UnixFDList.new()
+                index = fds.append(descriptor)
+                os.close(descriptor)
+                self.backend.call("Deploy", "DeployEncrypted", "(sssssh)", (disk, disk, self.language, self.timezone, text, index), got,
+                                  600_000, fds=fds)
+            elif text:              # the medium's default settings (and any admin's file) go into the installed system
                 self.backend.call("Deploy", "DeployPreseeded", "(sssss)", (disk, disk, self.language, self.timezone, text), got, 600_000)
             else:
                 self.backend.call("Deploy", "Deploy", "(ssss)", (disk, disk, self.language, self.timezone), got, 600_000)
@@ -690,30 +808,40 @@ class InstallerWindow(Adw.ApplicationWindow):
 
     def _show_done(self):
         check = CheckMark()
-        self._replace("done", _page("Installation complete",
-                                    "Remove the installation medium, then restart to start the new system.",
-                                    None, visual=check))
-        self._nav(label="Restart", handler=self._restart)
+        extra = []
+        if self.encrypt and self.recovery_key:
+            key = Gtk.Label(label=self.recovery_key, selectable=True, wrap=True, justify=Gtk.Justification.CENTER,
+                            max_width_chars=40, css_classes=["monospace", "title-4"])
+            warning = Gtk.Label(label=_("Write this key down and keep it somewhere safe, away from this computer. It is the only way to unlock "
+                                        "your data if the security chip or your passphrase cannot."),
+                                wrap=True, justify=Gtk.Justification.CENTER, max_width_chars=60, css_classes=["dim-label"])
+            saved = Gtk.CheckButton(label=_("I have saved my recovery key"), halign=Gtk.Align.CENTER)
+            saved.connect("toggled", lambda button: self.next_btn.set_sensitive(button.get_active()))
+            extra = [Gtk.Label(label=_("Your recovery key"), css_classes=["heading"]), key, warning, saved]
+        self._replace("done", _page(_("Installation complete"),
+                                    _("Remove the installation medium, then restart to start the new system."),
+                                    None, *extra, visual=check))
+        self._nav(label=_("Restart"), handler=self._restart, sensitive=not extra)
         self.show("done")
         check.play(350)
 
     def _show_failure(self, message, job_path):
         details = Gtk.Label(label="", xalign=0, wrap=True, selectable=True, visible=False)
         details.add_css_class("monospace")
-        toggle = Gtk.Button(label="Show Details", halign=Gtk.Align.CENTER, visible=job_path is not None)
+        toggle = Gtk.Button(label=_("Show Details"), halign=Gtk.Align.CENTER, visible=job_path is not None)
 
         def reveal(_b):
             details.set_visible(not details.get_visible())
-            toggle.set_label("Hide Details" if details.get_visible() else "Show Details")
+            toggle.set_label(_("Hide Details") if details.get_visible() else _("Show Details"))
             if details.get_visible() and not details.get_label() and job_path:
                 self.backend.call("Job", "Logs", "(i)", (60,), lambda v, e: details.set_label(
                     "\n".join(v[0]) if e is None else model.failure_text(e)), 10_000, job_path)
         toggle.connect("clicked", reveal)
         self._replace("failed", _page(
-            "Installation failed",
-            f"{message}\n\nThe disk may have been erased and will not start. It is safe to try again.",
+            _("Installation failed"),
+            _("{message}\n\nThe disk may have been erased and will not start. It is safe to try again.").format(message=message),
             "dialog-error-symbolic", toggle, details,
-            _button("Choose a Disk", self._go_disks, "suggested-action"), _button("Quit", self.close)))
+            _button(_("Choose a Disk"), self._go_disks, "suggested-action"), _button(_("Quit"), self.close)))
         self.show("failed")
 
     def _replace(self, name, page):
@@ -745,8 +873,8 @@ class InstallerApp(Adw.Application):
                 message = error.message
             self.window = InstallerWindow(self, backend) if backend else None
             if self.window is None:
-                dialog = Adw.AlertDialog(heading="The installer cannot start", body=message)
-                dialog.add_response("quit", "Quit")
+                dialog = Adw.AlertDialog(heading=_("The installer cannot start"), body=message)
+                dialog.add_response("quit", _("Quit"))
                 dialog.connect("response", lambda *_: self.quit())
                 holder = Adw.ApplicationWindow(application=self)
                 holder.present()
@@ -758,9 +886,9 @@ class InstallerApp(Adw.Application):
 def main(argv=None):
     import argparse
     import sys
-    parser = argparse.ArgumentParser(prog="ersa-installer", description=f"{model.PRODUCT} installer")
+    parser = argparse.ArgumentParser(prog="ersa-installer", description=_("{product} installer").format(product=model.PRODUCT))
     parser.add_argument("--version", action="version", version=f"ersa-installer {__version__}")
     parser.add_argument("--bus", choices=("system", "session"), default="system", help=argparse.SUPPRESS)
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
-    GLib.set_application_name(f"{model.PRODUCT} Installer")
+    GLib.set_application_name(_("{product} Installer").format(product=model.PRODUCT))
     return InstallerApp(args.bus).run([sys.argv[0]])

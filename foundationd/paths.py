@@ -27,6 +27,8 @@ class Paths:
     mountinfo: str = "/proc/self/mountinfo"
     sysfs: str = "/sys"
     dev: str = "/dev"
+    tpm_class: str = "/sys/class/tpm"   # where the kernel lists TPMs (disk encryption can unlock with one)
+    tpmrm: str = "/dev/tpmrm0"          # the TPM's resource-managed device
     esp: str = ""                # empty: find the mounted EFI system partition
     passwd: str = "/etc/passwd"
     group: str = "/etc/group"

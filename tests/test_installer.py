@@ -1,11 +1,19 @@
 """The installer's text helpers, and its window driven against a real foundationd (needs a display)."""
 
 import os
+
+# Existing UI assertions use English text, regardless of the developer session locale.
+os.environ["LANGUAGE"] = "C"
 import tempfile
 import shutil
 import time
 import unittest
 import unittest.mock
+
+
+def model_recovery_ok(key):
+    from foundation import recovery
+    return recovery.is_recovery_key(key)
 
 import support  # noqa: F401
 from test_foundationd_boot import BootDaemon
@@ -93,6 +101,17 @@ class Text(unittest.TestCase):
         self.assertEqual(model.installer_settings([os.path.join(tmp, "none")]), {})
         self.assertEqual(model.timezone_service({}), model.TIMEZONE_URL)    # nothing set: the default service
         self.assertEqual(model.timezone_service({"installer.timezone_url": "http://plain"}), "")
+
+    def test_passphrase_rules_and_when_the_encryption_page_may_be_left(self):
+        problem = model.passphrase_problem
+        self.assertEqual([problem("", ""), problem("short", "short"), problem("long enough", "different"), problem("long enough", "long enough")],
+                         ["empty", "short", "mismatch", ""])
+        ready = model.encryption_ready
+        self.assertTrue(ready(False, False, "", ""))                  # no encryption: nothing to ask
+        self.assertTrue(ready(True, True, "", ""))                    # a TPM unlocks by itself
+        self.assertFalse(ready(True, False, "", ""))                  # no TPM: a passphrase is needed
+        self.assertFalse(ready(True, False, "long enough", "nope nope"))
+        self.assertTrue(ready(True, False, "long enough", "long enough"))
 
     def test_the_installer_sends_the_first_preseed_that_holds_settings(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -189,6 +208,81 @@ class Window(BootDaemon):
         window._apply_detected_timezone("Europe/Berlin")       # a late answer must not override it
         self.assertEqual(window.timezone, "Asia/Tokyo")
 
+    def test_the_encryption_page_is_on_by_default_and_asks_for_a_passphrase_without_a_tpm(self):
+        self.pump(lambda: self.page() == "welcome")
+        w = self.window
+        w.selected = self.target
+        w._go_review()
+        self.pump(lambda: self.page() == "encryption")
+        self.assertTrue(w.encrypt_row.get_active())
+        self.assertFalse(w.tpm)
+        self.assertTrue(w.pass_group.get_visible())
+        self.assertFalse(w.next_btn.get_sensitive())               # no passphrase yet
+        w.pass_entry.set_text("short")
+        w.pass_again_entry.set_text("short")
+        self.assertFalse(w.next_btn.get_sensitive())
+        self.assertIn("8", w.pass_hint.get_label())
+        w.pass_entry.set_text("a long passphrase")
+        w.pass_again_entry.set_text("another one")
+        self.assertFalse(w.next_btn.get_sensitive())
+        w.pass_again_entry.set_text("a long passphrase")
+        self.assertTrue(w.next_btn.get_sensitive())
+        w.encrypt_row.set_active(False)                             # switched off: a warning, no passphrase
+        self.assertFalse(w.pass_group.get_visible())
+        self.assertTrue(w.next_btn.get_sensitive())
+        self.assertIn("anyone", w.encryption_note.get_label())
+
+    def test_an_encrypted_install_sends_the_secrets_as_a_file_descriptor(self):
+        import json as json_
+        from foundation.gbackend import ClientError
+        self.pump(lambda: self.page() == "welcome")
+        w = self.window
+        w.selected = self.target
+        w._go_review()
+        self.pump(lambda: w.plan is not None)
+        w.encrypt, w.passphrase, w.tpm = True, "a long passphrase", False
+        calls = []
+
+        def fake(interface, method, signature, args, done, timeout=60_000, path=None, fds=None):
+            secrets = None
+            if fds is not None:
+                import os as os_
+                descriptor = fds.get(args[-1])
+                secrets = json_.loads(os_.read(descriptor, 4096))
+                os_.close(descriptor)
+            calls.append((method, signature, secrets, args))
+            done(None, ClientError("Failed", "stopped by the test"))
+        w.backend.call = fake
+        w._install()
+        self.pump(lambda: bool(calls))
+        method, signature, secrets, args = calls[0]
+        self.assertEqual((method, signature), ("DeployEncrypted", "(sssssh)"))
+        self.assertEqual(secrets["passphrase"], "a long passphrase")
+        self.assertEqual(secrets["recovery_key"], w.recovery_key)
+        self.assertTrue(model_recovery_ok(w.recovery_key))
+        self.assertNotIn(w.recovery_key + "x", " ".join(str(a) for a in args))      # the key is not an argument of the call
+        self.assertFalse(any("a long passphrase" in str(a) for a in args))
+
+    def test_the_done_page_shows_the_recovery_key_and_waits_for_confirmation(self):
+        self.pump(lambda: self.page() == "welcome")
+        w = self.window
+        w.encrypt, w.recovery_key = True, "cbdefghi-jklnrtuv-cbdefghi-jklnrtuv-cbdefghi-jklnrtuv-cbdefghi-jklnrtuv"
+        w._show_done()
+        self.assertEqual(self.page(), "done")
+        self.assertFalse(w.next_btn.get_sensitive())                 # Restart waits until the key is saved
+        check = []
+
+        def walk(widget):
+            if isinstance(widget, Gtk.CheckButton):
+                check.append(widget)
+            child = widget.get_first_child()
+            while child:
+                walk(child)
+                child = child.get_next_sibling()
+        walk(w.stack.get_child_by_name("done"))
+        check[0].set_active(True)
+        self.assertTrue(w.next_btn.get_sensitive())
+
     def test_plan_then_install_then_done(self):
         self.pump(lambda: self.page() == "welcome")
         self.window.language = "fr_FR.UTF-8"
@@ -198,6 +292,10 @@ class Window(BootDaemon):
         self.pump(lambda: self.window.plan is not None)
         self.assertTrue(self.window.plan["possible"])
         self.assertTrue(self.window.plan["partitions"])
+        self.pump(lambda: self.page() == "encryption")        # encryption is asked about on its own page, on by default
+        self.assertTrue(self.window.encrypt)
+        self.window.encrypt_row.set_active(False)               # this test installs a plain system (real dm-crypt needs real devices)
+        self.assertFalse(self.window.encrypt)
         self.window._install()
         self.assertTrue(self.window.installing)
         self.pump(lambda: self.page() in ("done", "failed"))
@@ -227,9 +325,12 @@ class Window(BootDaemon):
         self.pump(lambda: self.page() == "welcome")
         self.window.selected = self.target
         self.window._go_review(review=True)
+        self.pump(lambda: self.page() == "encryption")
+        self.window.encrypt_row.set_active(False)                # the test machine has no TPM: a passphrase would be needed
+        self.window._after_encryption()
         self.pump(lambda: self.page() == "review")
         labels = [row.get_title() for row in self.window._partition_rows]
-        self.assertEqual(labels[:2], ["Language", "Time zone"])
+        self.assertEqual(labels[:3], ["Language", "Time zone", "Encryption"])
         self.assertIn("Boot", labels)
         self.assertIn("System slot A", labels)
         self.assertEqual(self.window.next_btn.get_label(), "Install")

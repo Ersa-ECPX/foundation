@@ -10,7 +10,7 @@ import json
 import os
 import sys
 
-from . import __version__, fetch, identity, ui
+from . import __version__, fetch, identity, recovery, ui
 from .client import Client, ClientError
 
 PRODUCT = "Ersa Compute Platform"
@@ -532,6 +532,54 @@ def cmd_deploy_check_preseed(client, args):
     return 0
 
 
+def encryption_secrets(args, plan):
+    """For --encrypt: a recovery key (made here, so the service never sends a secret back), a passphrase if one is given or needed,
+    and both as a file descriptor for the service. Returns (fds, index, recovery key, passphrase)."""
+    from gi.repository import Gio
+    passphrase = ""
+    if args.passphrase_file:
+        try:
+            with open(args.passphrase_file, encoding="utf-8") as handle:
+                passphrase = handle.readline().rstrip("\n")
+        except OSError as error:
+            raise UserError(f"cannot read {args.passphrase_file}: {error.strerror}") from error
+    elif not plan.get("tpm") and sys.stdin.isatty():
+        import getpass
+        ui.note("This computer has no usable TPM, so a passphrase unlocks the disk at every start.")
+        passphrase = getpass.getpass("Passphrase (at least 8 characters): ")
+        if passphrase != getpass.getpass("Again: "):
+            raise UserError("the passphrases are not the same")
+    if not passphrase and not plan.get("tpm"):
+        raise UserError("this computer has no usable TPM, so encryption needs a passphrase: use --passphrase-file FILE")
+    key = recovery.new_recovery_key()
+    descriptor = os.memfd_create("ecp-secrets", os.MFD_CLOEXEC)
+    os.write(descriptor, json.dumps({"recovery_key": key, "passphrase": passphrase}).encode())
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    fds = Gio.UnixFDList.new()
+    index = fds.append(descriptor)
+    os.close(descriptor)
+    return fds, index, key, passphrase
+
+
+def show_recovery_key(args, key, result):
+    unlock = result.get("unlock", {})
+    if args.recovery_key_file:
+        fd = os.open(args.recovery_key_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            handle.write(key + "\n")
+    if args.json:
+        return
+    ui.kv([("Disk encryption", "on: " + ", ".join(name for name, on in (("unlocks by itself with the TPM", unlock.get("tpm")),
+                                                                      ("passphrase", unlock.get("passphrase")),
+                                                                      ("recovery key", True)) if on))])
+    print()
+    ui.warn("write down this recovery key and keep it away from this computer: it unlocks the disk if the TPM or the passphrase cannot")
+    print("    " + key)
+    print()
+    if args.recovery_key_file:
+        ui.note(f"It was also saved to {args.recovery_key_file} (readable only by you).")
+
+
 def cmd_deploy_install(client, args):
     preseed = read_preseed(args.preseed) if getattr(args, "preseed", None) else ""
     if preseed:            # a bad file is found now, before anything is shown or erased
@@ -565,9 +613,19 @@ def cmd_deploy_install(client, args):
     if args.dry_run:
         ui.note("Dry run: nothing was changed.")
         return 0
+    secrets = None
+    if args.encrypt:
+        ui.note("The data volume (/var and /home) will be encrypted.")
+        secrets = encryption_secrets(args, plan)
     if not sure(args, f"Erase {plan['disk']} and install {PRODUCT}?", expected=plan["disk"]):
         return 1
-    if preseed:
+    if secrets:
+        fds, index, key, _passphrase = secrets
+        code, job = run_job(client, args, "Deploy", "DeployEncrypted", "(sssssh)", plan["disk"], plan["disk"],
+                            args.language or "", args.timezone or "", preseed, index, fds=fds)
+        if job is not None and job.ok:
+            show_recovery_key(args, key, job.result)
+    elif preseed:
         code, job = run_job(client, args, "Deploy", "DeployPreseeded", "(sssss)", plan["disk"], plan["disk"],
                             args.language or "", args.timezone or "", preseed)
     else:
@@ -1441,6 +1499,10 @@ def build_parser():
     inst.add_argument("--timezone", metavar="ZONE", help="the installed system's time zone, such as Europe/Berlin")
     inst.add_argument("--preseed", metavar="FILE", help="answers for an unattended installation: settings, language, time zone and host name "
                       "(see: foundation deploy check-preseed); with --yes nothing is asked")
+    inst.add_argument("--encrypt", action="store_true", help="encrypt the data volume (/var and /home); a recovery key is shown at the end, "
+                      "and a passphrase is needed when the computer has no usable TPM")
+    inst.add_argument("--passphrase-file", metavar="FILE", help="with --encrypt: the passphrase (first line of the file) instead of asking")
+    inst.add_argument("--recovery-key-file", metavar="FILE", help="with --encrypt: also save the recovery key to this file")
     add(deploy, "check-preseed", cmd_deploy_check_preseed, "check a preseed file without installing").add_argument("file")
 
     _, apps = group("apps", "manage applications (Flatpak, system-wide)")

@@ -1,0 +1,343 @@
+# Initial, unreviewed machine-assisted translation.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: pt_BR\nPlural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: foundation_installer/app.py:374
+msgid "Select your language"
+msgstr "Selecione seu idioma"
+
+#: foundation_installer/app.py:374
+msgid "This sets the language of the installed system."
+msgstr "Isto define o idioma do sistema instalado."
+
+#: foundation_installer/app.py:403 foundation_installer/app.py:236
+msgid "Go Back"
+msgstr "Voltar"
+
+#: foundation_installer/app.py:404 foundation_installer/app.py:241
+msgid "Refresh Disks"
+msgstr "Atualizar discos"
+
+#: foundation_installer/app.py:405 foundation_installer/app.py:245
+msgid "Customize…"
+msgstr "Personalizar…"
+
+#: foundation_installer/app.py:407 foundation_installer/app.py:238 foundation_installer/app.py:291 foundation_installer/app.py:316 foundation_installer/app.py:320 foundation_installer/app.py:408
+msgid "Continue"
+msgstr "Continuar"
+
+#: foundation_installer/app.py:419
+msgid "Select your time zone"
+msgstr "Selecione seu fuso horário"
+
+#: foundation_installer/app.py:419
+msgid "This sets the clock of the installed system."
+msgstr "Isto define o relógio do sistema instalado."
+
+#: foundation_installer/app.py:458
+msgid "Select the disk where you want to install"
+msgstr "Selecione o disco em que deseja instalar"
+
+#: foundation_installer/app.py:472
+msgid "Protect your data"
+msgstr ""
+
+#: foundation_installer/app.py:473
+msgid "Encryption keeps your files and settings private if this computer is lost or stolen."
+msgstr ""
+
+#: foundation_installer/app.py:503
+msgid "Without encryption, anyone who has the disk can read your files and settings."
+msgstr ""
+
+#: foundation_installer/app.py:536
+msgid "Ready to install"
+msgstr "Pronto para instalar"
+
+#: foundation_installer/app.py:536
+msgid "Review what will happen."
+msgstr "Revise o que vai acontecer."
+
+#: foundation_installer/app.py:612
+msgid "This installs the system on a disk in this computer. You choose the disk next, and you see exactly what will be erased before anything is changed."
+msgstr "Isto instala o sistema em um disco deste computador. Você escolhe o disco a seguir e vê exatamente o que será apagado antes de qualquer alteração."
+
+#: foundation_installer/app.py:743
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: foundation_installer/app.py:744
+msgid "Erase and Install"
+msgstr "Apagar e instalar"
+
+#: foundation_installer/app.py:760 foundation_installer/app.py:552
+msgid "Preparing…"
+msgstr "Preparando…"
+
+#: foundation_installer/app.py:309
+msgid "Starting…"
+msgstr "Iniciando…"
+
+#: foundation_installer/app.py:350
+msgid "Search"
+msgstr "Pesquisar"
+
+#: foundation_installer/app.py:467
+msgid "No disks were found."
+msgstr "Nenhum disco foi encontrado."
+
+#: foundation_installer/app.py:475
+msgid "Encrypt your data"
+msgstr ""
+
+#: foundation_installer/app.py:476
+msgid "Your files and settings can only be read with this computer's key or your recovery key."
+msgstr ""
+
+#: foundation_installer/app.py:481 foundation_installer/app.py:482
+msgid "Passphrase"
+msgstr ""
+
+#: foundation_installer/app.py:483
+msgid "Confirm passphrase"
+msgstr ""
+
+#: foundation_installer/app.py:505
+msgid "This computer unlocks your data by itself with its security chip (TPM). You also get a recovery key."
+msgstr ""
+
+#: foundation_installer/app.py:507
+msgid "Your data is unlocked with a passphrase each time the computer starts. You also get a recovery key."
+msgstr ""
+
+#: foundation_installer/app.py:524 foundation_installer/app.py:634 foundation_installer/app.py:732 foundation_installer/app.py:737
+msgid "Install"
+msgstr "Instalar"
+
+#: foundation_installer/app.py:542
+msgid "What will be installed"
+msgstr "O que será instalado"
+
+#: foundation_installer/app.py:558
+msgid "Do not turn off the computer or remove the disk."
+msgstr "Não desligue o computador nem remova o disco."
+
+#: foundation_installer/app.py:602
+msgid "This system's management service cannot install to a disk."
+msgstr "O serviço de gerenciamento deste sistema não pode instalar em um disco."
+
+#: foundation_installer/app.py:615 foundation_installer/app.py:876
+msgid "The installer cannot start"
+msgstr "Não foi possível iniciar o instalador"
+
+#: foundation_installer/app.py:710
+msgid "OK"
+msgstr "OK"
+
+#: foundation_installer/app.py:721
+msgid "Language"
+msgstr "Idioma"
+
+#: foundation_installer/app.py:721
+msgid "Time zone"
+msgstr "Fuso horário"
+
+#: foundation_installer/app.py:722
+msgid "Encryption"
+msgstr ""
+
+#: foundation_installer/app.py:821
+msgid "Installation complete"
+msgstr "Instalação concluída"
+
+#: foundation_installer/app.py:822
+msgid "Remove the installation medium, then restart to start the new system."
+msgstr "Remova a mídia de instalação e reinicie para iniciar o novo sistema."
+
+#: foundation_installer/app.py:824
+msgid "Restart"
+msgstr "Reiniciar"
+
+#: foundation_installer/app.py:831 foundation_installer/app.py:835
+msgid "Show Details"
+msgstr "Mostrar detalhes"
+
+#: foundation_installer/app.py:841
+msgid "Installation failed"
+msgstr "Falha na instalação"
+
+#: foundation_installer/app.py:893
+msgid "{product} Installer"
+msgstr "Instalador do {product}"
+
+#: foundation_installer/app.py:402 foundation_installer/app.py:215
+msgid "Install {product}"
+msgstr "Instalar o {product}"
+
+#: foundation_installer/app.py:447
+msgid "Detected from your network. Change it if it is wrong."
+msgstr "Detectado a partir da sua rede. Altere se estiver errado."
+
+#: foundation_installer/app.py:459
+msgid "{product} is installed on the whole disk. Nothing is changed until you confirm."
+msgstr "O {product} é instalado no disco inteiro. Nada é alterado até você confirmar."
+
+#: foundation_installer/app.py:511
+msgid "Use at least 8 characters."
+msgstr ""
+
+#: foundation_installer/app.py:511
+msgid "The passphrases do not match."
+msgstr ""
+
+#: foundation_installer/app.py:610
+msgid "Install {product}{version}"
+msgstr "Instalar o {product}{version}"
+
+#: foundation_installer/app.py:616
+msgid "Try Again"
+msgstr "Tentar novamente"
+
+#: foundation_installer/app.py:616 foundation_installer/app.py:844 foundation_installer/app.py:877
+msgid "Quit"
+msgstr "Sair"
+
+#: foundation_installer/app.py:708
+msgid "This disk cannot be used"
+msgstr "Este disco não pode ser usado"
+
+#: foundation_installer/app.py:722
+msgid "On"
+msgstr ""
+
+#: foundation_installer/app.py:722
+msgid "Off"
+msgstr ""
+
+#: foundation_installer/app.py:815
+msgid "Write this key down and keep it somewhere safe, away from this computer. It is the only way to unlock your data if the security chip or your passphrase cannot."
+msgstr ""
+
+#: foundation_installer/app.py:818
+msgid "I have saved my recovery key"
+msgstr ""
+
+#: foundation_installer/app.py:835
+msgid "Hide Details"
+msgstr "Ocultar detalhes"
+
+#: foundation_installer/app.py:844
+msgid "Choose a Disk"
+msgstr "Escolher um disco"
+
+#: foundation_installer/app.py:889
+msgid "{product} installer"
+msgstr "instalador do {product}"
+
+#: foundation_installer/app.py:558
+msgid "Installing {product}"
+msgstr "Instalando o {product}"
+
+#: foundation_installer/app.py:665 foundation_installer/model.py:45
+msgid "cannot be used"
+msgstr "não pode ser usado"
+
+#: foundation_installer/app.py:709
+msgid "The service refused this disk."
+msgstr "O serviço recusou este disco."
+
+#: foundation_installer/app.py:742
+msgid "Erase {disk}?"
+msgstr "Apagar {disk}?"
+
+#: foundation_installer/app.py:820
+msgid "Your recovery key"
+msgstr ""
+
+#: foundation_installer/app.py:842
+msgid "{message}\n\nThe disk may have been erased and will not start. It is safe to try again."
+msgstr "{message}\n\nO disco pode ter sido apagado e não iniciará. É seguro tentar novamente."
+
+#: foundation_installer/model.py:24
+msgid "Boot"
+msgstr "Inicialização"
+
+#: foundation_installer/model.py:25
+msgid "Recovery"
+msgstr "Recuperação"
+
+#: foundation_installer/model.py:26
+msgid "System slot A"
+msgstr "Cópia A do sistema"
+
+#: foundation_installer/model.py:27
+msgid "Integrity data for slot A"
+msgstr "Dados de integridade da cópia A"
+
+#: foundation_installer/model.py:28
+msgid "System slot B"
+msgstr "Cópia B do sistema"
+
+#: foundation_installer/model.py:29
+msgid "Integrity data for slot B"
+msgstr "Dados de integridade da cópia B"
+
+#: foundation_installer/model.py:30
+msgid "Your files and settings"
+msgstr "Seus arquivos e configurações"
+
+#: foundation_installer/model.py:31
+msgid "The installer's workspace"
+msgstr "Área de trabalho do instalador"
+
+#: foundation_installer/model.py:50
+msgid "The rest of the disk"
+msgstr "O restante do disco"
+
+#: foundation_installer/model.py:66
+msgid "Permission was not granted to change the disk."
+msgstr "A permissão para alterar o disco não foi concedida."
+
+#: foundation_installer/model.py:70
+msgid "Another installation is already running."
+msgstr "Outra instalação já está em andamento."
+
+#: foundation_installer/model.py:71
+msgid "The installation failed for an unknown reason."
+msgstr "A instalação falhou por um motivo desconhecido."
+
+#: foundation_installer/model.py:80
+msgid "Less than a minute remaining"
+msgstr "Resta menos de um minuto"
+
+#: foundation_installer/model.py:126
+msgid "Default"
+msgstr "Padrão"
+
+#: foundation_installer/model.py:37
+msgid "Removable disk"
+msgstr "Disco removível"
+
+#: foundation_installer/model.py:37
+msgid "Disk"
+msgstr "Disco"
+
+#: foundation_installer/model.py:43
+msgid "removable"
+msgstr "removível"
+
+#: foundation_installer/model.py:58
+msgid "Everything on {disk} will be erased and cannot be recovered.{note}"
+msgstr "Tudo em {disk} será apagado e não poderá ser recuperado.{note}"
+
+#: foundation_installer/model.py:82
+msgid "About {count} minute remaining"
+msgid_plural "About {count} minutes remaining"
+msgstr[0] "Resta cerca de {count} minuto"
+msgstr[1] "Restam cerca de {count} minutos"
+
+#: foundation_installer/model.py:57
+msgid "It currently holds {count} partition."
+msgid_plural "It currently holds {count} partitions."
+msgstr[0] "Atualmente contém {count} partição."
+msgstr[1] "Atualmente contém {count} partições."

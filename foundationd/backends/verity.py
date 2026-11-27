@@ -35,8 +35,9 @@ def roothash_of(cmdline):
     return match.group(1).lower() if match else ""
 
 
-def cmdline_of_file(path):
-    """The `.cmdline` of a UKI file, reading only its headers and that one section (a UKI is over 100 MB)."""
+def section_of_file(path, name):
+    """The bytes of one section of a UKI file (for example b".cmdline" or b".pcrpkey"), reading only its headers and that section
+    (a UKI is over 100 MB). Returns None when the image has no such section."""
     with open(path, "rb") as handle:
         head = handle.read(4096)
         if head[:2] != b"MZ":
@@ -52,9 +53,17 @@ def cmdline_of_file(path):
         table = handle.read(count * SECTION_SIZE)
         for index in range(count):
             base = index * SECTION_SIZE
-            if table[base:base + 8].rstrip(b"\0") != b".cmdline":
+            if table[base:base + 8].rstrip(b"\0") != name:
                 continue
             virtual_size, _address, raw_size, raw_pointer = struct.unpack_from("<IIII", table, base + 8)
             handle.seek(raw_pointer)
-            return handle.read(min(virtual_size, raw_size)).rstrip(b"\0").decode(errors="replace")
-    raise Failed(f"{path}: the kernel image has no .cmdline section")
+            return handle.read(min(virtual_size, raw_size))
+    return None
+
+
+def cmdline_of_file(path):
+    """The `.cmdline` of a UKI file."""
+    data = section_of_file(path, b".cmdline")
+    if data is None:
+        raise Failed(f"{path}: the kernel image has no .cmdline section")
+    return data.rstrip(b"\0").decode(errors="replace")

@@ -1,0 +1,1215 @@
+# Initial, unreviewed machine-assisted translation.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: zh_CN\nPlural-Forms: nplurals=1; plural=0;\n"
+
+#: foundation_deck/app.py:395 foundation_deck/app.py:48 foundation_deck/app.py:101
+msgid "Deck"
+msgstr "Deck"
+
+#: foundation_deck/app.py:65
+msgid "Refresh (Ctrl+R)"
+msgstr "刷新 (Ctrl+R)"
+
+#: foundation_deck/app.py:283 foundation_deck/pages.py:457 foundation_deck/pages.py:485 foundation_deck/pages.py:561 foundation_deck/pages.py:769 foundation_deck/pages.py:902
+msgid "Cancel"
+msgstr "取消"
+
+#: foundation_deck/app.py:293
+msgid "OK"
+msgstr "确定"
+
+#: foundation_deck/app.py:297
+msgid "Restart now?"
+msgstr "立即重启吗？"
+
+#: foundation_deck/app.py:297 foundation_deck/pages.py:629
+msgid "Open applications will be closed."
+msgstr "打开的应用程序将被关闭。"
+
+#: foundation_deck/app.py:297 foundation_deck/pages.py:629
+msgid "Restart"
+msgstr "重启"
+
+#: foundation_deck/app.py:386
+msgid "open this page"
+msgstr "打开此页面"
+
+#: foundation_deck/app.py:388
+msgid "after the first login: offer Ersa ID sign-in once, if a provider is set up (used by a user service)"
+msgstr "首次登录后：如果已设置提供方，则提示一次 Ersa ID 登录（由用户服务使用）"
+
+#: foundation_deck/app.py:393
+msgid "ersa-deck: no display is available"
+msgstr "ersa-deck：没有可用的显示器"
+
+#: foundation_deck/app.py:63 foundation_deck/model.py:105
+msgid "Overview"
+msgstr "概览"
+
+#: foundation_deck/app.py:68 foundation_deck/pages.py:177 foundation_deck/pages.py:630
+msgid "Restart…"
+msgstr "重启…"
+
+#: foundation_deck/app.py:70 foundation_deck/model.py:112
+msgid "Boot Slots"
+msgstr "启动槽位"
+
+#: foundation_deck/app.py:107
+msgid "Search"
+msgstr "搜索"
+
+#: foundation_deck/app.py:261
+msgid "All files"
+msgstr "所有文件"
+
+#: foundation_deck/app.py:305
+msgid "Ersa ID"
+msgstr "Ersa ID"
+
+#: foundation_deck/app.py:306
+msgid "Sign in to Ersa ID"
+msgstr "登录 Ersa ID"
+
+#: foundation_deck/app.py:307
+msgid "Link this computer to your account. You can skip this and sign in later in Deck."
+msgstr "将这台计算机关联到您的账户。您可以跳过此步骤，稍后在 Deck 中登录。"
+
+#: foundation_deck/app.py:308 foundation_deck/pages.py:903
+msgid "Sign In"
+msgstr "登录"
+
+#: foundation_deck/app.py:309
+msgid "Not Now"
+msgstr "暂不"
+
+#: foundation_deck/app.py:383
+msgid "{product} management window"
+msgstr "{product} 管理窗口"
+
+#: foundation_deck/app.py:217
+msgid "Working"
+msgstr "处理中"
+
+#: foundation_deck/app.py:233 foundation_deck/model.py:366
+msgid "Done"
+msgstr "完成"
+
+#: foundation_deck/app.py:369
+msgid "Quit"
+msgstr "退出"
+
+#: foundation_deck/app.py:249
+msgid "Cannot open the file: {reason}"
+msgstr "无法打开文件：{reason}"
+
+#: foundation_deck/app.py:368
+msgid "Deck cannot start"
+msgstr "Deck 无法启动"
+
+#: foundation_deck/model.py:336 foundation_deck/model.py:107
+msgid "Updates"
+msgstr "更新"
+
+#: foundation_deck/model.py:336 foundation_deck/model.py:112
+msgid "System"
+msgstr "系统"
+
+#: foundation_deck/model.py:336
+msgid "Applications"
+msgstr "应用程序"
+
+#: foundation_deck/model.py:351
+msgid "Installed a system update"
+msgstr "已安装系统更新"
+
+#: foundation_deck/model.py:351
+msgid "Installed the newest system update"
+msgstr "已安装最新的系统更新"
+
+#: foundation_deck/model.py:352
+msgid "Changed which system starts"
+msgstr "已更改启动的系统"
+
+#: foundation_deck/model.py:352
+msgid "Chose the next start"
+msgstr "已选择下次启动"
+
+#: foundation_deck/model.py:353
+msgid "Emptied a slot"
+msgstr "已清空槽位"
+
+#: foundation_deck/model.py:353
+msgid "Changed the boot splash"
+msgstr "已更改启动画面"
+
+#: foundation_deck/model.py:354
+msgid "Installed an application"
+msgstr "已安装应用程序"
+
+#: foundation_deck/model.py:354
+msgid "Removed an application"
+msgstr "已移除应用程序"
+
+#: foundation_deck/model.py:354
+msgid "Updated applications"
+msgstr "已更新应用程序"
+
+#: foundation_deck/model.py:355
+msgid "Set up the application source"
+msgstr "已设置应用来源"
+
+#: foundation_deck/model.py:356
+msgid "Installed an extension"
+msgstr "已安装扩展"
+
+#: foundation_deck/model.py:356
+msgid "Removed an extension"
+msgstr "已移除扩展"
+
+#: foundation_deck/model.py:356
+msgid "Checked extensions"
+msgstr "已检查扩展"
+
+#: foundation_deck/model.py:357
+msgid "Added packages to a bundle"
+msgstr "已向捆绑包添加软件包"
+
+#: foundation_deck/model.py:357
+msgid "Installed a bundle"
+msgstr "已安装捆绑包"
+
+#: foundation_deck/model.py:358
+msgid "Removed a bundle"
+msgstr "已移除捆绑包"
+
+#: foundation_deck/model.py:358
+msgid "Updated bundles"
+msgstr "已更新捆绑包"
+
+#: foundation_deck/model.py:358
+msgid "Rebuilt bundles"
+msgstr "已重新构建捆绑包"
+
+#: foundation_deck/model.py:359
+msgid "Changed a repository"
+msgstr "已更改软件仓库"
+
+#: foundation_deck/model.py:359
+msgid "Added a repository"
+msgstr "已添加软件仓库"
+
+#: foundation_deck/model.py:359
+msgid "Removed a repository"
+msgstr "已移除软件仓库"
+
+#: foundation_deck/model.py:360
+msgid "Refreshed repositories"
+msgstr "已刷新软件仓库"
+
+#: foundation_deck/model.py:360
+msgid "Changed remote access"
+msgstr "已更改远程访问"
+
+#: foundation_deck/model.py:361
+msgid "Added an SSH key"
+msgstr "已添加 SSH 密钥"
+
+#: foundation_deck/model.py:361
+msgid "Removed an SSH key"
+msgstr "已移除 SSH 密钥"
+
+#: foundation_deck/model.py:362
+msgid "Installed the system on a disk"
+msgstr "已将系统安装到磁盘"
+
+#: foundation_deck/model.py:362
+msgid "Merged extensions"
+msgstr "已合并扩展"
+
+#: foundation_deck/model.py:362
+msgid "Unmerged extensions"
+msgstr "已取消合并扩展"
+
+#: foundation_deck/model.py:363
+msgid "Refreshed extensions"
+msgstr "已刷新扩展"
+
+#: foundation_deck/model.py:366
+msgid "Failed"
+msgstr "失败"
+
+#: foundation_deck/model.py:366
+msgid "Cancelled"
+msgstr "已取消"
+
+#: foundation_deck/model.py:366
+msgid "Running"
+msgstr "运行中"
+
+#: foundation_deck/model.py:366
+msgid "Waiting"
+msgstr "等待中"
+
+#: foundation_deck/model.py:416 foundation_deck/model.py:205
+msgid "Check to see whether an update is available."
+msgstr "检查是否有可用更新。"
+
+#: foundation_deck/model.py:417
+msgid "Your Ersa ID account on this computer."
+msgstr "您在这台计算机上的 Ersa ID 账户。"
+
+#: foundation_deck/model.py:418
+msgid "System-level software such as codecs and tools."
+msgstr "编解码器和工具等系统级软件。"
+
+#: foundation_deck/model.py:419
+msgid "Where the packages for bundles come from."
+msgstr "捆绑包的软件包来源。"
+
+#: foundation_deck/model.py:420
+msgid "Where applications come from."
+msgstr "应用程序的来源。"
+
+#: foundation_deck/model.py:421
+msgid "Everything the system image contains."
+msgstr "系统映像包含的全部内容。"
+
+#: foundation_deck/model.py:422
+msgid "The two system copies, so an update can fall back."
+msgstr "两份系统副本，以便更新后可以回退。"
+
+#: foundation_deck/model.py:423
+msgid "How the computer starts up."
+msgstr "计算机的启动方式。"
+
+#: foundation_deck/model.py:424
+msgid "Sign in from another computer."
+msgstr "从另一台计算机登录。"
+
+#: foundation_deck/model.py:425
+msgid "Every setting, with what it does."
+msgstr "所有设置及其作用。"
+
+#: foundation_deck/model.py:426
+msgid "What the system did, and how it went."
+msgstr "系统执行过的操作及其结果。"
+
+#: foundation_deck/model.py:20
+msgid "The installer medium's own system"
+msgstr "安装介质自带的系统"
+
+#: foundation_deck/model.py:33
+msgid "Version unknown"
+msgstr "版本未知"
+
+#: foundation_deck/model.py:38
+msgid "The running slot is unknown"
+msgstr "无法确定正在运行的槽位"
+
+#: foundation_deck/model.py:48
+msgid "Not checked"
+msgstr "未检查"
+
+#: foundation_deck/model.py:56
+msgid "An update is installed. Restart to start using it."
+msgstr "已安装更新。重启后即可开始使用。"
+
+#: foundation_deck/model.py:74
+msgid "The administrator's password was not given, so nothing was changed."
+msgstr "未提供管理员密码，因此没有进行任何更改。"
+
+#: foundation_deck/model.py:76
+msgid "Another change is in progress. Try again when it has finished."
+msgstr "另一项更改正在进行。请在其完成后重试。"
+
+#: foundation_deck/model.py:78
+msgid "This is not available on this system."
+msgstr "此系统不支持该功能。"
+
+#: foundation_deck/model.py:79
+msgid "That did not work."
+msgstr "操作未成功。"
+
+#: foundation_deck/model.py:100
+msgid "The failed version stays in its slot until the next update replaces it."
+msgstr "启动失败的版本会保留在其槽位中，直到下次更新将其替换。"
+
+#: foundation_deck/model.py:106
+msgid "Account"
+msgstr "账户"
+
+#: foundation_deck/model.py:107
+msgid "Software"
+msgstr "软件"
+
+#: foundation_deck/model.py:116
+msgid "History"
+msgstr "历史记录"
+
+#: foundation_deck/model.py:160
+msgid "Every restart starts that system until you choose another. A failed start is not rolled back automatically."
+msgstr "在您选择其他系统之前，每次重启都会启动该系统。启动失败不会自动回退。"
+
+#: foundation_deck/model.py:230
+msgid "This computer did not start through UEFI, so the boot splash cannot follow this choice."
+msgstr "这台计算机不是通过 UEFI 启动的，因此启动画面无法遵循此选择。"
+
+#: foundation_deck/model.py:262
+msgid "just now"
+msgstr "刚刚"
+
+#: foundation_deck/model.py:273
+msgid "Give the repository a name."
+msgstr "请为软件仓库命名。"
+
+#: foundation_deck/model.py:275 foundation_deck/model.py:447
+msgid "The address must start with https://."
+msgstr "地址必须以 https:// 开头。"
+
+#: foundation_deck/model.py:277
+msgid "Paste the repository's public signing key."
+msgstr "请粘贴软件仓库的公开签名密钥。"
+
+#: foundation_deck/model.py:294
+msgid "On"
+msgstr "开"
+
+#: foundation_deck/model.py:319
+msgid "Give the user name."
+msgstr "请输入用户名。"
+
+#: foundation_deck/model.py:322
+msgid "Paste a public key (a line starting with ssh-ed25519, ssh-rsa and so on)."
+msgstr "请粘贴公钥（以 ssh-ed25519、ssh-rsa 等开头的一行）。"
+
+#: foundation_deck/model.py:386
+msgid "this file"
+msgstr "此文件"
+
+#: foundation_deck/model.py:404 foundation_deck/model.py:63
+msgid "Choose a file."
+msgstr "请选择一个文件。"
+
+#: foundation_deck/model.py:406
+msgid "That does not look like an RPM package."
+msgstr "这看起来不是 RPM 软件包。"
+
+#: foundation_deck/model.py:445
+msgid "Give the source a short name: letters, digits, dots, dashes."
+msgstr "请为来源取一个简短的名称：字母、数字、点、短横线。"
+
+#: foundation_deck/model.py:449
+msgid "Paste the source's public signing key (an address that is not a .flatpakrepo file needs one)."
+msgstr "请粘贴来源的公开签名密钥（不是 .flatpakrepo 文件的地址需要提供）。"
+
+#: foundation_deck/model.py:466
+msgid "Applications from it are installed for everyone and run with the permissions they ask for. Check the fingerprint with the publisher."
+msgstr "来自该来源的应用程序会为所有用户安装，并以其请求的权限运行。请向发布者核对指纹。"
+
+#: foundation_deck/model.py:484
+msgid "Signed in"
+msgstr "已登录"
+
+#: foundation_deck/model.py:14
+msgid "Slot {name}"
+msgstr "槽位 {name}"
+
+#: foundation_deck/model.py:21
+msgid "Empty"
+msgstr "空"
+
+#: foundation_deck/model.py:23
+msgid "running now"
+msgstr "正在运行"
+
+#: foundation_deck/model.py:25
+msgid "starts by default"
+msgstr "默认启动"
+
+#: foundation_deck/model.py:45
+msgid "This start was confirmed good"
+msgstr "本次启动已确认正常"
+
+#: foundation_deck/model.py:65
+msgid "That file does not exist."
+msgstr "该文件不存在。"
+
+#: foundation_deck/model.py:67
+msgid "That does not look like an update archive (.tar.zst)."
+msgstr "这看起来不是更新归档（.tar.zst）。"
+
+#: foundation_deck/model.py:150
+msgid "Start Once"
+msgstr "仅启动一次"
+
+#: foundation_deck/model.py:150
+msgid "Always Start"
+msgstr "始终启动"
+
+#: foundation_deck/model.py:158
+msgid "The next restart starts that system. The one after goes back to the usual choice."
+msgstr "下次重启将启动该系统，再下一次则恢复为通常的选择。"
+
+#: foundation_deck/model.py:173 foundation_deck/model.py:183
+msgid "turned off"
+msgstr "已关闭"
+
+#: foundation_deck/model.py:180
+msgid "version unknown"
+msgstr "版本未知"
+
+#: foundation_deck/model.py:238 foundation_deck/pages.py:477
+msgid "Name"
+msgstr "名称"
+
+#: foundation_deck/model.py:238
+msgid "Version"
+msgstr "版本"
+
+#: foundation_deck/model.py:239
+msgid "Architecture"
+msgstr "架构"
+
+#: foundation_deck/model.py:253 foundation_deck/model.py:434
+msgid "signed"
+msgstr "已签名"
+
+#: foundation_deck/model.py:253 foundation_deck/model.py:434
+msgid "not signed"
+msgstr "未签名"
+
+#: foundation_deck/model.py:254 foundation_deck/model.py:438
+msgid "comes with the system"
+msgstr "系统自带"
+
+#: foundation_deck/model.py:254
+msgid "added by you"
+msgstr "由您添加"
+
+#: foundation_deck/model.py:256
+msgid "never refreshed"
+msgstr "从未刷新"
+
+#: foundation_deck/model.py:267
+msgid "{count} day ago"
+msgid_plural "{count} days ago"
+msgstr[0] "{count} 天前"
+
+#: foundation_deck/model.py:292
+msgid "Not available"
+msgstr "不可用"
+
+#: foundation_deck/model.py:292
+msgid "The SSH server is not part of this system."
+msgstr "此系统不包含 SSH 服务器。"
+
+#: foundation_deck/model.py:296
+msgid "On at the next start"
+msgstr "下次启动时开启"
+
+#: foundation_deck/model.py:298
+msgid "Off"
+msgstr "关"
+
+#: foundation_deck/model.py:392
+msgid "Missing: "
+msgstr "缺少："
+
+#: foundation_deck/model.py:392
+msgid "Missing library: "
+msgstr "缺少库："
+
+#: foundation_deck/model.py:393
+msgid "Would replace: "
+msgstr "将替换："
+
+#: foundation_deck/model.py:397
+msgid "Its install scripts are not run."
+msgstr "不会运行其安装脚本。"
+
+#: foundation_deck/model.py:436
+msgid "no apps installed"
+msgstr "未安装应用"
+
+#: foundation_deck/model.py:33 foundation_deck/model.py:21
+msgid "Version {version}"
+msgstr "版本 {version}"
+
+#: foundation_deck/model.py:38
+msgid "Running from slot {slot}"
+msgstr "正从槽位 {slot} 运行"
+
+#: foundation_deck/model.py:56
+msgid "Version {version} is installed. Restart to start using it."
+msgstr "已安装版本 {version}。重启后即可开始使用。"
+
+#: foundation_deck/model.py:85
+msgid "{size:.1f} GB"
+msgstr "{size:.1f} GB"
+
+#: foundation_deck/model.py:85
+msgid "{size:.0f} MB"
+msgstr "{size:.0f} MB"
+
+#: foundation_deck/model.py:99
+msgid "Version {version} did not start, so the previous system was started instead. "
+msgstr "版本 {version} 未能启动，因此改为启动了之前的系统。"
+
+#: foundation_deck/model.py:108
+msgid "Bundles and Extensions"
+msgstr "捆绑包和扩展"
+
+#: foundation_deck/model.py:109
+msgid "Repositories"
+msgstr "软件仓库"
+
+#: foundation_deck/model.py:110
+msgid "Application Sources"
+msgstr "应用来源"
+
+#: foundation_deck/model.py:111
+msgid "Base Packages"
+msgstr "基础软件包"
+
+#: foundation_deck/model.py:113
+msgid "Appearance"
+msgstr "外观"
+
+#: foundation_deck/model.py:114
+msgid "Remote Access"
+msgstr "远程访问"
+
+#: foundation_deck/model.py:115
+msgid "Advanced"
+msgstr "高级"
+
+#: foundation_deck/model.py:116
+msgid "Activity"
+msgstr "活动"
+
+#: foundation_deck/model.py:159
+msgid "Always start {name}?"
+msgstr "要始终启动 {name} 吗？"
+
+#: foundation_deck/model.py:170 foundation_deck/pages.py:612
+msgid "{count} package"
+msgid_plural "{count} packages"
+msgstr[0] "{count} 个软件包"
+
+#: foundation_deck/model.py:264
+msgid "{count} minute ago"
+msgid_plural "{count} minutes ago"
+msgstr[0] "{count} 分钟前"
+
+#: foundation_deck/model.py:266
+msgid "{count} hour ago"
+msgid_plural "{count} hours ago"
+msgstr[0] "{count} 小时前"
+
+#: foundation_deck/model.py:300
+msgid "the firewall allows it"
+msgstr "防火墙允许"
+
+#: foundation_deck/model.py:300
+msgid "the firewall blocks it"
+msgstr "防火墙已阻止"
+
+#: foundation_deck/model.py:376
+msgid "{state}: {message}"
+msgstr "{state}：{message}"
+
+#: foundation_deck/model.py:378
+msgid "{state}: {step}"
+msgstr "{state}：{step}"
+
+#: foundation_deck/model.py:27
+msgid "{count} start attempt left"
+msgid_plural "{count} start attempts left"
+msgstr[0] "剩余 {count} 次启动尝试"
+
+#: foundation_deck/model.py:47
+msgid "Waiting to be confirmed ({count} attempts left)"
+msgstr "等待确认（剩余 {count} 次尝试）"
+
+#: foundation_deck/model.py:157
+msgid "Start {name} once?"
+msgstr "要仅启动一次 {name} 吗？"
+
+#: foundation_deck/model.py:194
+msgid "This turns on the package source: {sources}."
+msgstr "这将启用以下软件包源：{sources}。"
+
+#: foundation_deck/model.py:256
+msgid "refreshed {age}"
+msgstr "{age}刷新"
+
+#: foundation_deck/model.py:391
+msgid "{name} does not fit this system."
+msgstr "{name} 不适用于此系统。"
+
+#: foundation_deck/model.py:436
+msgid "{count} app installed"
+msgid_plural "{count} apps installed"
+msgstr[0] "已安装 {count} 个应用"
+
+#: foundation_deck/model.py:204
+msgid "Version {version} is available"
+msgstr "版本 {version} 可用"
+
+#: foundation_deck/model.py:389
+msgid "{name} {version} fits this system."
+msgstr "{name} {version} 适用于此系统。"
+
+#: foundation_deck/model.py:370
+msgid "Job"
+msgstr "任务"
+
+#: foundation_deck/pages.py:140
+msgid "This system"
+msgstr "本系统"
+
+#: foundation_deck/pages.py:175
+msgid "Check for Updates"
+msgstr "检查更新"
+
+#: foundation_deck/pages.py:176 foundation_deck/pages.py:364 foundation_deck/pages.py:274 foundation_deck/pages.py:344
+msgid "Install"
+msgstr "安装"
+
+#: foundation_deck/pages.py:182
+msgid "Automatic updates"
+msgstr "自动更新"
+
+#: foundation_deck/pages.py:182
+msgid "Nothing restarts the computer by itself."
+msgstr "不会自动重启计算机。"
+
+#: foundation_deck/pages.py:189
+msgid "Developer mode"
+msgstr "开发者模式"
+
+#: foundation_deck/pages.py:189
+msgid "Developer mode is on, so an update without a signature may be installed."
+msgstr "开发者模式已开启，因此可能会安装没有签名的更新。"
+
+#: foundation_deck/pages.py:194
+msgid "Install from a file"
+msgstr "从文件安装"
+
+#: foundation_deck/pages.py:194
+msgid "For an update you built or were given. It is checked against the trusted keys."
+msgstr "适用于您自行构建或获得的更新。会使用受信任的密钥进行校验。"
+
+#: foundation_deck/pages.py:247
+msgid "Looking for updates…"
+msgstr "正在查找更新…"
+
+#: foundation_deck/pages.py:266 foundation_deck/pages.py:289
+msgid "Installing the update…"
+msgstr "正在安装更新…"
+
+#: foundation_deck/pages.py:280
+msgid "Choose an update file"
+msgstr "选择更新文件"
+
+#: foundation_deck/pages.py:280
+msgid "Update archives"
+msgstr "更新归档"
+
+#: foundation_deck/pages.py:297
+msgid "Installed bundles"
+msgstr "已安装的捆绑包"
+
+#: foundation_deck/pages.py:297
+msgid "Extra software added to the system without changing it."
+msgstr "在不改动系统的情况下添加的额外软件。"
+
+#: foundation_deck/pages.py:301
+msgid "Available"
+msgstr "可用"
+
+#: foundation_deck/pages.py:302 foundation_deck/pages.py:405 foundation_deck/pages.py:521 foundation_deck/pages.py:710
+msgid "Add…"
+msgstr "添加…"
+
+#: foundation_deck/pages.py:303
+msgid "Extensions"
+msgstr "扩展"
+
+#: foundation_deck/pages.py:303
+msgid "Single packages added as extensions."
+msgstr "作为扩展添加的单个软件包。"
+
+#: foundation_deck/pages.py:386
+msgid "Choose a package"
+msgstr "选择软件包"
+
+#: foundation_deck/pages.py:386
+msgid "RPM packages"
+msgstr "RPM 软件包"
+
+#: foundation_deck/pages.py:394 foundation_deck/pages.py:361
+msgid "Installing…"
+msgstr "正在安装…"
+
+#: foundation_deck/pages.py:406
+msgid "Package sources"
+msgstr "软件包源"
+
+#: foundation_deck/pages.py:406
+msgid "Where bundles get their software. Every source must be signed."
+msgstr "捆绑包获取软件的来源。每个来源都必须已签名。"
+
+#: foundation_deck/pages.py:410
+msgid "Results"
+msgstr "结果"
+
+#: foundation_deck/pages.py:438
+msgid "Searching…"
+msgstr "正在搜索…"
+
+#: foundation_deck/pages.py:458 foundation_deck/pages.py:770 foundation_deck/pages.py:384
+msgid "Add"
+msgstr "添加"
+
+#: foundation_deck/pages.py:473 foundation_deck/pages.py:547
+msgid "Changing…"
+msgstr "正在更改…"
+
+#: foundation_deck/pages.py:486 foundation_deck/pages.py:562
+msgid "Continue"
+msgstr "继续"
+
+#: foundation_deck/pages.py:520
+msgid "Application sources"
+msgstr "应用来源"
+
+#: foundation_deck/pages.py:520
+msgid "Where Flatpak applications come from. Every source must be signed. They also show up in app stores such as Bazaar."
+msgstr "Flatpak 应用程序的来源。每个来源都必须已签名。它们也会显示在 Bazaar 等应用商店中。"
+
+#: foundation_deck/pages.py:627
+msgid "Boot slots"
+msgstr "启动槽位"
+
+#: foundation_deck/pages.py:627
+msgid "Two copies of the system. An update goes to the one that is not running."
+msgstr "系统的两份副本。更新会应用到未在运行的那一份。"
+
+#: foundation_deck/pages.py:654
+msgid "Its system is removed. The next update has more room to choose from, but this slot cannot be started until then."
+msgstr "其中的系统将被移除。下次更新可选择的空间更多，但在此之前无法从该槽位启动。"
+
+#: foundation_deck/pages.py:655
+msgid "Empty Slot"
+msgstr "清空槽位"
+
+#: foundation_deck/pages.py:665
+msgid "Boot splash"
+msgstr "启动画面"
+
+#: foundation_deck/pages.py:665
+msgid "The picture shown while the computer starts. It changes at the next restart. Colours, wallpaper and fonts of the desktop are in GNOME Settings."
+msgstr "计算机启动时显示的图片。将在下次重启时生效。桌面的颜色、壁纸和字体可在 GNOME 设置中更改。"
+
+#: foundation_deck/pages.py:694
+msgid "Changing the boot splash"
+msgstr "正在更改启动画面"
+
+#: foundation_deck/pages.py:705
+msgid "SSH"
+msgstr "SSH"
+
+#: foundation_deck/pages.py:705
+msgid "Sign in from another computer over the network, with an authorized key."
+msgstr "通过网络，使用授权密钥从另一台计算机登录。"
+
+#: foundation_deck/pages.py:710
+msgid "Authorized keys"
+msgstr "授权密钥"
+
+#: foundation_deck/pages.py:710
+msgid "Computers that may sign in without a password."
+msgstr "无需密码即可登录的计算机。"
+
+#: foundation_deck/pages.py:747
+msgid "Changing remote access…"
+msgstr "正在更改远程访问…"
+
+#: foundation_deck/pages.py:850
+msgid "Recent changes"
+msgstr "最近的更改"
+
+#: foundation_deck/pages.py:850
+msgid "What the system did on request, newest first. foundationd keeps the last fifty."
+msgstr "系统应请求执行的操作，最新的在前。foundationd 保留最近五十条。"
+
+#: foundation_deck/pages.py:896
+msgid "Approve this sign-in"
+msgstr "批准此次登录"
+
+#: foundation_deck/pages.py:896
+msgid "Open the page on any device and enter this code."
+msgstr "在任意设备上打开该页面并输入此代码。"
+
+#: foundation_deck/pages.py:901 foundation_deck/pages.py:991
+msgid "Open the Sign-in Page"
+msgstr "打开登录页面"
+
+#: foundation_deck/pages.py:904 foundation_deck/pages.py:1013
+msgid "Sign Out"
+msgstr "退出登录"
+
+#: foundation_deck/pages.py:968 foundation_deck/pages.py:133
+msgid "…"
+msgstr "…"
+
+#: foundation_deck/pages.py:1013
+msgid "Sign out of Ersa ID?"
+msgstr "要退出 Ersa ID 登录吗？"
+
+#: foundation_deck/pages.py:1013
+msgid "This computer forgets your account. Your files and settings stay."
+msgstr "这台计算机将忘记您的账户。您的文件和设置会保留。"
+
+#: foundation_deck/pages.py:184
+msgid "Check automatically"
+msgstr "自动检查"
+
+#: foundation_deck/pages.py:184
+msgid "Install automatically"
+msgstr "自动安装"
+
+#: foundation_deck/pages.py:190
+msgid "Install without checking the signature"
+msgstr "不检查签名直接安装"
+
+#: foundation_deck/pages.py:191
+msgid "For images you built yourself. Anything can be installed this way."
+msgstr "适用于您自行构建的映像。通过这种方式可以安装任何内容。"
+
+#: foundation_deck/pages.py:195
+msgid "Update file"
+msgstr "更新文件"
+
+#: foundation_deck/pages.py:195
+msgid "A .tar.zst archive"
+msgstr ".tar.zst 归档"
+
+#: foundation_deck/pages.py:196
+msgid "Choose…"
+msgstr "选择…"
+
+#: foundation_deck/pages.py:278
+msgid "Install this update?"
+msgstr "要安装此更新吗？"
+
+#: foundation_deck/pages.py:298
+msgid "Update All"
+msgstr "全部更新"
+
+#: foundation_deck/pages.py:313 foundation_deck/pages.py:330
+msgid "None installed"
+msgstr "未安装"
+
+#: foundation_deck/pages.py:403
+msgid "Refresh"
+msgstr "刷新"
+
+#: foundation_deck/pages.py:407
+msgid "Find a package in these sources"
+msgstr "在这些来源中查找软件包"
+
+#: foundation_deck/pages.py:419
+msgid "No repositories"
+msgstr "没有软件仓库"
+
+#: foundation_deck/pages.py:453
+msgid "Bundle name"
+msgstr "捆绑包名称"
+
+#: foundation_deck/pages.py:455
+msgid "A bundle is one group of extra software. A new name makes a new bundle; an existing name adds to it."
+msgstr "捆绑包是一组额外的软件。使用新名称会创建新的捆绑包；使用已有名称则会添加到该捆绑包。"
+
+#: foundation_deck/pages.py:478
+msgid "https://example.org/repo"
+msgstr "https://example.org/repo"
+
+#: foundation_deck/pages.py:483
+msgid "Add a repository"
+msgstr "添加软件仓库"
+
+#: foundation_deck/pages.py:483
+msgid "Only add sources you trust: their software is installed as bundles."
+msgstr "请只添加您信任的来源：其软件将以捆绑包形式安装。"
+
+#: foundation_deck/pages.py:509 foundation_deck/pages.py:581
+msgid "Trust and Add"
+msgstr "信任并添加"
+
+#: foundation_deck/pages.py:529
+msgid "No sources. Flathub is added when the computer is first online."
+msgstr "没有来源。计算机首次联网时会添加 Flathub。"
+
+#: foundation_deck/pages.py:551
+msgid "https://example.org/apps.flatpakrepo"
+msgstr "https://example.org/apps.flatpakrepo"
+
+#: foundation_deck/pages.py:552
+msgid "Short name, for example acme"
+msgstr "简短名称，例如 acme"
+
+#: foundation_deck/pages.py:553
+msgid "Title (optional)"
+msgstr "标题（可选）"
+
+#: foundation_deck/pages.py:559
+msgid "Add an application source"
+msgstr "添加应用来源"
+
+#: foundation_deck/pages.py:559
+msgid "Only add sources you trust: their applications run on this computer."
+msgstr "请只添加您信任的来源：其应用程序将在这台计算机上运行。"
+
+#: foundation_deck/pages.py:593
+msgid "Search the system's packages"
+msgstr "搜索系统的软件包"
+
+#: foundation_deck/pages.py:667
+msgid "Style"
+msgstr "样式"
+
+#: foundation_deck/pages.py:669
+msgid "Light"
+msgstr "浅色"
+
+#: foundation_deck/pages.py:670
+msgid "Dark"
+msgstr "深色"
+
+#: foundation_deck/pages.py:706
+msgid "Remote login (SSH)"
+msgstr "远程登录 (SSH)"
+
+#: foundation_deck/pages.py:738
+msgid "Add a key first"
+msgstr "请先添加密钥"
+
+#: foundation_deck/pages.py:739
+msgid "No user has an SSH key, so nobody could sign in. Add a key, then turn remote login on."
+msgstr "没有用户拥有 SSH 密钥，因此没有人能够登录。请先添加密钥，再开启远程登录。"
+
+#: foundation_deck/pages.py:753
+msgid "No keys"
+msgstr "没有密钥"
+
+#: foundation_deck/pages.py:763
+msgid "User"
+msgstr "用户"
+
+#: foundation_deck/pages.py:767
+msgid "Add an SSH key"
+msgstr "添加 SSH 密钥"
+
+#: foundation_deck/pages.py:767
+msgid "Paste the public key (one line, from a .pub file)."
+msgstr "请粘贴公钥（一行，来自 .pub 文件）。"
+
+#: foundation_deck/pages.py:783
+msgid "Adding the key…"
+msgstr "正在添加密钥…"
+
+#: foundation_deck/pages.py:858
+msgid "Nothing yet since the system started"
+msgstr "系统启动后尚无任何记录"
+
+#: foundation_deck/pages.py:254
+msgid "Your system is up to date."
+msgstr "您的系统已是最新。"
+
+#: foundation_deck/pages.py:259
+msgid "No update source is set up yet."
+msgstr "尚未设置更新来源。"
+
+#: foundation_deck/pages.py:316 foundation_deck/pages.py:333 foundation_deck/pages.py:756 foundation_deck/pages.py:429 foundation_deck/pages.py:539 foundation_deck/pages.py:317 foundation_deck/pages.py:334 foundation_deck/pages.py:757 foundation_deck/pages.py:430 foundation_deck/pages.py:540
+msgid "Remove"
+msgstr "移除"
+
+#: foundation_deck/pages.py:394
+msgid "The extension is installed."
+msgstr "扩展已安装。"
+
+#: foundation_deck/pages.py:481
+msgid "Public signing key (the text of the .asc file)"
+msgstr "公开签名密钥（.asc 文件的文本）"
+
+#: foundation_deck/pages.py:506
+msgid "That is not a usable public key."
+msgstr "这不是可用的公钥。"
+
+#: foundation_deck/pages.py:556
+msgid "Public signing key (only if the address is not a .flatpakrepo file)"
+msgstr "公开签名密钥（仅当地址不是 .flatpakrepo 文件时）"
+
+#: foundation_deck/pages.py:604
+msgid "What the read-only system is made of. Changes come with system updates, not from here."
+msgstr "只读系统的组成内容。更改随系统更新而来，而不是在此处进行。"
+
+#: foundation_deck/pages.py:651
+msgid "Changing the boot choice…"
+msgstr "正在更改启动选择…"
+
+#: foundation_deck/pages.py:657
+msgid "Emptying the slot…"
+msgstr "正在清空槽位…"
+
+#: foundation_deck/pages.py:943
+msgid "Sign in to link this computer to your account."
+msgstr "登录以将这台计算机关联到您的账户。"
+
+#: foundation_deck/pages.py:944
+msgid "No account provider is set up on this computer."
+msgstr "这台计算机上未设置账户提供方。"
+
+#: foundation_deck/pages.py:945
+msgid "Account sign-in is turned off on this computer."
+msgstr "这台计算机上已关闭账户登录。"
+
+#: foundation_deck/pages.py:272
+msgid "That file cannot be used."
+msgstr "无法使用该文件。"
+
+#: foundation_deck/pages.py:276
+msgid "Install Without Signature"
+msgstr "无签名安装"
+
+#: foundation_deck/pages.py:300
+msgid "Updating bundles…"
+msgstr "正在更新捆绑包…"
+
+#: foundation_deck/pages.py:323
+msgid "asked for"
+msgstr "已指定"
+
+#: foundation_deck/pages.py:382
+msgid "This package does not fit"
+msgstr "此软件包不适用"
+
+#: foundation_deck/pages.py:404
+msgid "Refreshing…"
+msgstr "正在刷新…"
+
+#: foundation_deck/pages.py:444
+msgid " (showing the first 40)"
+msgstr "（显示前 40 项）"
+
+#: foundation_deck/pages.py:448
+msgid "Add to Bundle…"
+msgstr "添加到捆绑包…"
+
+#: foundation_deck/pages.py:454
+msgid "Add {package} to a bundle"
+msgstr "将 {package} 添加到捆绑包"
+
+#: foundation_deck/pages.py:511 foundation_deck/pages.py:582
+msgid "Adding…"
+msgstr "正在添加…"
+
+#: foundation_deck/pages.py:612
+msgid "{shown} of {total} packages"
+msgstr "共 {total} 个软件包，显示 {shown} 个"
+
+#: foundation_deck/pages.py:643
+msgid "Empty this slot"
+msgstr "清空此槽位"
+
+#: foundation_deck/pages.py:740
+msgid "Add a Key…"
+msgstr "添加密钥…"
+
+#: foundation_deck/pages.py:265 foundation_deck/pages.py:288
+msgid "Version {version} is ready. Restart to use it."
+msgstr "版本 {version} 已就绪。重启后即可使用。"
+
+#: foundation_deck/pages.py:317
+msgid "Its software is taken away. Your files are not touched."
+msgstr "其软件将被移除。您的文件不受影响。"
+
+#: foundation_deck/pages.py:334
+msgid "The extension is removed."
+msgstr "扩展已移除。"
+
+#: foundation_deck/pages.py:444
+msgid "{count} found"
+msgid_plural "{count} found"
+msgstr[0] "找到 {count} 项"
+
+#: foundation_deck/pages.py:466
+msgid "Adding {package}"
+msgstr "正在添加 {package}"
+
+#: foundation_deck/pages.py:651
+msgid "Done. Restart to use it."
+msgstr "完成。重启后即可使用。"
+
+#: foundation_deck/pages.py:757
+msgid "Remove this key?"
+msgstr "要移除此密钥吗？"
+
+#: foundation_deck/pages.py:300
+msgid "Bundles are up to date."
+msgstr "捆绑包已是最新。"
+
+#: foundation_deck/pages.py:404
+msgid "Repositories are up to date."
+msgstr "软件仓库已是最新。"
+
+#: foundation_deck/pages.py:430
+msgid "Bundles that use it must be removed first."
+msgstr "必须先移除使用它的捆绑包。"
+
+#: foundation_deck/pages.py:540
+msgid "Applications installed from it must be removed first."
+msgstr "必须先移除从它安装的应用程序。"
+
+#: foundation_deck/pages.py:318 foundation_deck/pages.py:335 foundation_deck/pages.py:758 foundation_deck/pages.py:431 foundation_deck/pages.py:541
+msgid "Removing…"
+msgstr "正在移除…"
+
+#: foundation_deck/pages.py:466
+msgid "{package} was added to {bundle}."
+msgstr "已将 {package} 添加到 {bundle}。"
+
+#: foundation_deck/tasks.py:24
+msgid "Starting…"
+msgstr "正在启动…"
+
+#: foundation_deck/tasks.py:88
+msgid "Clear finished"
+msgstr "清除已完成项"
+
+#: foundation_deck/tasks.py:97 foundation_deck/tasks.py:114 foundation_deck/tasks.py:153
+msgid "Tasks"
+msgstr "任务"
+
+#: foundation_deck/tasks.py:98
+msgid "Nothing running"
+msgstr "没有正在运行的任务"
+
+#: foundation_deck/tasks.py:27
+msgid "Cancel: {title}"
+msgstr "取消：{title}"
+
+#: foundation_deck/tasks.py:142
+msgid "{count} task running"
+msgid_plural "{count} tasks running"
+msgstr[0] "{count} 个任务正在运行"
+
+#: foundation_deck/tasks.py:154
+msgid "Done: {title}"
+msgstr "完成：{title}"
+
+#: foundation_deck/tasks.py:154
+msgid "Failed: {title}"
+msgstr "失败：{title}"

@@ -1,6 +1,6 @@
 """deploy.* workers: list disks, plan an installation (queries) and install (a job)."""
 
-from ..backends import deploy
+from ..backends import deploy, encryption
 from ..workerlib import worker
 
 
@@ -21,6 +21,8 @@ def plan(ctx):
 @worker("deploy.run")
 def run(ctx):
     disk = ctx.arg("disk")
+    secrets_path = ctx.arg("secrets_path", str, "")
+    secrets = encryption.read_secrets_file(secrets_path) if secrets_path else None      # reads and deletes the staged file
     return deploy.deploy(ctx.paths, disk, ctx.arg("confirm"), ctx, allow_file=_allow_file(ctx),
                          language=ctx.arg("language") or "", timezone=ctx.arg("timezone") or "",
-                         preseed=ctx.arg("preseed", dict, {}))
+                         preseed=ctx.arg("preseed", dict, {}), secrets=secrets)

@@ -1,0 +1,341 @@
+# Initial, unreviewed machine-assisted translation.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: zh_CN\nPlural-Forms: nplurals=1; plural=0;\n"
+
+#: foundation_installer/app.py:374
+msgid "Select your language"
+msgstr "选择您的语言"
+
+#: foundation_installer/app.py:374
+msgid "This sets the language of the installed system."
+msgstr "这将设置所安装系统的语言。"
+
+#: foundation_installer/app.py:403 foundation_installer/app.py:236
+msgid "Go Back"
+msgstr "返回"
+
+#: foundation_installer/app.py:404 foundation_installer/app.py:241
+msgid "Refresh Disks"
+msgstr "刷新磁盘"
+
+#: foundation_installer/app.py:405 foundation_installer/app.py:245
+msgid "Customize…"
+msgstr "自定义…"
+
+#: foundation_installer/app.py:407 foundation_installer/app.py:238 foundation_installer/app.py:291 foundation_installer/app.py:316 foundation_installer/app.py:320 foundation_installer/app.py:408
+msgid "Continue"
+msgstr "继续"
+
+#: foundation_installer/app.py:419
+msgid "Select your time zone"
+msgstr "选择您的时区"
+
+#: foundation_installer/app.py:419
+msgid "This sets the clock of the installed system."
+msgstr "这将设置所安装系统的时钟。"
+
+#: foundation_installer/app.py:458
+msgid "Select the disk where you want to install"
+msgstr "选择要安装到的磁盘"
+
+#: foundation_installer/app.py:472
+msgid "Protect your data"
+msgstr ""
+
+#: foundation_installer/app.py:473
+msgid "Encryption keeps your files and settings private if this computer is lost or stolen."
+msgstr ""
+
+#: foundation_installer/app.py:503
+msgid "Without encryption, anyone who has the disk can read your files and settings."
+msgstr ""
+
+#: foundation_installer/app.py:536
+msgid "Ready to install"
+msgstr "准备安装"
+
+#: foundation_installer/app.py:536
+msgid "Review what will happen."
+msgstr "请查看将要执行的操作。"
+
+#: foundation_installer/app.py:612
+msgid "This installs the system on a disk in this computer. You choose the disk next, and you see exactly what will be erased before anything is changed."
+msgstr "这会将系统安装到本计算机的磁盘上。接下来您将选择磁盘，并且在进行任何更改之前，会明确显示将被抹除的内容。"
+
+#: foundation_installer/app.py:743
+msgid "Cancel"
+msgstr "取消"
+
+#: foundation_installer/app.py:744
+msgid "Erase and Install"
+msgstr "抹除并安装"
+
+#: foundation_installer/app.py:760 foundation_installer/app.py:552
+msgid "Preparing…"
+msgstr "正在准备…"
+
+#: foundation_installer/app.py:309
+msgid "Starting…"
+msgstr "正在启动…"
+
+#: foundation_installer/app.py:350
+msgid "Search"
+msgstr "搜索"
+
+#: foundation_installer/app.py:467
+msgid "No disks were found."
+msgstr "未找到磁盘。"
+
+#: foundation_installer/app.py:475
+msgid "Encrypt your data"
+msgstr ""
+
+#: foundation_installer/app.py:476
+msgid "Your files and settings can only be read with this computer's key or your recovery key."
+msgstr ""
+
+#: foundation_installer/app.py:481 foundation_installer/app.py:482
+msgid "Passphrase"
+msgstr ""
+
+#: foundation_installer/app.py:483
+msgid "Confirm passphrase"
+msgstr ""
+
+#: foundation_installer/app.py:505
+msgid "This computer unlocks your data by itself with its security chip (TPM). You also get a recovery key."
+msgstr ""
+
+#: foundation_installer/app.py:507
+msgid "Your data is unlocked with a passphrase each time the computer starts. You also get a recovery key."
+msgstr ""
+
+#: foundation_installer/app.py:524 foundation_installer/app.py:634 foundation_installer/app.py:732 foundation_installer/app.py:737
+msgid "Install"
+msgstr "安装"
+
+#: foundation_installer/app.py:542
+msgid "What will be installed"
+msgstr "将要安装的内容"
+
+#: foundation_installer/app.py:558
+msgid "Do not turn off the computer or remove the disk."
+msgstr "请勿关闭计算机或移除磁盘。"
+
+#: foundation_installer/app.py:602
+msgid "This system's management service cannot install to a disk."
+msgstr "此系统的管理服务无法安装到磁盘。"
+
+#: foundation_installer/app.py:615 foundation_installer/app.py:876
+msgid "The installer cannot start"
+msgstr "安装程序无法启动"
+
+#: foundation_installer/app.py:710
+msgid "OK"
+msgstr "确定"
+
+#: foundation_installer/app.py:721
+msgid "Language"
+msgstr "语言"
+
+#: foundation_installer/app.py:721
+msgid "Time zone"
+msgstr "时区"
+
+#: foundation_installer/app.py:722
+msgid "Encryption"
+msgstr ""
+
+#: foundation_installer/app.py:821
+msgid "Installation complete"
+msgstr "安装完成"
+
+#: foundation_installer/app.py:822
+msgid "Remove the installation medium, then restart to start the new system."
+msgstr "请移除安装介质，然后重启以启动新系统。"
+
+#: foundation_installer/app.py:824
+msgid "Restart"
+msgstr "重启"
+
+#: foundation_installer/app.py:831 foundation_installer/app.py:835
+msgid "Show Details"
+msgstr "显示详细信息"
+
+#: foundation_installer/app.py:841
+msgid "Installation failed"
+msgstr "安装失败"
+
+#: foundation_installer/app.py:893
+msgid "{product} Installer"
+msgstr "{product} 安装程序"
+
+#: foundation_installer/app.py:402 foundation_installer/app.py:215
+msgid "Install {product}"
+msgstr "安装 {product}"
+
+#: foundation_installer/app.py:447
+msgid "Detected from your network. Change it if it is wrong."
+msgstr "根据您的网络检测得出。如有错误，请更改。"
+
+#: foundation_installer/app.py:459
+msgid "{product} is installed on the whole disk. Nothing is changed until you confirm."
+msgstr "{product} 将安装到整个磁盘。在您确认之前不会进行任何更改。"
+
+#: foundation_installer/app.py:511
+msgid "Use at least 8 characters."
+msgstr ""
+
+#: foundation_installer/app.py:511
+msgid "The passphrases do not match."
+msgstr ""
+
+#: foundation_installer/app.py:610
+msgid "Install {product}{version}"
+msgstr "安装 {product}{version}"
+
+#: foundation_installer/app.py:616
+msgid "Try Again"
+msgstr "重试"
+
+#: foundation_installer/app.py:616 foundation_installer/app.py:844 foundation_installer/app.py:877
+msgid "Quit"
+msgstr "退出"
+
+#: foundation_installer/app.py:708
+msgid "This disk cannot be used"
+msgstr "无法使用此磁盘"
+
+#: foundation_installer/app.py:722
+msgid "On"
+msgstr ""
+
+#: foundation_installer/app.py:722
+msgid "Off"
+msgstr ""
+
+#: foundation_installer/app.py:815
+msgid "Write this key down and keep it somewhere safe, away from this computer. It is the only way to unlock your data if the security chip or your passphrase cannot."
+msgstr ""
+
+#: foundation_installer/app.py:818
+msgid "I have saved my recovery key"
+msgstr ""
+
+#: foundation_installer/app.py:835
+msgid "Hide Details"
+msgstr "隐藏详细信息"
+
+#: foundation_installer/app.py:844
+msgid "Choose a Disk"
+msgstr "选择磁盘"
+
+#: foundation_installer/app.py:889
+msgid "{product} installer"
+msgstr "{product} 安装程序"
+
+#: foundation_installer/app.py:558
+msgid "Installing {product}"
+msgstr "正在安装 {product}"
+
+#: foundation_installer/app.py:665 foundation_installer/model.py:45
+msgid "cannot be used"
+msgstr "无法使用"
+
+#: foundation_installer/app.py:709
+msgid "The service refused this disk."
+msgstr "服务拒绝了此磁盘。"
+
+#: foundation_installer/app.py:742
+msgid "Erase {disk}?"
+msgstr "要抹除 {disk} 吗？"
+
+#: foundation_installer/app.py:820
+msgid "Your recovery key"
+msgstr ""
+
+#: foundation_installer/app.py:842
+msgid "{message}\n\nThe disk may have been erased and will not start. It is safe to try again."
+msgstr "{message}\n\n磁盘可能已被抹除，且无法启动。可以放心重试。"
+
+#: foundation_installer/model.py:24
+msgid "Boot"
+msgstr "引导"
+
+#: foundation_installer/model.py:25
+msgid "Recovery"
+msgstr "恢复"
+
+#: foundation_installer/model.py:26
+msgid "System slot A"
+msgstr "系统槽位 A"
+
+#: foundation_installer/model.py:27
+msgid "Integrity data for slot A"
+msgstr "槽位 A 的完整性数据"
+
+#: foundation_installer/model.py:28
+msgid "System slot B"
+msgstr "系统槽位 B"
+
+#: foundation_installer/model.py:29
+msgid "Integrity data for slot B"
+msgstr "槽位 B 的完整性数据"
+
+#: foundation_installer/model.py:30
+msgid "Your files and settings"
+msgstr "您的文件和设置"
+
+#: foundation_installer/model.py:31
+msgid "The installer's workspace"
+msgstr "安装程序的工作区"
+
+#: foundation_installer/model.py:50
+msgid "The rest of the disk"
+msgstr "磁盘的其余部分"
+
+#: foundation_installer/model.py:66
+msgid "Permission was not granted to change the disk."
+msgstr "未获得更改磁盘的授权。"
+
+#: foundation_installer/model.py:70
+msgid "Another installation is already running."
+msgstr "已有另一个安装正在进行。"
+
+#: foundation_installer/model.py:71
+msgid "The installation failed for an unknown reason."
+msgstr "安装因未知原因失败。"
+
+#: foundation_installer/model.py:80
+msgid "Less than a minute remaining"
+msgstr "剩余不到一分钟"
+
+#: foundation_installer/model.py:126
+msgid "Default"
+msgstr "默认"
+
+#: foundation_installer/model.py:37
+msgid "Removable disk"
+msgstr "可移动磁盘"
+
+#: foundation_installer/model.py:37
+msgid "Disk"
+msgstr "磁盘"
+
+#: foundation_installer/model.py:43
+msgid "removable"
+msgstr "可移动"
+
+#: foundation_installer/model.py:58
+msgid "Everything on {disk} will be erased and cannot be recovered.{note}"
+msgstr "{disk} 上的所有内容都将被抹除且无法恢复。{note}"
+
+#: foundation_installer/model.py:82
+msgid "About {count} minute remaining"
+msgid_plural "About {count} minutes remaining"
+msgstr[0] "大约剩余 {count} 分钟"
+
+#: foundation_installer/model.py:57
+msgid "It currently holds {count} partition."
+msgid_plural "It currently holds {count} partitions."
+msgstr[0] "目前有 {count} 个分区。"

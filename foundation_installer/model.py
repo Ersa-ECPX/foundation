@@ -3,51 +3,59 @@
 import os
 import urllib.request
 
+from foundation.i18n import Domain
+
+_ = Domain("ersa-installer")
+
 from foundation.ui import human_size  # noqa: F401  (re-exported for the windows)
 
 PRODUCT = "Ersa Compute Platform"
 
 PARTITION_TITLES = {
-    "ECP-ESP": "Boot",
-    "ECP-RECOVERY": "Recovery",
-    "ecp-root-a": "System slot A",
-    "ecp-verity-a": "Integrity data for slot A",
-    "ecp-root-b": "System slot B",
-    "ecp-verity-b": "Integrity data for slot B",
-    "ECP-DATA": "Your files and settings",
-    "ECP-LIVE": "The installer's workspace",
+    "ECP-ESP": "Boot", "ECP-RECOVERY": "Recovery",
+    "ecp-root-a": "System slot A", "ecp-verity-a": "Integrity data for slot A",
+    "ecp-root-b": "System slot B", "ecp-verity-b": "Integrity data for slot B",
+    "ECP-DATA": "Your files and settings", "ECP-LIVE": "The installer's workspace",
 }
 
 
 def partition_title(label):
-    if label in PARTITION_TITLES:
-        return PARTITION_TITLES[label]
-    return label
+    titles = {
+        "ECP-ESP": _("Boot"),
+        "ECP-RECOVERY": _("Recovery"),
+        "ecp-root-a": _("System slot A"),
+        "ecp-verity-a": _("Integrity data for slot A"),
+        "ecp-root-b": _("System slot B"),
+        "ecp-verity-b": _("Integrity data for slot B"),
+        "ECP-DATA": _("Your files and settings"),
+        "ECP-LIVE": _("The installer's workspace"),
+    }
+    return titles.get(label, label)
 
 
 def disk_title(disk):
-    return disk.get("model") or ("Removable disk" if disk.get("removable") else "Disk")
+    return disk.get("model") or (_('Removable disk') if disk.get("removable") else _('Disk'))
 
 
 def disk_subtitle(disk):
     parts = [disk["path"], human_size(disk["size"])]
     if disk.get("removable"):
-        parts.append("removable")
+        parts.append(_('removable'))
     if not disk.get("usable", True):
-        parts.append(disk.get("reason") or "cannot be used")
+        parts.append(disk.get("reason") or _('cannot be used'))
     return " · ".join(parts)
 
 
 def partition_size(partition):
-    return human_size(partition["size"]) if partition["size"] else "The rest of the disk"
+    return human_size(partition["size"]) if partition["size"] else _('The rest of the disk')
 
 
 def erase_summary(plan):
     count = len(plan.get("will_erase", []))
     what = f"{plan['model']} ({plan['disk']}, {human_size(plan['size'])})" if plan.get("model") \
         else f"{plan['disk']} ({human_size(plan['size'])})"
-    note = f" It currently holds {count} partition{'s' if count != 1 else ''}." if count else ""
-    return f"Everything on {what} will be erased and cannot be recovered.{note}"
+    note = " " + _.ngettext("It currently holds {count} partition.", "It currently holds {count} partitions.", count).format(count=count) if count else ""
+    return _("Everything on {disk} will be erased and cannot be recovered.{note}").format(disk=what, note=note)
 
 
 def failure_text(error):
@@ -55,12 +63,12 @@ def failure_text(error):
     name = getattr(error, "name", None) or getattr(error, "error_name", "")
     message = getattr(error, "message", None) or getattr(error, "error_message", "") or str(error)
     if name == "NotAuthorized":
-        return "Permission was not granted to change the disk."
+        return _('Permission was not granted to change the disk.')
     if name == "Unreachable":
         return message
     if name == "Busy":
-        return "Another installation is already running."
-    return message or "The installation failed for an unknown reason."
+        return _('Another installation is already running.')
+    return message or _('The installation failed for an unknown reason.')
 
 
 def remaining_text(elapsed, fraction):
@@ -69,9 +77,9 @@ def remaining_text(elapsed, fraction):
         return ""
     left = elapsed * (1 - fraction) / fraction
     if left < 60:
-        return "Less than a minute remaining"
+        return _('Less than a minute remaining')
     minutes = round(left / 60)
-    return f"About {minutes} minute{'s' if minutes != 1 else ''} remaining"
+    return _.ngettext("About {count} minute remaining", "About {count} minutes remaining", minutes).format(count=minutes)
 
 
 # Languages offered by the installer: (name in that language, locale). The installed system gets the locale
@@ -115,7 +123,7 @@ def language_name(locale):
     for name, code in LANGUAGES:
         if code == locale:
             return name
-    return locale or "Default"
+    return locale or _('Default')
 
 
 def timezones(zoneinfo_dir="/usr/share/zoneinfo"):
@@ -186,6 +194,25 @@ def timezone_service(settings):
     """The address to ask for the time zone: the preseed's `installer.timezone_url` (empty turns detection off), else the default."""
     url = settings.get("installer.timezone_url", TIMEZONE_URL)
     return url if url.startswith("https://") else ""
+
+
+MIN_PASSPHRASE = 8
+
+
+def passphrase_problem(passphrase, again):
+    """What is wrong with the passphrase the person typed: "" (nothing), "empty", "short" or "mismatch"."""
+    if not passphrase:
+        return "empty"
+    if len(passphrase) < MIN_PASSPHRASE:
+        return "short"
+    if passphrase != again:
+        return "mismatch"
+    return ""
+
+
+def encryption_ready(encrypt, tpm, passphrase, again):
+    """Whether the encryption page may be left: no encryption, a TPM that unlocks by itself, or a good passphrase."""
+    return (not encrypt) or bool(tpm) or passphrase_problem(passphrase, again) == ""
 
 
 def detect_timezone(zones, url=TIMEZONE_URL, opener=urllib.request.urlopen, timeout=5):

@@ -35,11 +35,13 @@ def rows():
     ]
 
 
-def definitions(esp_source, seed_source, root_uuid, verity_uuid):
+def definitions(esp_source, seed_source, root_uuid, verity_uuid, data="plain"):
     """The repart.d files (name -> text). `esp_source` and `seed_source` are directories holding what the ESP and the
     data volume start with. `root_uuid` and `verity_uuid` are the GPT UUIDs of root slot A's two partitions: the two halves
-    of the root hash, which is how the kernel image (whose command line names the hash) finds them (see verity.py)."""
-    return {
+    of the root hash, which is how the kernel image (whose command line names the hash) finds them (see verity.py).
+    `data` is "plain" (the data volume as it always was), "encrypted" (a LUKS2 volume, made with a key file: see encryption.py) or
+    "none" (left out: an encrypted volume is added by a second, online run of systemd-repart)."""
+    result = {
         "00-esp.conf": f"""[Partition]
 Type=esp
 Label=ECP-ESP
@@ -84,13 +86,16 @@ ReadOnly=yes
 SizeMinBytes={VERITY_SLOT}
 SizeMaxBytes={VERITY_SLOT}
 """,
-        "30-data.conf": f"""[Partition]
+    }
+    if data != "none":
+        encrypt = "Encrypt=key-file\n" if data == "encrypted" else ""
+        result["30-data.conf"] = f"""[Partition]
 Type=linux-generic
 Label=ECP-DATA
-Format=btrfs
+{encrypt}Format=btrfs
 Subvolumes=/var /home
 CopyFiles={seed_source}/var:/var
 CopyFiles={seed_source}/home:/home
 SizeMinBytes={DATA_MIN}
-""",
-    }
+"""
+    return result

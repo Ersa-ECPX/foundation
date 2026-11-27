@@ -1,6 +1,9 @@
 """Deck's text and decisions (no display needed)."""
 
 import os
+
+# Existing UI assertions use English text, regardless of the developer session locale.
+os.environ["LANGUAGE"] = "C"
 import time
 import unittest
 

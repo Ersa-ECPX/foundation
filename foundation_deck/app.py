@@ -15,6 +15,9 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 from foundation import identity  # noqa: E402
 from foundation.gbackend import Backend, ClientError  # noqa: E402
 
+from foundation.i18n import Domain
+
+_ = Domain("ersa-deck")
 from . import __version__, icons, model, pages  # noqa: E402
 from .tasks import TaskPanel  # noqa: E402
 
@@ -42,7 +45,7 @@ CSS = b"""
 
 class DeckWindow(Adw.ApplicationWindow):
     def __init__(self, app, backend):
-        super().__init__(application=app, title="Deck", default_width=980, default_height=720)
+        super().__init__(application=app, title=_("Deck"), default_width=980, default_height=720)
         self.set_size_request(340, 360)
         self.backend = backend
         self.current = "overview"
@@ -57,14 +60,14 @@ class DeckWindow(Adw.ApplicationWindow):
             self.stack.add_named(self.pages[name], name)
         self.toasts = Adw.ToastOverlay(child=self.stack)
         self.split = Adw.NavigationSplitView(min_sidebar_width=190, max_sidebar_width=260, sidebar_width_fraction=0.23)
-        self.content_page = Adw.NavigationPage(title="Overview", tag="content")
+        self.content_page = Adw.NavigationPage(title=_("Overview"), tag="content")
         header = Adw.HeaderBar()
-        refresh = icons.button("view-refresh-symbolic", "Refresh (Ctrl+R)")
+        refresh = icons.button("view-refresh-symbolic", _("Refresh (Ctrl+R)"))
         refresh.connect("clicked", lambda _b: self.refresh())
         header.pack_end(refresh)
-        self.pending_banner = Adw.Banner(title="", button_label="Restart\u2026", revealed=False)
+        self.pending_banner = Adw.Banner(title="", button_label=_("Restart\u2026"), revealed=False)
         self.pending_banner.connect("button-clicked", lambda _b: self.ask_restart())
-        self.rollback_banner = Adw.Banner(title="", button_label="Boot Slots", revealed=False)
+        self.rollback_banner = Adw.Banner(title="", button_label=_("Boot Slots"), revealed=False)
         self.rollback_banner.connect("button-clicked", lambda _b: (self.rollback_banner.set_revealed(False), self.select("slots")))
         view = Adw.ToolbarView(content=self.toasts)
         for bar in (header, self.pending_banner, self.rollback_banner):
@@ -95,13 +98,13 @@ class DeckWindow(Adw.ApplicationWindow):
     # -- sidebar -------------------------------------------------------------------------------
 
     def _build_sidebar(self):
-        page = Adw.NavigationPage(title="Deck", tag="sidebar")
+        page = Adw.NavigationPage(title=_("Deck"), tag="sidebar")
         view = Adw.ToolbarView()
         header = Adw.HeaderBar(show_title=False)
         header.add_css_class("flat")
         view.add_top_bar(header)
         column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        self.search = Gtk.SearchEntry(placeholder_text="Search", margin_start=6, margin_end=6, margin_top=4)
+        self.search = Gtk.SearchEntry(placeholder_text=_("Search"), margin_start=6, margin_end=6, margin_top=4)
         self.search.connect("search-changed", lambda _e: self.sidebar.invalidate_filter())
         column.append(self.search)
         self.sidebar = Gtk.ListBox(css_classes=["navigation-sidebar"], vexpand=True)
@@ -208,10 +211,10 @@ class DeckWindow(Adw.ApplicationWindow):
             self.backend.call(interface, method, signature, args, got, timeout, **kwargs)
         return start
 
-    def run_job(self, call, on_ok=None, label="Working"):
+    def run_job(self, call, on_ok=None, label=None):
         """Start a job with call(callback) and follow it as a task in the sidebar panel. The daemon refuses a job that clashes
         with a running one (Busy); that is shown on the task."""
-        task = self.tasks.add(label.rstrip("\u2026."))
+        task = self.tasks.add((label or _("Working")).rstrip("\u2026."))
 
         def event(kind, *args):
             if kind == "step":
@@ -227,7 +230,7 @@ class DeckWindow(Adw.ApplicationWindow):
             elif not job.ok:
                 task.finish(False, model.error_text(job.error_name, job.error_message))
             else:
-                task.finish(True, "Done")
+                task.finish(True, _("Done"))
                 if on_ok:
                     on_ok(job.result)
             self.refresh()
@@ -243,7 +246,7 @@ class DeckWindow(Adw.ApplicationWindow):
         try:
             handle = os.open(path, os.O_RDONLY | os.O_CLOEXEC)
         except OSError as error:
-            self.toast(f"Cannot open the file: {error.strerror}")
+            self.toast(_("Cannot open the file: {reason}").format(reason=error.strerror))
             return None
         fds = Gio.UnixFDList.new()
         index = fds.append(handle)
@@ -255,7 +258,7 @@ class DeckWindow(Adw.ApplicationWindow):
         wanted = Gtk.FileFilter(name=name)
         for pattern in patterns:
             wanted.add_pattern(pattern)
-        everything = Gtk.FileFilter(name="All files")
+        everything = Gtk.FileFilter(name=_("All files"))
         everything.add_pattern("*")
         filters = Gio.ListStore.new(Gtk.FileFilter)
         filters.append(wanted)
@@ -277,7 +280,7 @@ class DeckWindow(Adw.ApplicationWindow):
 
     def confirm_choice(self, heading, body, responses, action):
         dialog = Adw.AlertDialog(heading=heading, body=body)
-        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("cancel", _("Cancel"))
         for name, label, style in responses:
             dialog.add_response(name, label)
             dialog.set_response_appearance(name, Adw.ResponseAppearance.DESTRUCTIVE if style == "destructive" else Adw.ResponseAppearance.SUGGESTED)
@@ -287,11 +290,11 @@ class DeckWindow(Adw.ApplicationWindow):
 
     def alert(self, heading, body):
         dialog = Adw.AlertDialog(heading=heading, body=body)
-        dialog.add_response("ok", "OK")
+        dialog.add_response("ok", _("OK"))
         dialog.present(self)
 
     def ask_restart(self):
-        self.confirm("Restart now?", "Open applications will be closed.", "Restart", lambda: self.ask("Boot", "Reboot", "(b)", (False,)))
+        self.confirm(_("Restart now?"), _("Open applications will be closed."), _("Restart"), lambda: self.ask("Boot", "Reboot", "(b)", (False,)))
 
 
 class OfferWindow(Adw.Window):
@@ -299,11 +302,11 @@ class OfferWindow(Adw.Window):
     never forced)."""
 
     def __init__(self, app):
-        super().__init__(application=app, title="Ersa ID", default_width=420, resizable=False)
-        page = Adw.StatusPage(icon_name="avatar-default-symbolic", title="Sign in to Ersa ID",
-                              description="Link this computer to your account. You can skip this and sign in later in Deck.")
-        sign_in = Gtk.Button(label="Sign In", css_classes=["suggested-action", "pill"], halign=Gtk.Align.CENTER)
-        later = Gtk.Button(label="Not Now", css_classes=["flat"], halign=Gtk.Align.CENTER)
+        super().__init__(application=app, title=_("Ersa ID"), default_width=420, resizable=False)
+        page = Adw.StatusPage(icon_name="avatar-default-symbolic", title=_("Sign in to Ersa ID"),
+                              description=_("Link this computer to your account. You can skip this and sign in later in Deck."))
+        sign_in = Gtk.Button(label=_("Sign In"), css_classes=["suggested-action", "pill"], halign=Gtk.Align.CENTER)
+        later = Gtk.Button(label=_("Not Now"), css_classes=["flat"], halign=Gtk.Align.CENTER)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, halign=Gtk.Align.CENTER)
         box.append(sign_in)
         box.append(later)
@@ -362,8 +365,8 @@ class DeckApp(Adw.Application):
             except ClientError as error:
                 holder = Adw.ApplicationWindow(application=self)
                 holder.present()
-                dialog = Adw.AlertDialog(heading="Deck cannot start", body=error.message)
-                dialog.add_response("quit", "Quit")
+                dialog = Adw.AlertDialog(heading=_("Deck cannot start"), body=error.message)
+                dialog.add_response("quit", _("Quit"))
                 dialog.connect("response", lambda *_: self.quit())
                 dialog.present(holder)
                 return
@@ -377,17 +380,17 @@ class DeckApp(Adw.Application):
 def main(argv=None):
     import argparse
     import sys
-    parser = argparse.ArgumentParser(prog="ersa-deck", description=f"{model.PRODUCT} management window")
+    parser = argparse.ArgumentParser(prog="ersa-deck", description=_("{product} management window").format(product=model.PRODUCT))
     parser.add_argument("--version", action="version", version=f"ersa-deck {__version__}")
     parser.add_argument("--bus", choices=("system", "session"), default="system", help=argparse.SUPPRESS)
-    parser.add_argument("--page", choices=[name for name, _t, _i in model.PAGES], help="open this page")
+    parser.add_argument("--page", choices=[name for name, _t, _i in model.PAGES], help=_("open this page"))
     parser.add_argument("--offer-sign-in", action="store_true",
-                        help="after the first login: offer Ersa ID sign-in once, if a provider is set up (used by a user service)")
+                        help=_("after the first login: offer Ersa ID sign-in once, if a provider is set up (used by a user service)"))
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     if Gdk.Display.get_default() is None:
         # No screen (a service started before the session had one): exit instead of staying alive and holding the application's
         # name, which would make every later launch of Deck do nothing.
-        print("ersa-deck: no display is available", file=sys.stderr)
+        print(_("ersa-deck: no display is available"), file=sys.stderr)
         return 1
-    GLib.set_application_name("Deck")
+    GLib.set_application_name(_("Deck"))
     return DeckApp(args.bus, offer=args.offer_sign_in, page=args.page).run([sys.argv[0]])

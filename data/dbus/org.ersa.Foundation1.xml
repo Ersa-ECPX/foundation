@@ -205,6 +205,22 @@
       <arg name="preseed" type="s" direction="in"/>
       <arg name="job" type="o" direction="out"/>
     </method>
+    <!-- Like DeployPreseeded, with the data volume (/var and /home) as a LUKS2 container. `secrets` is a file descriptor holding JSON:
+         {"recovery_key": "...", "passphrase": "..."}. The client makes the recovery key (eight blocks of eight letters of systemd's
+         alphabet) and shows it to the person; the service never returns a secret. A passphrase is required when the computer has no
+         usable TPM, or the system image carries no signed boot policy (InvalidArgument otherwise, before anything is erased). With a
+         TPM the volume unlocks by itself at start, through a signed policy that updates keep valid; the recovery key and the passphrase
+         always work. The secrets are staged in a private file, read once by the worker and deleted. Requires
+         org.ersa.foundation.deploy. Result as Deploy, plus `encrypted` (b) and `unlock` (tpm, passphrase, recovery_key). -->
+    <method name="DeployEncrypted">
+      <arg name="disk" type="s" direction="in"/>
+      <arg name="confirm" type="s" direction="in"/>
+      <arg name="language" type="s" direction="in"/>
+      <arg name="timezone" type="s" direction="in"/>
+      <arg name="preseed" type="s" direction="in"/>
+      <arg name="secrets" type="h" direction="in"/>
+      <arg name="job" type="o" direction="out"/>
+    </method>
     <!-- Check a preseed file without installing. Fields: config (a{ss}: the settings, as they will be written), language, timezone,
          hostname (s, empty if not given). InvalidArgument lists every problem. No authorization. -->
     <method name="CheckPreseed">

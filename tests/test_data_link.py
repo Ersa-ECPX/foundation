@@ -43,9 +43,33 @@ class Machine:
         with open(self.path("efivars", VARIABLE), "wb") as handle:
             handle.write(b"\x06\x00\x00\x00" + esp_uuid.upper().encode("utf-16-le") + b"\0\0")
 
+    def encrypt(self, device, unlock_works=True):
+        """Make a partition a LUKS container (its first bytes) and give the helper a fake unlock tool that records how it was called and,
+        when `unlock_works`, creates the unlocked device."""
+        with open(self.path("dev", device), "wb") as handle:
+            handle.write(b"LUKS\xba\xbe" + b"\0" * 100)
+        tool = self.path("fake-cryptsetup")
+        with open(tool, "w") as handle:
+            handle.write("#!/bin/sh\necho \"$@\" > " + self.path("cryptsetup.args") + "\n"
+                         + (f"mkdir -p {self.path('dev/mapper')} && : > {self.path('dev/mapper/ecp-data')}\n" if unlock_works else "exit 1\n"))
+        os.chmod(tool, 0o755)
+        self.cryptsetup = tool
+
+    def unlock_arguments(self):
+        try:
+            with open(self.path("cryptsetup.args")) as handle:
+                return handle.read().strip()
+        except OSError:
+            return None
+
+    cryptsetup = None
+    extra = None
+
     def run(self, wait=1):
         env = dict(os.environ, ECP_EFIVARS=self.path("efivars"), ECP_SYSFS=self.path("sys"), ECP_DEV=self.path("dev"),
-                   ECP_RUN=self.path("run/ecp"), ECP_WAIT=str(wait))
+                   ECP_RUN=self.path("run/ecp"), ECP_WAIT=str(wait), ECP_EXTRA=self.extra or self.path("no-extra"))
+        if self.cryptsetup:
+            env["ECP_CRYPTSETUP"] = self.cryptsetup
         return subprocess.run(["/bin/sh", SCRIPT], capture_output=True, text=True, env=env, timeout=60)
 
     def linked(self):
@@ -98,6 +122,45 @@ class DataLink(unittest.TestCase):
         self.assertEqual(self.m.run().returncode, 0)
         self.assertEqual(self.m.linked(), "nvme0n1p7")
 
+    def test_an_encrypted_volume_is_unlocked_and_the_unlocked_device_is_linked(self):
+        self.disk("vda", "aaaaaaaa-0000-0000-0000-000000000001")
+        self.m.started_from("aaaaaaaa-0000-0000-0000-000000000001")
+        self.m.encrypt("vda7")
+        extra = self.m.path("extra")
+        os.makedirs(extra)
+        open(os.path.join(extra, "tpm2-pcr-signature.json"), "w").close()
+        self.m.extra = extra
+        result = self.m.run()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.m.linked(), "ecp-data")                   # the mapper device, not the partition
+        arguments = self.m.unlock_arguments()
+        self.assertTrue(arguments.startswith("attach ecp-data " + self.m.path("dev", "vda7") + " - tpm2-device=auto"), arguments)
+        self.assertIn("tpm2-signature=" + os.path.join(extra, "tpm2-pcr-signature.json"), arguments)   # the kernel image's signed policy
+
+    def test_an_encrypted_volume_without_a_signature_file_still_asks_the_tool_to_unlock(self):
+        self.disk("vda", "aaaaaaaa-0000-0000-0000-000000000001")
+        self.m.started_from("aaaaaaaa-0000-0000-0000-000000000001")
+        self.m.encrypt("vda7")
+        self.assertEqual(self.m.run().returncode, 0)
+        self.assertNotIn("tpm2-signature", self.m.unlock_arguments())
+
+    def test_a_volume_that_cannot_be_unlocked_fails_with_a_reason_and_is_not_linked(self):
+        self.disk("vda", "aaaaaaaa-0000-0000-0000-000000000001")
+        self.m.started_from("aaaaaaaa-0000-0000-0000-000000000001")
+        self.m.encrypt("vda7", unlock_works=False)
+        result = self.m.run()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("could not be unlocked", result.stderr)
+        self.assertIsNone(self.m.linked())
+
+    def test_a_plain_volume_never_calls_the_unlock_tool(self):
+        self.disk("vda", "aaaaaaaa-0000-0000-0000-000000000001")
+        self.m.started_from("aaaaaaaa-0000-0000-0000-000000000001")
+        self.m.encrypt("vda6")                       # some other partition is encrypted; the data volume is vda7
+        self.assertEqual(self.m.run().returncode, 0)
+        self.assertEqual(self.m.linked(), "vda7")
+        self.assertIsNone(self.m.unlock_arguments())
+
     def test_a_disk_without_a_data_volume_fails_with_a_reason(self):
         self.m.disk("vda", [("vda1", "ECP-ESP", "aaaaaaaa-0000-0000-0000-000000000001"), ("vda3", "ecp-root-a", "r-a")])
         self.m.started_from("aaaaaaaa-0000-0000-0000-000000000001")
@@ -134,6 +197,10 @@ class Units(unittest.TestCase):
             self.assertIn(f"Options=subvol={subvolume}", unit)
             self.assertIn("Requires=ecp-data-device.service", unit)
             self.assertTrue(os.path.islink(os.path.join(UNITS, "initrd-fs.target.requires", f"sysroot-{where}.mount")))
+
+    def test_the_device_service_waits_for_the_tpm_and_the_measurement_barrier(self):
+        unit = self.read("ecp-data-device.service")
+        self.assertIn("After=tpm2.target cryptsetup-pre.target", unit)
 
     def test_the_device_service_runs_the_helper_before_the_mounts(self):
         unit = self.read("ecp-data-device.service")

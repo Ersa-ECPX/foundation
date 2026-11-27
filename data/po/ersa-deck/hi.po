@@ -1,0 +1,1223 @@
+# Initial, unreviewed Hindi translation.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nPlural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: foundation_deck/app.py:395 foundation_deck/app.py:48 foundation_deck/app.py:101
+msgid "Deck"
+msgstr "Deck"
+
+#: foundation_deck/app.py:65
+msgid "Refresh (Ctrl+R)"
+msgstr "ताज़ा करें (Ctrl+R)"
+
+#: foundation_deck/app.py:283 foundation_deck/pages.py:457 foundation_deck/pages.py:485 foundation_deck/pages.py:561 foundation_deck/pages.py:769 foundation_deck/pages.py:902
+msgid "Cancel"
+msgstr "रद्द करें"
+
+#: foundation_deck/app.py:293
+msgid "OK"
+msgstr "ठीक है"
+
+#: foundation_deck/app.py:297
+msgid "Restart now?"
+msgstr "अभी पुनः आरंभ करें?"
+
+#: foundation_deck/app.py:297 foundation_deck/pages.py:629
+msgid "Open applications will be closed."
+msgstr "खुले हुए ऐप बंद हो जाएँगे।"
+
+#: foundation_deck/app.py:297 foundation_deck/pages.py:629
+msgid "Restart"
+msgstr "पुनः आरंभ करें"
+
+#: foundation_deck/app.py:386
+msgid "open this page"
+msgstr "यह पृष्ठ खोलें"
+
+#: foundation_deck/app.py:388
+msgid "after the first login: offer Ersa ID sign-in once, if a provider is set up (used by a user service)"
+msgstr "पहले लॉगिन के बाद, प्रदाता सेट होने पर, Ersa ID में साइन इन का विकल्प एक बार दें (उपयोगकर्ता सेवा के लिए)"
+
+#: foundation_deck/app.py:393
+msgid "ersa-deck: no display is available"
+msgstr "ersa-deck: कोई डिस्प्ले उपलब्ध नहीं है"
+
+#: foundation_deck/app.py:63 foundation_deck/model.py:105
+msgid "Overview"
+msgstr "अवलोकन"
+
+#: foundation_deck/app.py:68 foundation_deck/pages.py:177 foundation_deck/pages.py:630
+msgid "Restart…"
+msgstr "पुनः आरंभ करें…"
+
+#: foundation_deck/app.py:70 foundation_deck/model.py:112
+msgid "Boot Slots"
+msgstr "बूट स्लॉट"
+
+#: foundation_deck/app.py:107
+msgid "Search"
+msgstr "खोजें"
+
+#: foundation_deck/app.py:261
+msgid "All files"
+msgstr "सभी फ़ाइलें"
+
+#: foundation_deck/app.py:305
+msgid "Ersa ID"
+msgstr "Ersa ID"
+
+#: foundation_deck/app.py:306
+msgid "Sign in to Ersa ID"
+msgstr "Ersa ID में साइन इन करें"
+
+#: foundation_deck/app.py:307
+msgid "Link this computer to your account. You can skip this and sign in later in Deck."
+msgstr "इस कंप्यूटर को अपने खाते से जोड़ें। आप इसे छोड़कर बाद में Deck में साइन इन कर सकते हैं।"
+
+#: foundation_deck/app.py:308 foundation_deck/pages.py:903
+msgid "Sign In"
+msgstr "साइन इन करें"
+
+#: foundation_deck/app.py:309
+msgid "Not Now"
+msgstr "अभी नहीं"
+
+#: foundation_deck/app.py:383
+msgid "{product} management window"
+msgstr "{product} प्रबंधन विंडो"
+
+#: foundation_deck/app.py:217
+msgid "Working"
+msgstr "काम चल रहा है"
+
+#: foundation_deck/app.py:233 foundation_deck/model.py:366
+msgid "Done"
+msgstr "पूरा हुआ"
+
+#: foundation_deck/app.py:369
+msgid "Quit"
+msgstr "बंद करें"
+
+#: foundation_deck/app.py:249
+msgid "Cannot open the file: {reason}"
+msgstr "फ़ाइल नहीं खुल सकी: {reason}"
+
+#: foundation_deck/app.py:368
+msgid "Deck cannot start"
+msgstr "Deck शुरू नहीं हो सका"
+
+#: foundation_deck/model.py:336 foundation_deck/model.py:107
+msgid "Updates"
+msgstr "अपडेट"
+
+#: foundation_deck/model.py:336 foundation_deck/model.py:112
+msgid "System"
+msgstr "सिस्टम"
+
+#: foundation_deck/model.py:336
+msgid "Applications"
+msgstr "ऐप्लिकेशन"
+
+#: foundation_deck/model.py:351
+msgid "Installed a system update"
+msgstr "सिस्टम अपडेट इंस्टॉल किया"
+
+#: foundation_deck/model.py:351
+msgid "Installed the newest system update"
+msgstr "नवीनतम सिस्टम अपडेट इंस्टॉल किया"
+
+#: foundation_deck/model.py:352
+msgid "Changed which system starts"
+msgstr "शुरू होने वाला सिस्टम बदला"
+
+#: foundation_deck/model.py:352
+msgid "Chose the next start"
+msgstr "अगले बूट के लिए सिस्टम चुना"
+
+#: foundation_deck/model.py:353
+msgid "Emptied a slot"
+msgstr "स्लॉट खाली किया"
+
+#: foundation_deck/model.py:353
+msgid "Changed the boot splash"
+msgstr "बूट स्क्रीन बदली"
+
+#: foundation_deck/model.py:354
+msgid "Installed an application"
+msgstr "ऐप इंस्टॉल किया"
+
+#: foundation_deck/model.py:354
+msgid "Removed an application"
+msgstr "ऐप हटाया"
+
+#: foundation_deck/model.py:354
+msgid "Updated applications"
+msgstr "ऐप अपडेट किए"
+
+#: foundation_deck/model.py:355
+msgid "Set up the application source"
+msgstr "ऐप स्रोत सेट किया"
+
+#: foundation_deck/model.py:356
+msgid "Installed an extension"
+msgstr "एक्सटेंशन इंस्टॉल किया"
+
+#: foundation_deck/model.py:356
+msgid "Removed an extension"
+msgstr "एक्सटेंशन हटाया"
+
+#: foundation_deck/model.py:356
+msgid "Checked extensions"
+msgstr "एक्सटेंशन जाँचे"
+
+#: foundation_deck/model.py:357
+msgid "Added packages to a bundle"
+msgstr "बंडल में पैकेज जोड़े"
+
+#: foundation_deck/model.py:357
+msgid "Installed a bundle"
+msgstr "बंडल इंस्टॉल किया"
+
+#: foundation_deck/model.py:358
+msgid "Removed a bundle"
+msgstr "बंडल हटाया"
+
+#: foundation_deck/model.py:358
+msgid "Updated bundles"
+msgstr "बंडल अपडेट किए"
+
+#: foundation_deck/model.py:358
+msgid "Rebuilt bundles"
+msgstr "बंडल फिर से बनाए"
+
+#: foundation_deck/model.py:359
+msgid "Changed a repository"
+msgstr "संग्रह बदला"
+
+#: foundation_deck/model.py:359
+msgid "Added a repository"
+msgstr "संग्रह जोड़ा"
+
+#: foundation_deck/model.py:359
+msgid "Removed a repository"
+msgstr "संग्रह हटाया"
+
+#: foundation_deck/model.py:360
+msgid "Refreshed repositories"
+msgstr "संग्रहों को ताज़ा किया"
+
+#: foundation_deck/model.py:360
+msgid "Changed remote access"
+msgstr "दूरस्थ पहुँच बदली"
+
+#: foundation_deck/model.py:361
+msgid "Added an SSH key"
+msgstr "SSH कुंजी जोड़ी"
+
+#: foundation_deck/model.py:361
+msgid "Removed an SSH key"
+msgstr "SSH कुंजी हटाई"
+
+#: foundation_deck/model.py:362
+msgid "Installed the system on a disk"
+msgstr "डिस्क पर सिस्टम इंस्टॉल किया"
+
+#: foundation_deck/model.py:362
+msgid "Merged extensions"
+msgstr "एक्सटेंशन जोड़े"
+
+#: foundation_deck/model.py:362
+msgid "Unmerged extensions"
+msgstr "एक्सटेंशन अलग किए"
+
+#: foundation_deck/model.py:363
+msgid "Refreshed extensions"
+msgstr "एक्सटेंशन ताज़ा किए"
+
+#: foundation_deck/model.py:366
+msgid "Failed"
+msgstr "विफल"
+
+#: foundation_deck/model.py:366
+msgid "Cancelled"
+msgstr "रद्द किया गया"
+
+#: foundation_deck/model.py:366
+msgid "Running"
+msgstr "चल रहा है"
+
+#: foundation_deck/model.py:366
+msgid "Waiting"
+msgstr "प्रतीक्षा में"
+
+#: foundation_deck/model.py:416 foundation_deck/model.py:205
+msgid "Check to see whether an update is available."
+msgstr "जाँचें कि कोई अपडेट उपलब्ध है या नहीं।"
+
+#: foundation_deck/model.py:417
+msgid "Your Ersa ID account on this computer."
+msgstr "इस कंप्यूटर पर आपका Ersa ID खाता।"
+
+#: foundation_deck/model.py:418
+msgid "System-level software such as codecs and tools."
+msgstr "कोडेक और औज़ार जैसे सिस्टम सॉफ़्टवेयर।"
+
+#: foundation_deck/model.py:419
+msgid "Where the packages for bundles come from."
+msgstr "बंडल के पैकेज कहाँ से आते हैं।"
+
+#: foundation_deck/model.py:420
+msgid "Where applications come from."
+msgstr "ऐप कहाँ से आते हैं।"
+
+#: foundation_deck/model.py:421
+msgid "Everything the system image contains."
+msgstr "सिस्टम इमेज में शामिल सभी पैकेज।"
+
+#: foundation_deck/model.py:422
+msgid "The two system copies, so an update can fall back."
+msgstr "सिस्टम की दो प्रतियाँ, ताकि अपडेट विफल होने पर वापसी हो सके।"
+
+#: foundation_deck/model.py:423
+msgid "How the computer starts up."
+msgstr "कंप्यूटर कैसे शुरू होता है।"
+
+#: foundation_deck/model.py:424
+msgid "Sign in from another computer."
+msgstr "दूसरे कंप्यूटर से साइन इन करें।"
+
+#: foundation_deck/model.py:425
+msgid "Every setting, with what it does."
+msgstr "सभी सेटिंग और उनका काम।"
+
+#: foundation_deck/model.py:426
+msgid "What the system did, and how it went."
+msgstr "सिस्टम ने क्या किया और उसका परिणाम।"
+
+#: foundation_deck/model.py:20
+msgid "The installer medium's own system"
+msgstr "इंस्टॉलेशन माध्यम का सिस्टम"
+
+#: foundation_deck/model.py:33
+msgid "Version unknown"
+msgstr "संस्करण अज्ञात"
+
+#: foundation_deck/model.py:38
+msgid "The running slot is unknown"
+msgstr "चल रहा स्लॉट अज्ञात है"
+
+#: foundation_deck/model.py:48
+msgid "Not checked"
+msgstr "जाँच नहीं हुई"
+
+#: foundation_deck/model.py:56
+msgid "An update is installed. Restart to start using it."
+msgstr "अपडेट इंस्टॉल हो गया है। इसे इस्तेमाल करने के लिए पुनः आरंभ करें।"
+
+#: foundation_deck/model.py:74
+msgid "The administrator's password was not given, so nothing was changed."
+msgstr "प्रशासक का पासवर्ड नहीं दिया गया, इसलिए कुछ नहीं बदला।"
+
+#: foundation_deck/model.py:76
+msgid "Another change is in progress. Try again when it has finished."
+msgstr "एक और बदलाव चल रहा है। उसके पूरा होने पर फिर प्रयास करें।"
+
+#: foundation_deck/model.py:78
+msgid "This is not available on this system."
+msgstr "यह इस सिस्टम पर उपलब्ध नहीं है।"
+
+#: foundation_deck/model.py:79
+msgid "That did not work."
+msgstr "यह काम नहीं हुआ।"
+
+#: foundation_deck/model.py:100
+msgid "The failed version stays in its slot until the next update replaces it."
+msgstr "विफल संस्करण अपने स्लॉट में रहेगा, जब तक अगला अपडेट उसे बदल नहीं देता।"
+
+#: foundation_deck/model.py:106
+msgid "Account"
+msgstr "खाता"
+
+#: foundation_deck/model.py:107
+msgid "Software"
+msgstr "सॉफ़्टवेयर"
+
+#: foundation_deck/model.py:116
+msgid "History"
+msgstr "इतिहास"
+
+#: foundation_deck/model.py:160
+msgid "Every restart starts that system until you choose another. A failed start is not rolled back automatically."
+msgstr "जब तक आप दूसरा सिस्टम नहीं चुनते, हर पुनः आरंभ पर यही सिस्टम चलेगा। विफल बूट पर अपने आप वापसी नहीं होगी।"
+
+#: foundation_deck/model.py:230
+msgid "This computer did not start through UEFI, so the boot splash cannot follow this choice."
+msgstr "यह कंप्यूटर UEFI से शुरू नहीं हुआ, इसलिए बूट स्क्रीन इस विकल्प का पालन नहीं कर सकती।"
+
+#: foundation_deck/model.py:262
+msgid "just now"
+msgstr "अभी-अभी"
+
+#: foundation_deck/model.py:273
+msgid "Give the repository a name."
+msgstr "संग्रह का नाम दें।"
+
+#: foundation_deck/model.py:275 foundation_deck/model.py:447
+msgid "The address must start with https://."
+msgstr "पता https:// से शुरू होना चाहिए।"
+
+#: foundation_deck/model.py:277
+msgid "Paste the repository's public signing key."
+msgstr "संग्रह की सार्वजनिक हस्ताक्षर कुंजी चिपकाएँ।"
+
+#: foundation_deck/model.py:294
+msgid "On"
+msgstr "चालू"
+
+#: foundation_deck/model.py:319
+msgid "Give the user name."
+msgstr "उपयोगकर्ता का नाम दें।"
+
+#: foundation_deck/model.py:322
+msgid "Paste a public key (a line starting with ssh-ed25519, ssh-rsa and so on)."
+msgstr "सार्वजनिक कुंजी चिपकाएँ (ssh-ed25519 या ssh-rsa से शुरू होने वाली पंक्ति)।"
+
+#: foundation_deck/model.py:386
+msgid "this file"
+msgstr "यह फ़ाइल"
+
+#: foundation_deck/model.py:404 foundation_deck/model.py:63
+msgid "Choose a file."
+msgstr "फ़ाइल चुनें।"
+
+#: foundation_deck/model.py:406
+msgid "That does not look like an RPM package."
+msgstr "यह RPM पैकेज नहीं लगता।"
+
+#: foundation_deck/model.py:445
+msgid "Give the source a short name: letters, digits, dots, dashes."
+msgstr "स्रोत को छोटा नाम दें: अक्षर, अंक, बिंदु और डैश।"
+
+#: foundation_deck/model.py:449
+msgid "Paste the source's public signing key (an address that is not a .flatpakrepo file needs one)."
+msgstr "स्रोत की सार्वजनिक हस्ताक्षर कुंजी चिपकाएँ (.flatpakrepo फ़ाइल के अलावा दूसरे पते के लिए यह ज़रूरी है)।"
+
+#: foundation_deck/model.py:466
+msgid "Applications from it are installed for everyone and run with the permissions they ask for. Check the fingerprint with the publisher."
+msgstr "इसके ऐप सभी उपयोगकर्ताओं के लिए इंस्टॉल होते हैं और माँगी गई अनुमतियों के साथ चलते हैं। प्रकाशक से फ़िंगरप्रिंट की पुष्टि करें।"
+
+#: foundation_deck/model.py:484
+msgid "Signed in"
+msgstr "साइन इन है"
+
+#: foundation_deck/model.py:14
+msgid "Slot {name}"
+msgstr "स्लॉट {name}"
+
+#: foundation_deck/model.py:21
+msgid "Empty"
+msgstr "खाली"
+
+#: foundation_deck/model.py:23
+msgid "running now"
+msgstr "अभी चल रहा है"
+
+#: foundation_deck/model.py:25
+msgid "starts by default"
+msgstr "डिफ़ॉल्ट रूप से शुरू होता है"
+
+#: foundation_deck/model.py:45
+msgid "This start was confirmed good"
+msgstr "यह बूट सफल होने की पुष्टि हुई"
+
+#: foundation_deck/model.py:65
+msgid "That file does not exist."
+msgstr "वह फ़ाइल मौजूद नहीं है।"
+
+#: foundation_deck/model.py:67
+msgid "That does not look like an update archive (.tar.zst)."
+msgstr "यह अपडेट संग्रह (.tar.zst) नहीं लगता।"
+
+#: foundation_deck/model.py:150
+msgid "Start Once"
+msgstr "एक बार शुरू करें"
+
+#: foundation_deck/model.py:150
+msgid "Always Start"
+msgstr "हमेशा शुरू करें"
+
+#: foundation_deck/model.py:158
+msgid "The next restart starts that system. The one after goes back to the usual choice."
+msgstr "अगले पुनः आरंभ पर यह सिस्टम चलेगा। उसके बाद सामान्य विकल्प फिर चलेगा।"
+
+#: foundation_deck/model.py:173 foundation_deck/model.py:183
+msgid "turned off"
+msgstr "बंद है"
+
+#: foundation_deck/model.py:180
+msgid "version unknown"
+msgstr "संस्करण अज्ञात"
+
+#: foundation_deck/model.py:238 foundation_deck/pages.py:477
+msgid "Name"
+msgstr "नाम"
+
+#: foundation_deck/model.py:238
+msgid "Version"
+msgstr "संस्करण"
+
+#: foundation_deck/model.py:239
+msgid "Architecture"
+msgstr "आर्किटेक्चर"
+
+#: foundation_deck/model.py:253 foundation_deck/model.py:434
+msgid "signed"
+msgstr "हस्ताक्षरित"
+
+#: foundation_deck/model.py:253 foundation_deck/model.py:434
+msgid "not signed"
+msgstr "बिना हस्ताक्षर"
+
+#: foundation_deck/model.py:254 foundation_deck/model.py:438
+msgid "comes with the system"
+msgstr "सिस्टम के साथ आता है"
+
+#: foundation_deck/model.py:254
+msgid "added by you"
+msgstr "आपने जोड़ा है"
+
+#: foundation_deck/model.py:256
+msgid "never refreshed"
+msgstr "कभी ताज़ा नहीं किया गया"
+
+#: foundation_deck/model.py:267
+msgid "{count} day ago"
+msgid_plural "{count} days ago"
+msgstr[0] "{count} दिन पहले"
+msgstr[1] "{count} दिन पहले"
+
+#: foundation_deck/model.py:292
+msgid "Not available"
+msgstr "उपलब्ध नहीं"
+
+#: foundation_deck/model.py:292
+msgid "The SSH server is not part of this system."
+msgstr "SSH सर्वर इस सिस्टम में शामिल नहीं है।"
+
+#: foundation_deck/model.py:296
+msgid "On at the next start"
+msgstr "अगले बूट पर चालू"
+
+#: foundation_deck/model.py:298
+msgid "Off"
+msgstr "बंद"
+
+#: foundation_deck/model.py:392
+msgid "Missing: "
+msgstr "अनुपस्थित: "
+
+#: foundation_deck/model.py:392
+msgid "Missing library: "
+msgstr "अनुपस्थित लाइब्रेरी: "
+
+#: foundation_deck/model.py:393
+msgid "Would replace: "
+msgstr "बदलेगा: "
+
+#: foundation_deck/model.py:397
+msgid "Its install scripts are not run."
+msgstr "इसके इंस्टॉल स्क्रिप्ट नहीं चलाए जाते।"
+
+#: foundation_deck/model.py:436
+msgid "no apps installed"
+msgstr "कोई ऐप इंस्टॉल नहीं है"
+
+#: foundation_deck/model.py:33 foundation_deck/model.py:21
+msgid "Version {version}"
+msgstr "संस्करण {version}"
+
+#: foundation_deck/model.py:38
+msgid "Running from slot {slot}"
+msgstr "स्लॉट {slot} से चल रहा है"
+
+#: foundation_deck/model.py:56
+msgid "Version {version} is installed. Restart to start using it."
+msgstr "संस्करण {version} इंस्टॉल है। इसे इस्तेमाल करने के लिए पुनः आरंभ करें।"
+
+#: foundation_deck/model.py:85
+msgid "{size:.1f} GB"
+msgstr "{size:.1f} GB"
+
+#: foundation_deck/model.py:85
+msgid "{size:.0f} MB"
+msgstr "{size:.0f} MB"
+
+#: foundation_deck/model.py:99
+msgid "Version {version} did not start, so the previous system was started instead. "
+msgstr "संस्करण {version} शुरू नहीं हुआ, इसलिए पिछला सिस्टम शुरू किया गया। "
+
+#: foundation_deck/model.py:108
+msgid "Bundles and Extensions"
+msgstr "बंडल और एक्सटेंशन"
+
+#: foundation_deck/model.py:109
+msgid "Repositories"
+msgstr "संग्रह"
+
+#: foundation_deck/model.py:110
+msgid "Application Sources"
+msgstr "ऐप स्रोत"
+
+#: foundation_deck/model.py:111
+msgid "Base Packages"
+msgstr "मूल पैकेज"
+
+#: foundation_deck/model.py:113
+msgid "Appearance"
+msgstr "दिखावट"
+
+#: foundation_deck/model.py:114
+msgid "Remote Access"
+msgstr "दूरस्थ पहुँच"
+
+#: foundation_deck/model.py:115
+msgid "Advanced"
+msgstr "उन्नत"
+
+#: foundation_deck/model.py:116
+msgid "Activity"
+msgstr "गतिविधि"
+
+#: foundation_deck/model.py:159
+msgid "Always start {name}?"
+msgstr "क्या हमेशा {name} शुरू करें?"
+
+#: foundation_deck/model.py:170 foundation_deck/pages.py:612
+msgid "{count} package"
+msgid_plural "{count} packages"
+msgstr[0] "{count} पैकेज"
+msgstr[1] "{count} पैकेज"
+
+#: foundation_deck/model.py:264
+msgid "{count} minute ago"
+msgid_plural "{count} minutes ago"
+msgstr[0] "{count} मिनट पहले"
+msgstr[1] "{count} मिनट पहले"
+
+#: foundation_deck/model.py:266
+msgid "{count} hour ago"
+msgid_plural "{count} hours ago"
+msgstr[0] "{count} घंटे पहले"
+msgstr[1] "{count} घंटे पहले"
+
+#: foundation_deck/model.py:300
+msgid "the firewall allows it"
+msgstr "फ़ायरवॉल इसकी अनुमति देता है"
+
+#: foundation_deck/model.py:300
+msgid "the firewall blocks it"
+msgstr "फ़ायरवॉल इसे रोकता है"
+
+#: foundation_deck/model.py:376
+msgid "{state}: {message}"
+msgstr "{state}: {message}"
+
+#: foundation_deck/model.py:378
+msgid "{state}: {step}"
+msgstr "{state}: {step}"
+
+#: foundation_deck/model.py:27
+msgid "{count} start attempt left"
+msgid_plural "{count} start attempts left"
+msgstr[0] "शुरू करने का {count} प्रयास बाकी है"
+msgstr[1] "शुरू करने के {count} प्रयास बाकी हैं"
+
+#: foundation_deck/model.py:47
+msgid "Waiting to be confirmed ({count} attempts left)"
+msgstr "पुष्टि की प्रतीक्षा है ({count} प्रयास बाकी हैं)"
+
+#: foundation_deck/model.py:157
+msgid "Start {name} once?"
+msgstr "क्या {name} एक बार शुरू करें?"
+
+#: foundation_deck/model.py:194
+msgid "This turns on the package source: {sources}."
+msgstr "इससे पैकेज स्रोत चालू होगा: {sources}।"
+
+#: foundation_deck/model.py:256
+msgid "refreshed {age}"
+msgstr "{age} ताज़ा किया गया"
+
+#: foundation_deck/model.py:391
+msgid "{name} does not fit this system."
+msgstr "{name} इस सिस्टम के लिए उपयुक्त नहीं है।"
+
+#: foundation_deck/model.py:436
+msgid "{count} app installed"
+msgid_plural "{count} apps installed"
+msgstr[0] "{count} ऐप इंस्टॉल है"
+msgstr[1] "{count} ऐप इंस्टॉल हैं"
+
+#: foundation_deck/model.py:204
+msgid "Version {version} is available"
+msgstr "संस्करण {version} उपलब्ध है"
+
+#: foundation_deck/model.py:389
+msgid "{name} {version} fits this system."
+msgstr "{name} {version} इस सिस्टम के लिए उपयुक्त है।"
+
+#: foundation_deck/model.py:370
+msgid "Job"
+msgstr "कार्य"
+
+#: foundation_deck/pages.py:140
+msgid "This system"
+msgstr "यह सिस्टम"
+
+#: foundation_deck/pages.py:175
+msgid "Check for Updates"
+msgstr "अपडेट जाँचें"
+
+#: foundation_deck/pages.py:176 foundation_deck/pages.py:364 foundation_deck/pages.py:274 foundation_deck/pages.py:344
+msgid "Install"
+msgstr "इंस्टॉल करें"
+
+#: foundation_deck/pages.py:182
+msgid "Automatic updates"
+msgstr "स्वचालित अपडेट"
+
+#: foundation_deck/pages.py:182
+msgid "Nothing restarts the computer by itself."
+msgstr "कंप्यूटर अपने आप पुनः आरंभ नहीं होगा।"
+
+#: foundation_deck/pages.py:189
+msgid "Developer mode"
+msgstr "डेवलपर मोड"
+
+#: foundation_deck/pages.py:189
+msgid "Developer mode is on, so an update without a signature may be installed."
+msgstr "डेवलपर मोड चालू है, इसलिए बिना हस्ताक्षर वाला अपडेट इंस्टॉल किया जा सकता है।"
+
+#: foundation_deck/pages.py:194
+msgid "Install from a file"
+msgstr "फ़ाइल से इंस्टॉल करें"
+
+#: foundation_deck/pages.py:194
+msgid "For an update you built or were given. It is checked against the trusted keys."
+msgstr "अपने बनाए या मिले हुए अपडेट के लिए। इसकी विश्वसनीय कुंजियों से जाँच की जाती है।"
+
+#: foundation_deck/pages.py:247
+msgid "Looking for updates…"
+msgstr "अपडेट खोजे जा रहे हैं…"
+
+#: foundation_deck/pages.py:266 foundation_deck/pages.py:289
+msgid "Installing the update…"
+msgstr "अपडेट इंस्टॉल हो रहा है…"
+
+#: foundation_deck/pages.py:280
+msgid "Choose an update file"
+msgstr "अपडेट फ़ाइल चुनें"
+
+#: foundation_deck/pages.py:280
+msgid "Update archives"
+msgstr "अपडेट संग्रह"
+
+#: foundation_deck/pages.py:297
+msgid "Installed bundles"
+msgstr "इंस्टॉल किए गए बंडल"
+
+#: foundation_deck/pages.py:297
+msgid "Extra software added to the system without changing it."
+msgstr "सिस्टम को बदले बिना जोड़ा गया अतिरिक्त सॉफ़्टवेयर।"
+
+#: foundation_deck/pages.py:301
+msgid "Available"
+msgstr "उपलब्ध"
+
+#: foundation_deck/pages.py:302 foundation_deck/pages.py:405 foundation_deck/pages.py:521 foundation_deck/pages.py:710
+msgid "Add…"
+msgstr "जोड़ें…"
+
+#: foundation_deck/pages.py:303
+msgid "Extensions"
+msgstr "एक्सटेंशन"
+
+#: foundation_deck/pages.py:303
+msgid "Single packages added as extensions."
+msgstr "एक्सटेंशन के रूप में जोड़े गए पैकेज।"
+
+#: foundation_deck/pages.py:386
+msgid "Choose a package"
+msgstr "पैकेज चुनें"
+
+#: foundation_deck/pages.py:386
+msgid "RPM packages"
+msgstr "RPM पैकेज"
+
+#: foundation_deck/pages.py:394 foundation_deck/pages.py:361
+msgid "Installing…"
+msgstr "इंस्टॉल हो रहा है…"
+
+#: foundation_deck/pages.py:406
+msgid "Package sources"
+msgstr "पैकेज स्रोत"
+
+#: foundation_deck/pages.py:406
+msgid "Where bundles get their software. Every source must be signed."
+msgstr "बंडल को सॉफ़्टवेयर यहाँ से मिलता है। हर स्रोत हस्ताक्षरित होना चाहिए।"
+
+#: foundation_deck/pages.py:410
+msgid "Results"
+msgstr "परिणाम"
+
+#: foundation_deck/pages.py:438
+msgid "Searching…"
+msgstr "खोज हो रही है…"
+
+#: foundation_deck/pages.py:458 foundation_deck/pages.py:770 foundation_deck/pages.py:384
+msgid "Add"
+msgstr "जोड़ें"
+
+#: foundation_deck/pages.py:473 foundation_deck/pages.py:547
+msgid "Changing…"
+msgstr "बदला जा रहा है…"
+
+#: foundation_deck/pages.py:486 foundation_deck/pages.py:562
+msgid "Continue"
+msgstr "आगे बढ़ें"
+
+#: foundation_deck/pages.py:520
+msgid "Application sources"
+msgstr "ऐप स्रोत"
+
+#: foundation_deck/pages.py:520
+msgid "Where Flatpak applications come from. Every source must be signed. They also show up in app stores such as Bazaar."
+msgstr "Flatpak ऐप यहाँ से आते हैं। हर स्रोत हस्ताक्षरित होना चाहिए। ये Bazaar जैसे ऐप स्टोर में भी दिखते हैं।"
+
+#: foundation_deck/pages.py:627
+msgid "Boot slots"
+msgstr "बूट स्लॉट"
+
+#: foundation_deck/pages.py:627
+msgid "Two copies of the system. An update goes to the one that is not running."
+msgstr "सिस्टम की दो प्रतियाँ। अपडेट उस प्रति पर जाता है जो अभी नहीं चल रही।"
+
+#: foundation_deck/pages.py:654
+msgid "Its system is removed. The next update has more room to choose from, but this slot cannot be started until then."
+msgstr "इसका सिस्टम हट जाएगा। अगले अपडेट के लिए अधिक जगह होगी, लेकिन तब तक यह स्लॉट शुरू नहीं हो सकेगा।"
+
+#: foundation_deck/pages.py:655
+msgid "Empty Slot"
+msgstr "स्लॉट खाली करें"
+
+#: foundation_deck/pages.py:665
+msgid "Boot splash"
+msgstr "बूट स्क्रीन"
+
+#: foundation_deck/pages.py:665
+msgid "The picture shown while the computer starts. It changes at the next restart. Colours, wallpaper and fonts of the desktop are in GNOME Settings."
+msgstr "कंप्यूटर शुरू होते समय दिखने वाली तस्वीर। यह अगले पुनः आरंभ पर बदलेगी। डेस्कटॉप के रंग, वॉलपेपर और फ़ॉन्ट GNOME सेटिंग में हैं।"
+
+#: foundation_deck/pages.py:694
+msgid "Changing the boot splash"
+msgstr "बूट स्क्रीन बदली जा रही है"
+
+#: foundation_deck/pages.py:705
+msgid "SSH"
+msgstr "SSH"
+
+#: foundation_deck/pages.py:705
+msgid "Sign in from another computer over the network, with an authorized key."
+msgstr "अधिकृत कुंजी से नेटवर्क पर दूसरे कंप्यूटर से साइन इन करें।"
+
+#: foundation_deck/pages.py:710
+msgid "Authorized keys"
+msgstr "अधिकृत कुंजियाँ"
+
+#: foundation_deck/pages.py:710
+msgid "Computers that may sign in without a password."
+msgstr "वे कंप्यूटर जो बिना पासवर्ड के साइन इन कर सकते हैं।"
+
+#: foundation_deck/pages.py:747
+msgid "Changing remote access…"
+msgstr "दूरस्थ पहुँच बदली जा रही है…"
+
+#: foundation_deck/pages.py:850
+msgid "Recent changes"
+msgstr "हाल के बदलाव"
+
+#: foundation_deck/pages.py:850
+msgid "What the system did on request, newest first. foundationd keeps the last fifty."
+msgstr "अनुरोध पर सिस्टम ने क्या किया, नया पहले। foundationd पिछले पचास कार्य रखता है।"
+
+#: foundation_deck/pages.py:896
+msgid "Approve this sign-in"
+msgstr "इस साइन इन की पुष्टि करें"
+
+#: foundation_deck/pages.py:896
+msgid "Open the page on any device and enter this code."
+msgstr "किसी भी डिवाइस पर पृष्ठ खोलें और यह कोड डालें।"
+
+#: foundation_deck/pages.py:901 foundation_deck/pages.py:991
+msgid "Open the Sign-in Page"
+msgstr "साइन इन पृष्ठ खोलें"
+
+#: foundation_deck/pages.py:904 foundation_deck/pages.py:1013
+msgid "Sign Out"
+msgstr "साइन आउट करें"
+
+#: foundation_deck/pages.py:968 foundation_deck/pages.py:133
+msgid "…"
+msgstr "…"
+
+#: foundation_deck/pages.py:1013
+msgid "Sign out of Ersa ID?"
+msgstr "Ersa ID से साइन आउट करें?"
+
+#: foundation_deck/pages.py:1013
+msgid "This computer forgets your account. Your files and settings stay."
+msgstr "यह कंप्यूटर आपका खाता भूल जाएगा। आपकी फ़ाइलें और सेटिंग बनी रहेंगी।"
+
+#: foundation_deck/pages.py:184
+msgid "Check automatically"
+msgstr "अपने आप जाँचें"
+
+#: foundation_deck/pages.py:184
+msgid "Install automatically"
+msgstr "अपने आप इंस्टॉल करें"
+
+#: foundation_deck/pages.py:190
+msgid "Install without checking the signature"
+msgstr "हस्ताक्षर जाँचे बिना इंस्टॉल करें"
+
+#: foundation_deck/pages.py:191
+msgid "For images you built yourself. Anything can be installed this way."
+msgstr "अपने बनाए इमेज के लिए। इस तरीके से कुछ भी इंस्टॉल हो सकता है।"
+
+#: foundation_deck/pages.py:195
+msgid "Update file"
+msgstr "अपडेट फ़ाइल"
+
+#: foundation_deck/pages.py:195
+msgid "A .tar.zst archive"
+msgstr "एक .tar.zst संग्रह"
+
+#: foundation_deck/pages.py:196
+msgid "Choose…"
+msgstr "चुनें…"
+
+#: foundation_deck/pages.py:278
+msgid "Install this update?"
+msgstr "यह अपडेट इंस्टॉल करें?"
+
+#: foundation_deck/pages.py:298
+msgid "Update All"
+msgstr "सब अपडेट करें"
+
+#: foundation_deck/pages.py:313 foundation_deck/pages.py:330
+msgid "None installed"
+msgstr "कुछ भी इंस्टॉल नहीं है"
+
+#: foundation_deck/pages.py:403
+msgid "Refresh"
+msgstr "ताज़ा करें"
+
+#: foundation_deck/pages.py:407
+msgid "Find a package in these sources"
+msgstr "इन स्रोतों में पैकेज खोजें"
+
+#: foundation_deck/pages.py:419
+msgid "No repositories"
+msgstr "कोई संग्रह नहीं है"
+
+#: foundation_deck/pages.py:453
+msgid "Bundle name"
+msgstr "बंडल का नाम"
+
+#: foundation_deck/pages.py:455
+msgid "A bundle is one group of extra software. A new name makes a new bundle; an existing name adds to it."
+msgstr "बंडल अतिरिक्त सॉफ़्टवेयर का एक समूह है। नया नाम नया बंडल बनाता है; मौजूदा नाम में पैकेज जुड़ते हैं।"
+
+#: foundation_deck/pages.py:478
+msgid "https://example.org/repo"
+msgstr "https://example.org/repo"
+
+#: foundation_deck/pages.py:483
+msgid "Add a repository"
+msgstr "संग्रह जोड़ें"
+
+#: foundation_deck/pages.py:483
+msgid "Only add sources you trust: their software is installed as bundles."
+msgstr "केवल भरोसेमंद स्रोत जोड़ें: उनका सॉफ़्टवेयर बंडल के रूप में इंस्टॉल होता है।"
+
+#: foundation_deck/pages.py:509 foundation_deck/pages.py:581
+msgid "Trust and Add"
+msgstr "भरोसा करके जोड़ें"
+
+#: foundation_deck/pages.py:529
+msgid "No sources. Flathub is added when the computer is first online."
+msgstr "कोई स्रोत नहीं है। कंप्यूटर पहली बार ऑनलाइन होने पर Flathub जोड़ा जाता है।"
+
+#: foundation_deck/pages.py:551
+msgid "https://example.org/apps.flatpakrepo"
+msgstr "https://example.org/apps.flatpakrepo"
+
+#: foundation_deck/pages.py:552
+msgid "Short name, for example acme"
+msgstr "छोटा नाम, जैसे acme"
+
+#: foundation_deck/pages.py:553
+msgid "Title (optional)"
+msgstr "शीर्षक (वैकल्पिक)"
+
+#: foundation_deck/pages.py:559
+msgid "Add an application source"
+msgstr "ऐप स्रोत जोड़ें"
+
+#: foundation_deck/pages.py:559
+msgid "Only add sources you trust: their applications run on this computer."
+msgstr "केवल भरोसेमंद स्रोत जोड़ें: उनके ऐप इस कंप्यूटर पर चलेंगे।"
+
+#: foundation_deck/pages.py:593
+msgid "Search the system's packages"
+msgstr "सिस्टम के पैकेज खोजें"
+
+#: foundation_deck/pages.py:667
+msgid "Style"
+msgstr "शैली"
+
+#: foundation_deck/pages.py:669
+msgid "Light"
+msgstr "हल्की"
+
+#: foundation_deck/pages.py:670
+msgid "Dark"
+msgstr "गहरी"
+
+#: foundation_deck/pages.py:706
+msgid "Remote login (SSH)"
+msgstr "दूरस्थ लॉगिन (SSH)"
+
+#: foundation_deck/pages.py:738
+msgid "Add a key first"
+msgstr "पहले कुंजी जोड़ें"
+
+#: foundation_deck/pages.py:739
+msgid "No user has an SSH key, so nobody could sign in. Add a key, then turn remote login on."
+msgstr "किसी उपयोगकर्ता के पास SSH कुंजी नहीं है, इसलिए कोई साइन इन नहीं कर सकेगा। कुंजी जोड़ें, फिर दूरस्थ लॉगिन चालू करें।"
+
+#: foundation_deck/pages.py:753
+msgid "No keys"
+msgstr "कोई कुंजी नहीं है"
+
+#: foundation_deck/pages.py:763
+msgid "User"
+msgstr "उपयोगकर्ता"
+
+#: foundation_deck/pages.py:767
+msgid "Add an SSH key"
+msgstr "SSH कुंजी जोड़ें"
+
+#: foundation_deck/pages.py:767
+msgid "Paste the public key (one line, from a .pub file)."
+msgstr "सार्वजनिक कुंजी चिपकाएँ (.pub फ़ाइल की एक पंक्ति)।"
+
+#: foundation_deck/pages.py:783
+msgid "Adding the key…"
+msgstr "कुंजी जोड़ी जा रही है…"
+
+#: foundation_deck/pages.py:858
+msgid "Nothing yet since the system started"
+msgstr "सिस्टम शुरू होने के बाद अभी कुछ नहीं हुआ"
+
+#: foundation_deck/pages.py:254
+msgid "Your system is up to date."
+msgstr "आपका सिस्टम अपडेट है।"
+
+#: foundation_deck/pages.py:259
+msgid "No update source is set up yet."
+msgstr "अभी कोई अपडेट स्रोत सेट नहीं है।"
+
+#: foundation_deck/pages.py:316 foundation_deck/pages.py:333 foundation_deck/pages.py:756 foundation_deck/pages.py:429 foundation_deck/pages.py:539 foundation_deck/pages.py:317 foundation_deck/pages.py:334 foundation_deck/pages.py:757 foundation_deck/pages.py:430 foundation_deck/pages.py:540
+msgid "Remove"
+msgstr "हटाएँ"
+
+#: foundation_deck/pages.py:394
+msgid "The extension is installed."
+msgstr "एक्सटेंशन इंस्टॉल है।"
+
+#: foundation_deck/pages.py:481
+msgid "Public signing key (the text of the .asc file)"
+msgstr "सार्वजनिक हस्ताक्षर कुंजी (.asc फ़ाइल का पाठ)"
+
+#: foundation_deck/pages.py:506
+msgid "That is not a usable public key."
+msgstr "यह सार्वजनिक कुंजी मान्य नहीं है।"
+
+#: foundation_deck/pages.py:556
+msgid "Public signing key (only if the address is not a .flatpakrepo file)"
+msgstr "सार्वजनिक हस्ताक्षर कुंजी (यदि पता .flatpakrepo फ़ाइल नहीं है)"
+
+#: foundation_deck/pages.py:604
+msgid "What the read-only system is made of. Changes come with system updates, not from here."
+msgstr "केवल-पढ़ने योग्य सिस्टम में क्या है। बदलाव सिस्टम अपडेट से आते हैं, यहाँ से नहीं।"
+
+#: foundation_deck/pages.py:651
+msgid "Changing the boot choice…"
+msgstr "बूट विकल्प बदला जा रहा है…"
+
+#: foundation_deck/pages.py:657
+msgid "Emptying the slot…"
+msgstr "स्लॉट खाली किया जा रहा है…"
+
+#: foundation_deck/pages.py:943
+msgid "Sign in to link this computer to your account."
+msgstr "इस कंप्यूटर को अपने खाते से जोड़ने के लिए साइन इन करें।"
+
+#: foundation_deck/pages.py:944
+msgid "No account provider is set up on this computer."
+msgstr "इस कंप्यूटर पर कोई खाता प्रदाता सेट नहीं है।"
+
+#: foundation_deck/pages.py:945
+msgid "Account sign-in is turned off on this computer."
+msgstr "इस कंप्यूटर पर खाते से साइन इन बंद है।"
+
+#: foundation_deck/pages.py:272
+msgid "That file cannot be used."
+msgstr "इस फ़ाइल का उपयोग नहीं हो सकता।"
+
+#: foundation_deck/pages.py:276
+msgid "Install Without Signature"
+msgstr "हस्ताक्षर के बिना इंस्टॉल करें"
+
+#: foundation_deck/pages.py:300
+msgid "Updating bundles…"
+msgstr "बंडल अपडेट हो रहे हैं…"
+
+#: foundation_deck/pages.py:323
+msgid "asked for"
+msgstr "माँगा गया"
+
+#: foundation_deck/pages.py:382
+msgid "This package does not fit"
+msgstr "यह पैकेज संगत नहीं है"
+
+#: foundation_deck/pages.py:404
+msgid "Refreshing…"
+msgstr "ताज़ा किया जा रहा है…"
+
+#: foundation_deck/pages.py:444
+msgid " (showing the first 40)"
+msgstr " (पहले 40 दिखाए जा रहे हैं)"
+
+#: foundation_deck/pages.py:448
+msgid "Add to Bundle…"
+msgstr "बंडल में जोड़ें…"
+
+#: foundation_deck/pages.py:454
+msgid "Add {package} to a bundle"
+msgstr "{package} को बंडल में जोड़ें"
+
+#: foundation_deck/pages.py:511 foundation_deck/pages.py:582
+msgid "Adding…"
+msgstr "जोड़ा जा रहा है…"
+
+#: foundation_deck/pages.py:612
+msgid "{shown} of {total} packages"
+msgstr "{total} में से {shown} पैकेज"
+
+#: foundation_deck/pages.py:643
+msgid "Empty this slot"
+msgstr "यह स्लॉट खाली करें"
+
+#: foundation_deck/pages.py:740
+msgid "Add a Key…"
+msgstr "कुंजी जोड़ें…"
+
+#: foundation_deck/pages.py:265 foundation_deck/pages.py:288
+msgid "Version {version} is ready. Restart to use it."
+msgstr "संस्करण {version} तैयार है। इस्तेमाल करने के लिए पुनः आरंभ करें।"
+
+#: foundation_deck/pages.py:317
+msgid "Its software is taken away. Your files are not touched."
+msgstr "इसका सॉफ़्टवेयर हट जाएगा। आपकी फ़ाइलें नहीं बदलेंगी।"
+
+#: foundation_deck/pages.py:334
+msgid "The extension is removed."
+msgstr "एक्सटेंशन हटा दिया गया।"
+
+#: foundation_deck/pages.py:444
+msgid "{count} found"
+msgid_plural "{count} found"
+msgstr[0] "{count} मिले"
+msgstr[1] "{count} मिले"
+
+#: foundation_deck/pages.py:466
+msgid "Adding {package}"
+msgstr "{package} जोड़ा जा रहा है"
+
+#: foundation_deck/pages.py:651
+msgid "Done. Restart to use it."
+msgstr "पूरा हुआ। इस्तेमाल करने के लिए पुनः आरंभ करें।"
+
+#: foundation_deck/pages.py:757
+msgid "Remove this key?"
+msgstr "यह कुंजी हटाएँ?"
+
+#: foundation_deck/pages.py:300
+msgid "Bundles are up to date."
+msgstr "बंडल अपडेट हैं।"
+
+#: foundation_deck/pages.py:404
+msgid "Repositories are up to date."
+msgstr "संग्रह अपडेट हैं।"
+
+#: foundation_deck/pages.py:430
+msgid "Bundles that use it must be removed first."
+msgstr "इसे इस्तेमाल करने वाले बंडल पहले हटाने होंगे।"
+
+#: foundation_deck/pages.py:540
+msgid "Applications installed from it must be removed first."
+msgstr "इससे इंस्टॉल किए गए ऐप पहले हटाने होंगे।"
+
+#: foundation_deck/pages.py:318 foundation_deck/pages.py:335 foundation_deck/pages.py:758 foundation_deck/pages.py:431 foundation_deck/pages.py:541
+msgid "Removing…"
+msgstr "हटाया जा रहा है…"
+
+#: foundation_deck/pages.py:466
+msgid "{package} was added to {bundle}."
+msgstr "{package} को {bundle} में जोड़ दिया गया।"
+
+#: foundation_deck/tasks.py:24
+msgid "Starting…"
+msgstr "शुरू हो रहा है…"
+
+#: foundation_deck/tasks.py:88
+msgid "Clear finished"
+msgstr "पूरे हुए कार्य साफ़ करें"
+
+#: foundation_deck/tasks.py:97 foundation_deck/tasks.py:114 foundation_deck/tasks.py:153
+msgid "Tasks"
+msgstr "कार्य"
+
+#: foundation_deck/tasks.py:98
+msgid "Nothing running"
+msgstr "अभी कोई कार्य नहीं चल रहा"
+
+#: foundation_deck/tasks.py:27
+msgid "Cancel: {title}"
+msgstr "रद्द करें: {title}"
+
+#: foundation_deck/tasks.py:142
+msgid "{count} task running"
+msgid_plural "{count} tasks running"
+msgstr[0] "{count} कार्य चल रहा है"
+msgstr[1] "{count} कार्य चल रहे हैं"
+
+#: foundation_deck/tasks.py:154
+msgid "Done: {title}"
+msgstr "पूरा हुआ: {title}"
+
+#: foundation_deck/tasks.py:154
+msgid "Failed: {title}"
+msgstr "विफल: {title}"

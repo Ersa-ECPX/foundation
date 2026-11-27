@@ -13,11 +13,13 @@ LOADER_GUID = "4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
 MIB = 1024 * 1024
 
 
-def build_pe(cmdline, raw_size=512, signed=False, with_cmdline=True):
-    """A minimal PE32+ file with a .linux and (optionally) a .cmdline section."""
+def build_pe(cmdline, raw_size=512, signed=False, with_cmdline=True, pcrpkey=None):
+    """A minimal PE32+ file with a .linux and (optionally) a .cmdline section, and a .pcrpkey section when `pcrpkey` bytes are given."""
     sections = [(b".linux", 0x400, 0x200, 0x200)]
     if with_cmdline:
         sections.append((b".cmdline", 0x600, raw_size, len(cmdline) + 1))
+    if pcrpkey is not None:
+        sections.append((b".pcrpkey", 0x600 + raw_size, 0x200, len(pcrpkey) + 1))
     out = bytearray(0x600 + raw_size + 0x200)
     out[0:2] = b"MZ"
     struct.pack_into("<I", out, 0x3C, 0x40)
@@ -34,6 +36,8 @@ def build_pe(cmdline, raw_size=512, signed=False, with_cmdline=True):
         struct.pack_into("<I", out, table + index * 40 + 36, 0x40000040)   # initialized data, readable
     if with_cmdline:
         out[0x600:0x600 + len(cmdline)] = cmdline
+    if pcrpkey is not None:
+        out[0x600 + raw_size:0x600 + raw_size + len(pcrpkey)] = pcrpkey
     return bytes(out)
 
 
@@ -142,7 +146,9 @@ class FakeSystem:
         self.paths = {
             "state": os.path.join(t, "state"), "efivars": self.efivars, "os_release": os.path.join(t, "os-release"),
             "mountinfo": self.mountinfo, "sysfs": sysfs, "dev": os.path.join(t, "dev"), "esp": self.esp,
-            "root": os.path.join(t, "root"), "bus": "session"}
+            "root": os.path.join(t, "root"), "bus": "session",
+            # a test machine has no TPM, whatever the computer running the tests has
+            "tpm_class": os.path.join(t, "tpm-class"), "tpmrm": os.path.join(t, "tpmrm0")}
         with open(self.paths["os_release"], "w") as handle:
             handle.write('ID="opensuse-tumbleweed"\nIMAGE_ID=ecp\n')
 

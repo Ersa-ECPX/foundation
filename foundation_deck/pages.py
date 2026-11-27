@@ -16,6 +16,9 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from foundation import identity  # noqa: E402
 
+from foundation.i18n import Domain
+
+_ = Domain("ersa-deck")
 from . import icons, model  # noqa: E402
 
 
@@ -127,14 +130,14 @@ class Overview(Page):
         super().__init__(win)
         hero = hero_box()
         self.hero_logo = Gtk.Image(pixel_size=88, halign=Gtk.Align.CENTER)
-        self.version_label = Gtk.Label(label="\u2026", css_classes=["hero-version"])
+        self.version_label = Gtk.Label(label=_("\u2026"), css_classes=["hero-version"])
         self.slot_label = Gtk.Label(label="", css_classes=["dim-label"])
         self.pill = Gtk.Label(label="", halign=Gtk.Align.CENTER, margin_top=4, css_classes=["status-pill", "unknown"])
         for widget in (self.hero_logo, Gtk.Label(label=model.PRODUCT.upper(), css_classes=["hero-product"], margin_top=8),
                        self.version_label, self.slot_label, self.pill):
             hero.append(widget)
         self.add(hero)
-        self.system = self.group("This system")
+        self.system = self.group(_("This system"))
         self.facts = {}
 
     def load(self):
@@ -169,28 +172,28 @@ class Updates(Page):
         self.available, self.pending = {}, {}
         self.status = self.blurb                       # the line under the headline is the update state
         self.status.add_css_class("update-status")
-        self.check_button = text_button("Check for Updates", self.check, "pill")
-        self.install_button = text_button("Install", self.install, "pill", "suggested-action")
-        self.restart_button = text_button("Restart…", win.ask_restart, "pill", "suggested-action")
+        self.check_button = text_button(_("Check for Updates"), self.check, "pill")
+        self.install_button = text_button(_("Install"), self.install, "pill", "suggested-action")
+        self.restart_button = text_button(_("Restart…"), win.ask_restart, "pill", "suggested-action")
         self.install_button.set_visible(False)
         self.restart_button.set_visible(False)
         for button in (self.check_button, self.install_button, self.restart_button):
             self.add_action(button)
-        auto = self.group("Automatic updates", "Nothing restarts the computer by itself.")
+        auto = self.group(_("Automatic updates"), _("Nothing restarts the computer by itself."))
         self.switches = {}
-        for key, title in (("ota.auto_check", "Check automatically"), ("ota.auto_update", "Install automatically")):
+        for key, title in (("ota.auto_check", _("Check automatically")), ("ota.auto_update", _("Install automatically"))):
             row = Adw.SwitchRow(title=title)
             row.connect("notify::active", lambda r, _p, k=key: self.set_switch(r, k))
             self.switches[key] = row
             auto.add(row)
-        self.developer_group = self.group("Developer mode", "Developer mode is on, so an update without a signature may be installed.")
-        self.unsigned_row = Adw.SwitchRow(title="Install without checking the signature",
-                                          subtitle="For images you built yourself. Anything can be installed this way.")
+        self.developer_group = self.group(_("Developer mode"), _("Developer mode is on, so an update without a signature may be installed."))
+        self.unsigned_row = Adw.SwitchRow(title=_("Install without checking the signature"),
+                                          subtitle=_("For images you built yourself. Anything can be installed this way."))
         self.developer_group.add(self.unsigned_row)
         self.developer_group.set_visible(False)
-        local = self.group("Install from a file", "For an update you built or were given. It is checked against the trusted keys.")
-        row = Adw.ActionRow(title="Update file", subtitle="A .tar.zst archive")
-        row.add_suffix(text_button("Choose…", self.choose_file))
+        local = self.group(_("Install from a file"), _("For an update you built or were given. It is checked against the trusted keys."))
+        row = Adw.ActionRow(title=_("Update file"), subtitle=_("A .tar.zst archive"))
+        row.add_suffix(text_button(_("Choose…"), self.choose_file))
         local.add(row)
 
     def set_switch(self, row, key):
@@ -241,40 +244,40 @@ class Updates(Page):
 
     def check(self):
         self.check_button.set_sensitive(False)
-        self.status.set_label("Looking for updates…")
+        self.status.set_label(_("Looking for updates…"))
 
         def got(value):
             self.check_button.set_sensitive(True)
             self.available = value
             self.show()
             if not value.get("available"):
-                self.status.set_label("Your system is up to date.")
+                self.status.set_label(_("Your system is up to date."))
 
         def failed(error):
             self.check_button.set_sensitive(True)
             no_source = error.name == "Unavailable" and "no update source" in error.message
-            self.status.set_label("No update source is set up yet." if no_source else model.error_text(error.name, error.message))
+            self.status.set_label(_("No update source is set up yet.") if no_source else model.error_text(error.name, error.message))
         self.ask("Updates", "Check", None, None, got, failed, timeout=120_000)
 
     def install(self):
         method = "InstallLatestUnsigned" if self.unsigned_row.get_active() else "InstallLatest"
         self.win.run_job(self.win.job_call("Updates", method, None, None),
-                         lambda r: self.win.toast(f"Version {r.get('version', '')} is ready. Restart to use it."),
-                         "Installing the update…")
+                         lambda r: self.win.toast(_("Version {version} is ready. Restart to use it.").format(version=r.get("version", ""))),
+                         _("Installing the update…"))
 
     def choose_file(self):
         def chosen(path):
             kind, problem = model.classify_source(path)
             if kind != "file":
-                self.win.toast(problem or "That file cannot be used.")
+                self.win.toast(problem or _("That file cannot be used."))
                 return
-            choices = [("ok", "Install", "suggested")]
+            choices = [("ok", _("Install"), "suggested")]
             if self.developer_group.get_visible():          # developer mode: an image you built yourself may have no signature
-                choices.append(("unsigned", "Install Without Signature", "destructive"))
+                choices.append(("unsigned", _("Install Without Signature"), "destructive"))
             self.win.confirm_choice(
-                "Install this update?", f"{os.path.basename(path)}\n\nThe signature is checked against the trusted keys.",
+                _("Install this update?"), f"{os.path.basename(path)}\n\nThe signature is checked against the trusted keys.",
                 choices, lambda response: self.install_file(path, response == "unsigned"))
-        self.win.choose_file("Choose an update file", ("*.tar.zst", "*.tar", "*.zst"), "Update archives", chosen)
+        self.win.choose_file(_("Choose an update file"), ("*.tar.zst", "*.tar", "*.zst"), _("Update archives"), chosen)
 
     def install_file(self, path, unsigned):
         opened = self.win.open_fd(path)
@@ -282,8 +285,8 @@ class Updates(Page):
             return
         fds, index = opened
         self.win.run_job(self.win.job_call("Updates", "Install", "(hsbb)", (index, "", unsigned, False), fds=fds),
-                         lambda r: self.win.toast(f"Version {r.get('version', '')} is ready. Restart to use it."),
-                         "Installing the update…")
+                         lambda r: self.win.toast(_("Version {version} is ready. Restart to use it.").format(version=r.get("version", ""))),
+                         _("Installing the update…"))
 
 
 # -- Bundles and extensions ----------------------------------------------------------------------
@@ -291,13 +294,13 @@ class Updates(Page):
 class Bundles(Page):
     def __init__(self, win):
         super().__init__(win)
-        self.bundles_group = self.group("Installed bundles", "Extra software added to the system without changing it.",
-                                        text_button("Update All", lambda: win.run_job(
+        self.bundles_group = self.group(_("Installed bundles"), _("Extra software added to the system without changing it."),
+                                        text_button(_("Update All"), lambda: win.run_job(
                                             win.job_call("Compat", "UpdateBundles", "(s)", ("",)),
-                                            lambda _r: win.toast("Bundles are up to date."), "Updating bundles…")))
-        self.catalog_group = self.group("Available")
-        add = text_button("Add…", self.choose_rpm)
-        self.extensions_group = self.group("Extensions", "Single packages added as extensions.", add)
+                                            lambda _r: win.toast(_("Bundles are up to date.")), _("Updating bundles…"))))
+        self.catalog_group = self.group(_("Available"))
+        add = text_button(_("Add…"), self.choose_rpm)
+        self.extensions_group = self.group(_("Extensions"), _("Single packages added as extensions."), add)
 
     def load(self):
         self.ask("Compat", "ListBundles", None, None, self.show_bundles)
@@ -307,29 +310,29 @@ class Bundles(Page):
     def show_bundles(self, bundles):
         clear(self.bundles_group)
         if not bundles:
-            self.empty(self.bundles_group, "None installed")
+            self.empty(self.bundles_group, _("None installed"))
         for bundle in bundles:
             row = Adw.ExpanderRow(title=model.bundle_title(bundle), subtitle=model.bundle_subtitle(bundle))
-            row.add_suffix(flat_button("user-trash-symbolic", "Remove", lambda n=bundle["name"]: self.win.confirm(
-                f"Remove {n}?", "Its software is taken away. Your files are not touched.", "Remove",
-                lambda: self.win.run_job(self.win.job_call("Compat", "RemovePackages", "(sas)", (n, [])), None, "Removing…"), True)))
+            row.add_suffix(flat_button("user-trash-symbolic", _("Remove"), lambda n=bundle["name"]: self.win.confirm(
+                f"Remove {n}?", _("Its software is taken away. Your files are not touched."), _("Remove"),
+                lambda: self.win.run_job(self.win.job_call("Compat", "RemovePackages", "(sas)", (n, [])), None, _("Removing…")), True)))
             requested = set(bundle.get("requested", []))
             for name in model.package_names(bundle.get("packages", [])):
                 package = Adw.ActionRow(title=name)
                 if name in requested or name.rsplit("-", 2)[0] in requested:
-                    package.set_subtitle("asked for")
+                    package.set_subtitle(_("asked for"))
                 row.add_row(package)
             add_row(self.bundles_group, row)
 
     def show_extensions(self, extensions):
         clear(self.extensions_group)
         if not extensions:
-            self.empty(self.extensions_group, "None installed")
+            self.empty(self.extensions_group, _("None installed"))
         for extension in extensions:
             row = Adw.ActionRow(title=extension.get("name", ""), subtitle=model.extension_subtitle(extension))
-            row.add_suffix(flat_button("user-trash-symbolic", "Remove", lambda n=extension["name"]: self.win.confirm(
-                f"Remove {n}?", "The extension is removed.", "Remove",
-                lambda: self.win.run_job(self.win.job_call("Compat", "Remove", "(s)", (n,)), None, "Removing…"), True)))
+            row.add_suffix(flat_button("user-trash-symbolic", _("Remove"), lambda n=extension["name"]: self.win.confirm(
+                f"Remove {n}?", _("The extension is removed."), _("Remove"),
+                lambda: self.win.run_job(self.win.job_call("Compat", "Remove", "(s)", (n,)), None, _("Removing…")), True)))
             add_row(self.extensions_group, row)
 
     def show_catalog(self, entries):
@@ -338,7 +341,7 @@ class Bundles(Page):
         self.catalog_group.set_visible(bool(shown))
         for entry in shown:
             row = Adw.ExpanderRow(title=entry.get("title") or entry.get("name", ""), subtitle=model.shorten(entry.get("description", "")))
-            row.add_suffix(text_button("Install", lambda e=entry: self.install_entry(e)))
+            row.add_suffix(text_button(_("Install"), lambda e=entry: self.install_entry(e)))
             if entry.get("description"):
                 about = Gtk.Label(label=entry["description"], wrap=True, xalign=0, margin_top=8, margin_bottom=8,
                                   margin_start=12, margin_end=12, css_classes=["dim-label"])
@@ -355,10 +358,10 @@ class Bundles(Page):
 
         def go():
             self.win.run_job(self.win.job_call("Compat", "InstallCatalog", "(ssb)", (entry["name"], "", enable)),
-                             lambda _r: self.win.toast(f"{title} is installed."), "Installing…")
+                             lambda _r: self.win.toast(f"{title} is installed."), _("Installing…"))
         notice = model.catalog_notice(entry)
         if notice:
-            self.win.confirm(f"Install {title}?", notice, "Install", go)
+            self.win.confirm(f"Install {title}?", notice, _("Install"), go)
         else:
             go()
 
@@ -376,11 +379,11 @@ class Bundles(Page):
             def report(values):
                 ok, text = model.inspect_summary(values)
                 if not ok:
-                    self.win.alert("This package does not fit", text)
+                    self.win.alert(_("This package does not fit"), text)
                     return
-                self.win.confirm(f"Add {os.path.basename(path)}?", text, "Add", lambda: self.add_rpm(path))
+                self.win.confirm(f"Add {os.path.basename(path)}?", text, _("Add"), lambda: self.add_rpm(path))
             self.ask("Compat", "Inspect", "(h)", (index,), report, fds=fds)
-        self.win.choose_file("Choose a package", ("*.rpm",), "RPM packages", chosen)
+        self.win.choose_file(_("Choose a package"), ("*.rpm",), _("RPM packages"), chosen)
 
     def add_rpm(self, path):
         opened = self.win.open_fd(path)
@@ -388,7 +391,7 @@ class Bundles(Page):
             return
         fds, index = opened
         self.win.run_job(self.win.job_call("Compat", "Install", "(hb)", (index, False), fds=fds),
-                         lambda _r: self.win.toast("The extension is installed."), "Installing…")
+                         lambda _r: self.win.toast(_("The extension is installed.")), _("Installing…"))
 
 
 # -- Repositories --------------------------------------------------------------------------------
@@ -397,14 +400,14 @@ class Repositories(Page):
     def __init__(self, win):
         super().__init__(win)
         buttons = Gtk.Box(spacing=6)
-        buttons.append(text_button("Refresh", lambda: win.run_job(win.job_call("Repos", "Refresh", "(asb)", ([], False)),
-                                                                  lambda _r: win.toast("Repositories are up to date."), "Refreshing…")))
-        buttons.append(text_button("Add…", self.add_dialog))
-        self.group_ = self.group("Package sources", "Where bundles get their software. Every source must be signed.", buttons)
-        self.find = Gtk.SearchEntry(placeholder_text="Find a package in these sources")
+        buttons.append(text_button(_("Refresh"), lambda: win.run_job(win.job_call("Repos", "Refresh", "(asb)", ([], False)),
+                                                                  lambda _r: win.toast(_("Repositories are up to date.")), _("Refreshing…"))))
+        buttons.append(text_button(_("Add…"), self.add_dialog))
+        self.group_ = self.group(_("Package sources"), _("Where bundles get their software. Every source must be signed."), buttons)
+        self.find = Gtk.SearchEntry(placeholder_text=_("Find a package in these sources"))
         self.find.connect("activate", lambda e: self.search(e.get_text().strip()))
         self.add(self.find)
-        self.results = self.group("Results")
+        self.results = self.group(_("Results"))
         self.results.set_visible(False)
 
     def load(self):
@@ -413,7 +416,7 @@ class Repositories(Page):
     def show(self, repos):
         clear(self.group_)
         if not repos:
-            self.empty(self.group_, "No repositories")
+            self.empty(self.group_, _("No repositories"))
         for repo in repos:
             row = Adw.SwitchRow(title=model.repo_title(repo), subtitle=model.repo_subtitle(repo))
             row._loading = True
@@ -423,36 +426,36 @@ class Repositories(Page):
             if repo.get("shipped"):
                 row.add_suffix(spacer())
             else:
-                row.add_suffix(flat_button("user-trash-symbolic", "Remove", lambda a=repo["alias"], t=model.repo_title(repo): self.win.confirm(
-                    f"Remove {t}?", "Bundles that use it must be removed first.", "Remove",
-                    lambda: self.win.run_job(self.win.job_call("Repos", "Remove", "(s)", (a,)), None, "Removing…"), True)))
+                row.add_suffix(flat_button("user-trash-symbolic", _("Remove"), lambda a=repo["alias"], t=model.repo_title(repo): self.win.confirm(
+                    f"Remove {t}?", _("Bundles that use it must be removed first."), _("Remove"),
+                    lambda: self.win.run_job(self.win.job_call("Repos", "Remove", "(s)", (a,)), None, _("Removing…")), True)))
             add_row(self.group_, row)
 
     def search(self, term):
         if len(term) < 2:
             return
         self.results.set_visible(True)
-        self.results.set_description("Searching\u2026")
+        self.results.set_description(_("Searching\u2026"))
         clear(self.results)
 
         def got(packages):
             clear(self.results)
             shown = packages[:40]
-            self.results.set_description(f"{len(packages)} found" + (" (showing the first 40)" if len(packages) > 40 else ""))
+            self.results.set_description(_.ngettext("{count} found", "{count} found", len(packages)).format(count=len(packages)) + (_(" (showing the first 40)") if len(packages) > 40 else ""))
             for package in shown:
                 row = Adw.ActionRow(title=package.get("name", ""), subtitle=" \u00b7 ".join(
                     p for p in (package.get("evr", ""), package.get("repo", ""), package.get("summary", "")) if p))
-                row.add_suffix(text_button("Add to Bundle\u2026", lambda n=package.get("name", ""): self.add_to_bundle(n)))
+                row.add_suffix(text_button(_("Add to Bundle\u2026"), lambda n=package.get("name", ""): self.add_to_bundle(n)))
                 add_row(self.results, row)
         self.ask("Repos", "Search", "(s)", (term,), got, timeout=120_000)
 
     def add_to_bundle(self, package):
-        entry = Gtk.Entry(text="my-software", placeholder_text="Bundle name")
-        dialog = Adw.AlertDialog(heading=f"Add {package} to a bundle",
-                                 body="A bundle is one group of extra software. A new name makes a new bundle; an existing name adds to it.")
+        entry = Gtk.Entry(text="my-software", placeholder_text=_("Bundle name"))
+        dialog = Adw.AlertDialog(heading=_("Add {package} to a bundle").format(package=package),
+                                 body=_("A bundle is one group of extra software. A new name makes a new bundle; an existing name adds to it."))
         dialog.set_extra_child(entry)
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("ok", "Add")
+        dialog.add_response("cancel", _("Cancel"))
+        dialog.add_response("ok", _("Add"))
         dialog.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
         dialog.set_close_response("cancel")
 
@@ -460,27 +463,27 @@ class Repositories(Page):
             name = model.alias_from(entry.get_text())
             if r == "ok" and name:
                 self.win.run_job(self.win.job_call("Compat", "InstallPackages", "(sasas)", (name, [package], [])),
-                                 lambda _r: self.win.toast(f"{package} was added to {name}."), f"Adding {package}")
+                                 lambda _r: self.win.toast(_("{package} was added to {bundle}.").format(package=package, bundle=name)), _("Adding {package}").format(package=package))
         dialog.connect("response", response)
         dialog.present(self.win)
 
     def toggle(self, row, alias):
         if getattr(row, "_loading", False):
             return
-        self.win.run_job(self.win.job_call("Repos", "SetEnabled", "(sb)", (alias, row.get_active())), None, "Changing…")
+        self.win.run_job(self.win.job_call("Repos", "SetEnabled", "(sb)", (alias, row.get_active())), None, _("Changing…"))
 
     def add_dialog(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        name = Gtk.Entry(placeholder_text="Name")
-        url = Gtk.Entry(placeholder_text="https://example.org/repo")
+        name = Gtk.Entry(placeholder_text=_("Name"))
+        url = Gtk.Entry(placeholder_text=_("https://example.org/repo"))
         key = Gtk.TextView(wrap_mode=Gtk.WrapMode.CHAR, height_request=110, monospace=True)
         frame = Gtk.Frame(child=Gtk.ScrolledWindow(child=key))
-        for widget in (name, url, Gtk.Label(label="Public signing key (the text of the .asc file)", xalign=0, css_classes=["dim-label"]), frame):
+        for widget in (name, url, Gtk.Label(label=_("Public signing key (the text of the .asc file)"), xalign=0, css_classes=["dim-label"]), frame):
             box.append(widget)
-        dialog = Adw.AlertDialog(heading="Add a repository", body="Only add sources you trust: their software is installed as bundles.")
+        dialog = Adw.AlertDialog(heading=_("Add a repository"), body=_("Only add sources you trust: their software is installed as bundles."))
         dialog.set_extra_child(box)
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("ok", "Continue")
+        dialog.add_response("cancel", _("Cancel"))
+        dialog.add_response("ok", _("Continue"))
         dialog.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
         dialog.set_close_response("cancel")
 
@@ -500,12 +503,12 @@ class Repositories(Page):
     def inspect_key(self, name, url, key):
         def got(keys):
             if not keys:
-                self.win.toast("That is not a usable public key.")
+                self.win.toast(_("That is not a usable public key."))
                 return
             lines = [f"{k.get('owner', '')}\n{k.get('fingerprint', '')}" for k in keys]
-            self.win.confirm(f"Trust this key for {name}?", "\n\n".join(lines) + "\n\nSoftware signed with it will be installed.", "Trust and Add",
+            self.win.confirm(f"Trust this key for {name}?", "\n\n".join(lines) + "\n\nSoftware signed with it will be installed.", _("Trust and Add"),
                              lambda: self.win.run_job(self.win.job_call(
-                                 "Repos", "Add", "(sssis)", (model.alias_from(name), name, url, 99, key)), None, "Adding…"))
+                                 "Repos", "Add", "(sssis)", (model.alias_from(name), name, url, 99, key)), None, _("Adding…")))
         self.ask("Repos", "InspectKey", "(s)", (key,), got)
 
 
@@ -514,8 +517,8 @@ class Repositories(Page):
 class AppSources(Page):
     def __init__(self, win):
         super().__init__(win)
-        self.group_ = self.group("Application sources", "Where Flatpak applications come from. Every source must be signed. They also "
-                                 "show up in app stores such as Bazaar.", text_button("Add\u2026", self.add_dialog))
+        self.group_ = self.group(_("Application sources"), _("Where Flatpak applications come from. Every source must be signed. They also "
+                                 "show up in app stores such as Bazaar."), text_button(_("Add\u2026"), self.add_dialog))
 
     def load(self):
         self.ask("Apps", "ListRemotes", None, None, self.show)
@@ -523,7 +526,7 @@ class AppSources(Page):
     def show(self, remotes):
         clear(self.group_)
         if not remotes:
-            self.empty(self.group_, "No sources. Flathub is added when the computer is first online.")
+            self.empty(self.group_, _("No sources. Flathub is added when the computer is first online."))
         for remote in remotes:
             row = Adw.SwitchRow(title=remote.get("title") or remote["name"], subtitle=model.remote_subtitle(remote))
             row._loading = True
@@ -533,30 +536,30 @@ class AppSources(Page):
             if remote.get("default"):
                 row.add_suffix(spacer())
             else:
-                row.add_suffix(flat_button("user-trash-symbolic", "Remove", lambda n=remote["name"], t=remote.get("title") or remote["name"]: self.win.confirm(
-                    f"Remove {t}?", "Applications installed from it must be removed first.", "Remove",
-                    lambda: self.win.run_job(self.win.job_call("Apps", "RemoveRemote", "(s)", (n,)), None, "Removing\u2026"), True)))
+                row.add_suffix(flat_button("user-trash-symbolic", _("Remove"), lambda n=remote["name"], t=remote.get("title") or remote["name"]: self.win.confirm(
+                    f"Remove {t}?", _("Applications installed from it must be removed first."), _("Remove"),
+                    lambda: self.win.run_job(self.win.job_call("Apps", "RemoveRemote", "(s)", (n,)), None, _("Removing\u2026")), True)))
             add_row(self.group_, row)
 
     def toggle(self, row, name):
         if getattr(row, "_loading", False):
             return
-        self.win.run_job(self.win.job_call("Apps", "SetRemoteEnabled", "(sb)", (name, row.get_active())), None, "Changing\u2026")
+        self.win.run_job(self.win.job_call("Apps", "SetRemoteEnabled", "(sb)", (name, row.get_active())), None, _("Changing\u2026"))
 
     def add_dialog(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        location = Gtk.Entry(placeholder_text="https://example.org/apps.flatpakrepo")
-        name = Gtk.Entry(placeholder_text="Short name, for example acme")
-        title = Gtk.Entry(placeholder_text="Title (optional)")
+        location = Gtk.Entry(placeholder_text=_("https://example.org/apps.flatpakrepo"))
+        name = Gtk.Entry(placeholder_text=_("Short name, for example acme"))
+        title = Gtk.Entry(placeholder_text=_("Title (optional)"))
         key = Gtk.TextView(wrap_mode=Gtk.WrapMode.CHAR, height_request=90, monospace=True)
         location.connect("changed", lambda e: not name.get_text() and name.set_text(model.suggest_remote_name(e.get_text())))
-        for widget in (location, name, title, Gtk.Label(label="Public signing key (only if the address is not a .flatpakrepo file)", xalign=0,
+        for widget in (location, name, title, Gtk.Label(label=_("Public signing key (only if the address is not a .flatpakrepo file)"), xalign=0,
                                                          css_classes=["dim-label"]), Gtk.Frame(child=Gtk.ScrolledWindow(child=key))):
             box.append(widget)
-        dialog = Adw.AlertDialog(heading="Add an application source", body="Only add sources you trust: their applications run on this computer.")
+        dialog = Adw.AlertDialog(heading=_("Add an application source"), body=_("Only add sources you trust: their applications run on this computer."))
         dialog.set_extra_child(box)
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("ok", "Continue")
+        dialog.add_response("cancel", _("Cancel"))
+        dialog.add_response("ok", _("Continue"))
         dialog.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
         dialog.set_close_response("cancel")
 
@@ -575,8 +578,8 @@ class AppSources(Page):
 
     def inspect(self, name, location, key, title):
         def got(info):
-            self.win.confirm(f"Trust {title or info.get('title') or name}?", model.remote_trust_text(info), "Trust and Add",
-                             lambda: self.win.run_job(self.win.job_call("Apps", "AddRemote", "(ssss)", (name, location, key, title)), None, "Adding\u2026"))
+            self.win.confirm(f"Trust {title or info.get('title') or name}?", model.remote_trust_text(info), _("Trust and Add"),
+                             lambda: self.win.run_job(self.win.job_call("Apps", "AddRemote", "(ssss)", (name, location, key, title)), None, _("Adding\u2026")))
         self.ask("Apps", "InspectRemote", "(ss)", (location, key), got, timeout=60_000)
 
 
@@ -587,7 +590,7 @@ class Packages(Page):
         super().__init__(win)
         self.store = Gtk.StringList()
         self.count = Gtk.Label(label="", css_classes=["dim-label"], xalign=0)
-        self.search = Gtk.SearchEntry(placeholder_text="Search the system's packages")
+        self.search = Gtk.SearchEntry(placeholder_text=_("Search the system's packages"))
         flt = Gtk.StringFilter(expression=Gtk.PropertyExpression.new(Gtk.StringObject, None, "string"),
                                ignore_case=True, match_mode=Gtk.StringFilterMatchMode.SUBSTRING)
         self.search.connect("search-changed", lambda e: (flt.set_search(e.get_text()), self.update_count()))
@@ -598,7 +601,7 @@ class Packages(Page):
         factory.connect("bind", lambda _f, item: item.get_child().set_label(item.get_item().get_string().replace("\t", "   ·   ")))
         self.view = Gtk.ListView(model=Gtk.NoSelection(model=self.filtered), factory=factory, css_classes=["card"], height_request=420)
         holder = Gtk.ScrolledWindow(child=self.view, min_content_height=420, vexpand=True, css_classes=["card"])
-        self.add(Gtk.Label(label="What the read-only system is made of. Changes come with system updates, not from here.",
+        self.add(Gtk.Label(label=_("What the read-only system is made of. Changes come with system updates, not from here."),
                            xalign=0, wrap=True, css_classes=["dim-label"]))
         self.add(self.search)
         self.add(self.count)
@@ -606,7 +609,7 @@ class Packages(Page):
 
     def update_count(self):
         total, shown = self.store.get_n_items(), self.filtered.get_n_items()
-        self.count.set_label(f"{total} packages" if shown == total else f"{shown} of {total} packages")
+        self.count.set_label(_.ngettext("{count} package", "{count} packages", total).format(count=total) if shown == total else _("{shown} of {total} packages").format(shown=shown, total=total))
 
     def load(self):
         def got(packages):
@@ -621,10 +624,10 @@ class Packages(Page):
 class Slots(Page):
     def __init__(self, win):
         super().__init__(win)
-        self.slots_group = self.group("Boot slots", "Two copies of the system. An update goes to the one that is not running.")
+        self.slots_group = self.group(_("Boot slots"), _("Two copies of the system. An update goes to the one that is not running."))
         restart = self.group()
-        row = Adw.ActionRow(title="Restart", subtitle="Open applications will be closed.")
-        row.add_suffix(text_button("Restart…", win.ask_restart))
+        row = Adw.ActionRow(title=_("Restart"), subtitle=_("Open applications will be closed."))
+        row.add_suffix(text_button(_("Restart…"), win.ask_restart))
         restart.add(row)
 
     def load(self):
@@ -637,7 +640,7 @@ class Slots(Page):
             for action in model.slot_actions(slot):
                 row.add_suffix(text_button(model.slot_action_text(action), lambda s=slot, a=action: self.choose(s, a)))
             if model.slot_can_release(slot):
-                row.add_suffix(flat_button("user-trash-symbolic", "Empty this slot", lambda s=slot: self.release(s)))
+                row.add_suffix(flat_button("user-trash-symbolic", _("Empty this slot"), lambda s=slot: self.release(s)))
             add_row(self.slots_group, row)
 
     def choose(self, slot, action):
@@ -645,13 +648,13 @@ class Slots(Page):
         method = "SetNextBoot" if action == "once" else "SetDefaultSlot"
         self.win.confirm(heading, body, model.slot_action_text(action),
                          lambda: self.win.run_job(self.win.job_call("Boot", method, "(s)", (slot["name"],), timeout=60_000),
-                                                  lambda _r: self.win.toast("Done. Restart to use it."), "Changing the boot choice…"))
+                                                  lambda _r: self.win.toast(_("Done. Restart to use it.")), _("Changing the boot choice…")))
 
     def release(self, slot):
-        self.win.confirm(f"Empty {model.slot_title(slot)}?", "Its system is removed. The next update has more room to choose from, "
-                         "but this slot cannot be started until then.", "Empty Slot",
+        self.win.confirm(f"Empty {model.slot_title(slot)}?", _("Its system is removed. The next update has more room to choose from, "
+                         "but this slot cannot be started until then."), _("Empty Slot"),
                          lambda: self.win.run_job(self.win.job_call("Boot", "ReleaseSlot", "(s)", (slot["name"],), timeout=120_000),
-                                                  None, "Emptying the slot…"), True)
+                                                  None, _("Emptying the slot…")), True)
 
 
 # -- Appearance ----------------------------------------------------------------------------------
@@ -659,12 +662,12 @@ class Slots(Page):
 class Appearance(Page):
     def __init__(self, win):
         super().__init__(win)
-        group = self.group("Boot splash", "The picture shown while the computer starts. It changes at the next restart. "
-                           "Colours, wallpaper and fonts of the desktop are in GNOME Settings.")
-        row = Adw.ActionRow(title="Style")
+        group = self.group(_("Boot splash"), _("The picture shown while the computer starts. It changes at the next restart. "
+                           "Colours, wallpaper and fonts of the desktop are in GNOME Settings."))
+        row = Adw.ActionRow(title=_("Style"))
         box = Gtk.Box(css_classes=["linked"], valign=Gtk.Align.CENTER)
-        self.light = Gtk.ToggleButton(label="Light")
-        self.dark = Gtk.ToggleButton(label="Dark", group=self.light)
+        self.light = Gtk.ToggleButton(label=_("Light"))
+        self.dark = Gtk.ToggleButton(label=_("Dark"), group=self.light)
         self.loading = False
         for button, theme in ((self.light, "light"), (self.dark, "dark")):
             button.connect("toggled", lambda b, t=theme: b.get_active() and self.choose(t))
@@ -688,7 +691,7 @@ class Appearance(Page):
         if self.loading:
             return
         self.win.run_job(self.win.job_call("Boot", "SetSplash", "(s)", (theme,), timeout=60_000),
-                         lambda _r: self.win.toast(f"The {theme} boot splash starts at the next restart."), "Changing the boot splash")
+                         lambda _r: self.win.toast(f"The {theme} boot splash starts at the next restart."), _("Changing the boot splash"))
 
 
 # -- Remote access -------------------------------------------------------------------------------
@@ -699,12 +702,12 @@ class Remote(Page):
     def __init__(self, win):
         super().__init__(win)
         self.status, self.keys = {}, []
-        self.ssh_group = self.group("SSH", "Sign in from another computer over the network, with an authorized key.")
-        self.ssh_row = Adw.SwitchRow(title="Remote login (SSH)")
+        self.ssh_group = self.group(_("SSH"), _("Sign in from another computer over the network, with an authorized key."))
+        self.ssh_row = Adw.SwitchRow(title=_("Remote login (SSH)"))
         self.ssh_row._loading = False
         self.ssh_group.add(self.ssh_row)
         self.ssh_row.connect("notify::active", lambda r, _p: None if r._loading else self.request_ssh(r.get_active()))
-        self.keys_group = self.group("Authorized keys", "Computers that may sign in without a password.", text_button("Add\u2026", self.add_dialog))
+        self.keys_group = self.group(_("Authorized keys"), _("Computers that may sign in without a password."), text_button(_("Add\u2026"), self.add_dialog))
 
     def load(self):
         self.ask("Remote", "GetStatus", None, None, self.show_status)
@@ -732,39 +735,39 @@ class Remote(Page):
         if enable and model.ssh_needs_a_way_in(bool(self.keys), self.password_allowed()):
             self.set_switches()                                  # nothing has changed yet: put the switch back
             self.win.confirm_choice(
-                "Add a key first",
-                "No user has an SSH key, so nobody could sign in. Add a key, then turn remote login on.",
-                [("key", "Add a Key\u2026", "suggested")],
+                _("Add a key first"),
+                _("No user has an SSH key, so nobody could sign in. Add a key, then turn remote login on."),
+                [("key", _("Add a Key…"), "suggested")],
                 lambda response: self.add_dialog() if response == "key" else None)
             return
         self.apply(enable)
 
     def apply(self, enable):
         self.win.run_job(self.win.job_call("Remote", "SetSsh", "(bb)", (bool(enable), self.password_allowed())),
-                         None, "Changing remote access\u2026")
+                         None, _("Changing remote access\u2026"))
 
     def show_keys(self, keys):
         self.keys = list(keys or [])
         clear(self.keys_group)
         if not keys:
-            self.empty(self.keys_group, "No keys")
+            self.empty(self.keys_group, _("No keys"))
         for key in keys:
             row = Adw.ActionRow(title=model.key_title(key), subtitle=model.key_subtitle(key))
-            row.add_suffix(flat_button("user-trash-symbolic", "Remove", lambda k=key: self.win.confirm(
-                "Remove this key?", f"{model.key_title(k)} can no longer sign in with it.", "Remove",
-                lambda: self.win.run_job(self.win.job_call("Remote", "RemoveKey", "(ss)", (k["user"], k["fingerprint"])), None, "Removing…"), True)))
+            row.add_suffix(flat_button("user-trash-symbolic", _("Remove"), lambda k=key: self.win.confirm(
+                _("Remove this key?"), f"{model.key_title(k)} can no longer sign in with it.", _("Remove"),
+                lambda: self.win.run_job(self.win.job_call("Remote", "RemoveKey", "(ss)", (k["user"], k["fingerprint"])), None, _("Removing…")), True)))
             add_row(self.keys_group, row)
 
     def add_dialog(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        user = Gtk.Entry(text=GLib.get_user_name(), placeholder_text="User")
+        user = Gtk.Entry(text=GLib.get_user_name(), placeholder_text=_("User"))
         key = Gtk.TextView(wrap_mode=Gtk.WrapMode.CHAR, height_request=90, monospace=True)
         box.append(user)
         box.append(Gtk.Frame(child=Gtk.ScrolledWindow(child=key)))
-        dialog = Adw.AlertDialog(heading="Add an SSH key", body="Paste the public key (one line, from a .pub file).")
+        dialog = Adw.AlertDialog(heading=_("Add an SSH key"), body=_("Paste the public key (one line, from a .pub file)."))
         dialog.set_extra_child(box)
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("ok", "Add")
+        dialog.add_response("cancel", _("Cancel"))
+        dialog.add_response("ok", _("Add"))
         dialog.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
         dialog.set_close_response("cancel")
 
@@ -777,7 +780,7 @@ class Remote(Page):
             if problem:
                 self.win.toast(problem)
                 return
-            self.win.run_job(self.win.job_call("Remote", "AddKey", "(ss)", (user.get_text().strip(), text)), None, "Adding the key…")
+            self.win.run_job(self.win.job_call("Remote", "AddKey", "(ss)", (user.get_text().strip(), text)), None, _("Adding the key…"))
         dialog.connect("response", response)
         dialog.present(self.win)
 
@@ -844,7 +847,7 @@ class Advanced(Page):
 class Activity(Page):
     def __init__(self, win):
         super().__init__(win)
-        self.jobs_group = self.group("Recent changes", "What the system did on request, newest first. foundationd keeps the last fifty.")
+        self.jobs_group = self.group(_("Recent changes"), _("What the system did on request, newest first. foundationd keeps the last fifty."))
 
     def load(self):
         self.ask("Manager", "ListJobs", None, None, self.show)
@@ -852,7 +855,7 @@ class Activity(Page):
     def show(self, paths):
         clear(self.jobs_group)
         if not paths:
-            self.empty(self.jobs_group, "Nothing yet since the system started")
+            self.empty(self.jobs_group, _("Nothing yet since the system started"))
         for path in reversed(paths):
             self.win.backend.properties(path, lambda props, error, p=path: props and self.add_job(p, props))
 
@@ -890,15 +893,15 @@ class ErsaId(Page):
         for widget in (self.avatar, self.name, self.email):
             hero.append(widget)
         self.add(hero)
-        self.code_group = self.group("Approve this sign-in", "Open the page on any device and enter this code.")
+        self.code_group = self.group(_("Approve this sign-in"), _("Open the page on any device and enter this code."))
         self.code = Gtk.Label(label="", css_classes=["title-1"], selectable=True, halign=Gtk.Align.CENTER, margin_top=6, margin_bottom=6)
         self.code.add_css_class("monospace")
         code_row = Adw.PreferencesRow(child=self.code, activatable=False)
         self.code_group.add(code_row)
-        self.open_button = text_button("Open the Sign-in Page", lambda: self.open_page(), "suggested-action", "pill")
-        self.cancel_button = text_button("Cancel", lambda: self.cancel(), "pill")
-        self.sign_in_button = text_button("Sign In", lambda: self.sign_in(), "suggested-action", "pill")
-        self.sign_out_button = text_button("Sign Out", lambda: self.sign_out(), "pill")
+        self.open_button = text_button(_("Open the Sign-in Page"), lambda: self.open_page(), "suggested-action", "pill")
+        self.cancel_button = text_button(_("Cancel"), lambda: self.cancel(), "pill")
+        self.sign_in_button = text_button(_("Sign In"), lambda: self.sign_in(), "suggested-action", "pill")
+        self.sign_out_button = text_button(_("Sign Out"), lambda: self.sign_out(), "pill")
         buttons = Gtk.Box(spacing=12, halign=Gtk.Align.CENTER)
         for button in (self.sign_in_button, self.open_button, self.cancel_button, self.sign_out_button):
             buttons.append(button)
@@ -937,9 +940,9 @@ class ErsaId(Page):
         state = view["state"]
         self.name.set_label(view["name"] if state == "in" else "")
         self.name.set_visible(state == "in")
-        self.email.set_label({"in": view["email"], "out": "Sign in to link this computer to your account.",
-                              "unset": "No account provider is set up on this computer.",
-                              "off": "Account sign-in is turned off on this computer."}[state])
+        self.email.set_label({"in": view["email"], "out": _("Sign in to link this computer to your account."),
+                              "unset": _("No account provider is set up on this computer."),
+                              "off": _("Account sign-in is turned off on this computer.")}[state])
         self.avatar.set_text(view["initials"] or "")
         self.avatar.set_show_initials(state == "in")
         texture = None
@@ -962,7 +965,7 @@ class ErsaId(Page):
 
     def sign_in(self):
         self.cancelled, self.signing_in = False, True
-        self.code.set_label("\u2026")
+        self.code.set_label(_("\u2026"))
         self.render({"state": "out", "name": "", "email": "", "initials": "", "provider": model.identity_view(self.settings, None)["provider"]})
         threading.Thread(target=self.run_sign_in, args=(dict(self.settings),), daemon=True).start()
 
@@ -985,7 +988,7 @@ class ErsaId(Page):
     def show_code(self, started):
         self.code.set_label(started["user_code"])
         self.verification = started.get("verification_uri_complete") or started["verification_uri"]
-        self.open_button.set_label("Open the Sign-in Page")
+        self.open_button.set_label(_("Open the Sign-in Page"))
         return False
 
     def open_page(self):
@@ -1007,7 +1010,7 @@ class ErsaId(Page):
         def done(result):
             self.win.toast(result.capitalize() + ".")
             self.reload()
-        self.win.confirm("Sign out of Ersa ID?", "This computer forgets your account. Your files and settings stay.", "Sign Out",
+        self.win.confirm(_("Sign out of Ersa ID?"), _("This computer forgets your account. Your files and settings stay."), _("Sign Out"),
                          lambda: done(identity.logout(self.settings)))
 
 

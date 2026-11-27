@@ -33,7 +33,7 @@ import tempfile
 import uuid
 
 from ..errors import Failed, InvalidArgument, NotFound, Unavailable
-from . import efi, gpt, layout, osinfo, slots, updates, verity
+from . import efi, encryption, gpt, layout, osinfo, slots, updates, verity
 from . import preseed as preseed_backend
 from .runner import check, run
 
@@ -194,6 +194,7 @@ def plan(paths, target, allow_file=False):
         "version": version,
         "partitions": [{"label": label, "size": size or 0, "note": note} for label, size, note in layout.rows()],
         "will_erase": _existing_partitions(info),
+        "tpm": encryption.tpm_present(paths),       # whether the data volume can unlock by itself; without it encryption needs a passphrase
         "problems": problems, "possible": not problems,
     }
 
@@ -253,9 +254,9 @@ def _stage_esp(esp_source, version, uki, stage):
     return esp
 
 
-def _write_definitions(directory, esp, seed, root_uuid, verity_uuid):
-    os.makedirs(directory)
-    for name, text in layout.definitions(esp, seed, root_uuid, verity_uuid).items():
+def _write_definitions(directory, esp, seed, root_uuid, verity_uuid, data="plain"):
+    os.makedirs(directory, exist_ok=True)
+    for name, text in layout.definitions(esp, seed, root_uuid, verity_uuid, data).items():
         with open(os.path.join(directory, name), "w", encoding="utf-8") as handle:
             handle.write(text)
 
@@ -311,7 +312,8 @@ def _make_seed(stage, language="", timezone="", zoneinfo=ZONEINFO, preseed=None)
 
 
 def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=False, language="", timezone="",
-           zoneinfo=ZONEINFO, preseed=None):
+           zoneinfo=ZONEINFO, preseed=None, secrets=None):
+    """`secrets` (see encryption.py) turns encryption on: the data volume is created as a LUKS2 container."""
     preseed = preseed or {}
     language = language or preseed.get("language", "")           # what was asked for by hand wins over the file
     timezone = timezone or preseed.get("timezone", "")
@@ -340,13 +342,25 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
         if length > layout.ROOT_SLOT or tree_length > layout.VERITY_SLOT:
             raise InvalidArgument("the system image does not fit the slots of the disk layout")
         esp = _stage_esp(layout_.esp, version, head["uki"], stage)
+        encryption_plan = encryption.plan(paths, head["uki"], secrets["passphrase"]) if secrets else None
         definitions = os.path.join(stage, "repart.d")
-        _write_definitions(definitions, esp, _make_seed(stage, language, timezone, zoneinfo, preseed), root_uuid, verity_uuid)
-        ctx.log(f"installing version {version} ({length} bytes of root image, root hash {roothash[:16]}...) to {target}")
+        seed = _make_seed(stage, language, timezone, zoneinfo, preseed)
+        _write_definitions(definitions, esp, seed, root_uuid, verity_uuid, "none" if secrets else "plain")
+        ctx.log(f"installing version {version} ({length} bytes of root image, root hash {roothash[:16]}...) to {target}"
+                + (", with an encrypted data volume" if secrets else ""))
 
         ctx.commit()
         ctx.step("partition", "Partitioning the disk")
         _repart(target, definitions, runner)
+        encrypted = None
+        if secrets:
+            # The encrypted volume is added by a second run, online: dm-crypt needs real devices, which the first run (offline, so
+            # that it also works on image files) does not use. Existing partitions are matched by the same definitions and left alone.
+            ctx.step("encrypt", "Creating the encrypted data volume")
+            _write_definitions(definitions, esp, seed, root_uuid, verity_uuid, "encrypted")
+            key_file = encryption.new_key_file(stage)
+            _repart_online(target, definitions, key_file, runner)
+            encrypted = key_file
         ctx.progress(0.1)
 
         try:
@@ -357,6 +371,12 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
         for label, _size, _note in layout.rows():
             if label not in by_label:
                 raise Failed(f"the partition {label} was not created")
+        if encrypted:
+            ctx.step("keys", "Setting up the keys that unlock the disk")
+            done = encryption.enroll(encryption.partition_node(target, by_label["ECP-DATA"].number), encrypted, secrets,
+                                     encryption_plan, stage, runner)
+            ctx.log("unlock with: " + ", ".join(name for name, on in (("the TPM", done["tpm"]), ("a passphrase", done["passphrase"]),
+                                                                       ("the recovery key", done["recovery_key"])) if on))
         root_a, tree_a, esp_part = by_label[layout.ROOT_LABELS[0]], by_label[layout.VERITY_LABELS[0]], by_label["ECP-ESP"]
         if (root_a.uuid, tree_a.uuid) != (root_uuid, verity_uuid):
             raise Failed("the partitions were created with other UUIDs than the root hash names")
@@ -393,7 +413,9 @@ def deploy(paths, target, confirm, ctx, runner=run, opener=open, allow_file=Fals
         ctx.log(note)
         ctx.progress(1.0)
         return {"disk": target, "version": version, "root_partition": root_a.number, "bytes": length, "roothash": roothash,
-                "partitions": [{"label": p.name, "size": p.size} for p in table], "firmware_entry": registered, "notes": [note]}
+                "partitions": [{"label": p.name, "size": p.size} for p in table], "firmware_entry": registered, "notes": [note],
+                "encrypted": bool(encrypted), "unlock": ({"tpm": done["tpm"], "passphrase": done["passphrase"], "recovery_key": True}
+                                                         if encrypted else {})}
     finally:
         shutil.rmtree(stage, ignore_errors=True)
 
@@ -426,6 +448,13 @@ def register_firmware_entry(paths, target, esp_number, runner=run, allow_file=Fa
     if code != 0:
         return False, f"not registered with the firmware (efibootmgr: {error.strip()[:120] or 'failed'}); start the new disk from the firmware's boot menu"
     return True, "registered with the firmware as the first boot choice"
+
+
+def _repart_online(target, definitions, key_file, runner):
+    """Add the encrypted data volume: online (real devices), the existing partitions untouched."""
+    check(["systemd-repart", "--dry-run=no", "--offline=no", "--seed=random", f"--key-file={key_file}",
+           f"--definitions={definitions}", target], 3600, runner=runner)
+    runner(["udevadm", "settle", "--timeout=30"], 40)
 
 
 def _repart(target, definitions, runner):

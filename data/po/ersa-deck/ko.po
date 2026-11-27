@@ -1,0 +1,1215 @@
+# Initial, unreviewed machine-assisted translation.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: ko\nPlural-Forms: nplurals=1; plural=0;\n"
+
+#: foundation_deck/app.py:395 foundation_deck/app.py:48 foundation_deck/app.py:101
+msgid "Deck"
+msgstr "Deck"
+
+#: foundation_deck/app.py:65
+msgid "Refresh (Ctrl+R)"
+msgstr "새로 고침 (Ctrl+R)"
+
+#: foundation_deck/app.py:283 foundation_deck/pages.py:457 foundation_deck/pages.py:485 foundation_deck/pages.py:561 foundation_deck/pages.py:769 foundation_deck/pages.py:902
+msgid "Cancel"
+msgstr "취소"
+
+#: foundation_deck/app.py:293
+msgid "OK"
+msgstr "확인"
+
+#: foundation_deck/app.py:297
+msgid "Restart now?"
+msgstr "지금 다시 시작할까요?"
+
+#: foundation_deck/app.py:297 foundation_deck/pages.py:629
+msgid "Open applications will be closed."
+msgstr "열려 있는 애플리케이션이 닫힙니다."
+
+#: foundation_deck/app.py:297 foundation_deck/pages.py:629
+msgid "Restart"
+msgstr "다시 시작"
+
+#: foundation_deck/app.py:386
+msgid "open this page"
+msgstr "이 페이지 열기"
+
+#: foundation_deck/app.py:388
+msgid "after the first login: offer Ersa ID sign-in once, if a provider is set up (used by a user service)"
+msgstr "첫 로그인 후: 공급자가 설정되어 있으면 Ersa ID 로그인을 한 번 제안합니다(사용자 서비스에서 사용)"
+
+#: foundation_deck/app.py:393
+msgid "ersa-deck: no display is available"
+msgstr "ersa-deck: 사용할 수 있는 디스플레이가 없습니다"
+
+#: foundation_deck/app.py:63 foundation_deck/model.py:105
+msgid "Overview"
+msgstr "개요"
+
+#: foundation_deck/app.py:68 foundation_deck/pages.py:177 foundation_deck/pages.py:630
+msgid "Restart…"
+msgstr "다시 시작…"
+
+#: foundation_deck/app.py:70 foundation_deck/model.py:112
+msgid "Boot Slots"
+msgstr "부팅 슬롯"
+
+#: foundation_deck/app.py:107
+msgid "Search"
+msgstr "검색"
+
+#: foundation_deck/app.py:261
+msgid "All files"
+msgstr "모든 파일"
+
+#: foundation_deck/app.py:305
+msgid "Ersa ID"
+msgstr "Ersa ID"
+
+#: foundation_deck/app.py:306
+msgid "Sign in to Ersa ID"
+msgstr "Ersa ID에 로그인"
+
+#: foundation_deck/app.py:307
+msgid "Link this computer to your account. You can skip this and sign in later in Deck."
+msgstr "이 컴퓨터를 계정에 연결합니다. 건너뛰고 나중에 Deck에서 로그인해도 됩니다."
+
+#: foundation_deck/app.py:308 foundation_deck/pages.py:903
+msgid "Sign In"
+msgstr "로그인"
+
+#: foundation_deck/app.py:309
+msgid "Not Now"
+msgstr "나중에"
+
+#: foundation_deck/app.py:383
+msgid "{product} management window"
+msgstr "{product} 관리 창"
+
+#: foundation_deck/app.py:217
+msgid "Working"
+msgstr "작업 중"
+
+#: foundation_deck/app.py:233 foundation_deck/model.py:366
+msgid "Done"
+msgstr "완료"
+
+#: foundation_deck/app.py:369
+msgid "Quit"
+msgstr "끝내기"
+
+#: foundation_deck/app.py:249
+msgid "Cannot open the file: {reason}"
+msgstr "파일을 열 수 없습니다: {reason}"
+
+#: foundation_deck/app.py:368
+msgid "Deck cannot start"
+msgstr "Deck을 시작할 수 없습니다"
+
+#: foundation_deck/model.py:336 foundation_deck/model.py:107
+msgid "Updates"
+msgstr "업데이트"
+
+#: foundation_deck/model.py:336 foundation_deck/model.py:112
+msgid "System"
+msgstr "시스템"
+
+#: foundation_deck/model.py:336
+msgid "Applications"
+msgstr "애플리케이션"
+
+#: foundation_deck/model.py:351
+msgid "Installed a system update"
+msgstr "시스템 업데이트를 설치했습니다"
+
+#: foundation_deck/model.py:351
+msgid "Installed the newest system update"
+msgstr "최신 시스템 업데이트를 설치했습니다"
+
+#: foundation_deck/model.py:352
+msgid "Changed which system starts"
+msgstr "시작할 시스템을 변경했습니다"
+
+#: foundation_deck/model.py:352
+msgid "Chose the next start"
+msgstr "다음 시작을 선택했습니다"
+
+#: foundation_deck/model.py:353
+msgid "Emptied a slot"
+msgstr "슬롯을 비웠습니다"
+
+#: foundation_deck/model.py:353
+msgid "Changed the boot splash"
+msgstr "부팅 스플래시를 변경했습니다"
+
+#: foundation_deck/model.py:354
+msgid "Installed an application"
+msgstr "애플리케이션을 설치했습니다"
+
+#: foundation_deck/model.py:354
+msgid "Removed an application"
+msgstr "애플리케이션을 제거했습니다"
+
+#: foundation_deck/model.py:354
+msgid "Updated applications"
+msgstr "애플리케이션을 업데이트했습니다"
+
+#: foundation_deck/model.py:355
+msgid "Set up the application source"
+msgstr "애플리케이션 소스를 설정했습니다"
+
+#: foundation_deck/model.py:356
+msgid "Installed an extension"
+msgstr "확장 기능을 설치했습니다"
+
+#: foundation_deck/model.py:356
+msgid "Removed an extension"
+msgstr "확장 기능을 제거했습니다"
+
+#: foundation_deck/model.py:356
+msgid "Checked extensions"
+msgstr "확장 기능을 확인했습니다"
+
+#: foundation_deck/model.py:357
+msgid "Added packages to a bundle"
+msgstr "번들에 패키지를 추가했습니다"
+
+#: foundation_deck/model.py:357
+msgid "Installed a bundle"
+msgstr "번들을 설치했습니다"
+
+#: foundation_deck/model.py:358
+msgid "Removed a bundle"
+msgstr "번들을 제거했습니다"
+
+#: foundation_deck/model.py:358
+msgid "Updated bundles"
+msgstr "번들을 업데이트했습니다"
+
+#: foundation_deck/model.py:358
+msgid "Rebuilt bundles"
+msgstr "번들을 다시 빌드했습니다"
+
+#: foundation_deck/model.py:359
+msgid "Changed a repository"
+msgstr "저장소를 변경했습니다"
+
+#: foundation_deck/model.py:359
+msgid "Added a repository"
+msgstr "저장소를 추가했습니다"
+
+#: foundation_deck/model.py:359
+msgid "Removed a repository"
+msgstr "저장소를 제거했습니다"
+
+#: foundation_deck/model.py:360
+msgid "Refreshed repositories"
+msgstr "저장소를 새로 고쳤습니다"
+
+#: foundation_deck/model.py:360
+msgid "Changed remote access"
+msgstr "원격 접속을 변경했습니다"
+
+#: foundation_deck/model.py:361
+msgid "Added an SSH key"
+msgstr "SSH 키를 추가했습니다"
+
+#: foundation_deck/model.py:361
+msgid "Removed an SSH key"
+msgstr "SSH 키를 제거했습니다"
+
+#: foundation_deck/model.py:362
+msgid "Installed the system on a disk"
+msgstr "시스템을 디스크에 설치했습니다"
+
+#: foundation_deck/model.py:362
+msgid "Merged extensions"
+msgstr "확장 기능을 병합했습니다"
+
+#: foundation_deck/model.py:362
+msgid "Unmerged extensions"
+msgstr "확장 기능 병합을 해제했습니다"
+
+#: foundation_deck/model.py:363
+msgid "Refreshed extensions"
+msgstr "확장 기능을 새로 고쳤습니다"
+
+#: foundation_deck/model.py:366
+msgid "Failed"
+msgstr "실패"
+
+#: foundation_deck/model.py:366
+msgid "Cancelled"
+msgstr "취소됨"
+
+#: foundation_deck/model.py:366
+msgid "Running"
+msgstr "실행 중"
+
+#: foundation_deck/model.py:366
+msgid "Waiting"
+msgstr "대기 중"
+
+#: foundation_deck/model.py:416 foundation_deck/model.py:205
+msgid "Check to see whether an update is available."
+msgstr "사용 가능한 업데이트가 있는지 확인합니다."
+
+#: foundation_deck/model.py:417
+msgid "Your Ersa ID account on this computer."
+msgstr "이 컴퓨터의 Ersa ID 계정입니다."
+
+#: foundation_deck/model.py:418
+msgid "System-level software such as codecs and tools."
+msgstr "코덱과 도구 같은 시스템 수준 소프트웨어입니다."
+
+#: foundation_deck/model.py:419
+msgid "Where the packages for bundles come from."
+msgstr "번들의 패키지를 가져오는 곳입니다."
+
+#: foundation_deck/model.py:420
+msgid "Where applications come from."
+msgstr "애플리케이션을 가져오는 곳입니다."
+
+#: foundation_deck/model.py:421
+msgid "Everything the system image contains."
+msgstr "시스템 이미지에 포함된 모든 것입니다."
+
+#: foundation_deck/model.py:422
+msgid "The two system copies, so an update can fall back."
+msgstr "업데이트 후 되돌릴 수 있도록 둔 두 개의 시스템 사본입니다."
+
+#: foundation_deck/model.py:423
+msgid "How the computer starts up."
+msgstr "컴퓨터가 시작되는 방식입니다."
+
+#: foundation_deck/model.py:424
+msgid "Sign in from another computer."
+msgstr "다른 컴퓨터에서 로그인합니다."
+
+#: foundation_deck/model.py:425
+msgid "Every setting, with what it does."
+msgstr "모든 설정과 그 기능입니다."
+
+#: foundation_deck/model.py:426
+msgid "What the system did, and how it went."
+msgstr "시스템이 수행한 작업과 그 결과입니다."
+
+#: foundation_deck/model.py:20
+msgid "The installer medium's own system"
+msgstr "설치 미디어 자체의 시스템"
+
+#: foundation_deck/model.py:33
+msgid "Version unknown"
+msgstr "버전을 알 수 없음"
+
+#: foundation_deck/model.py:38
+msgid "The running slot is unknown"
+msgstr "실행 중인 슬롯을 알 수 없습니다"
+
+#: foundation_deck/model.py:48
+msgid "Not checked"
+msgstr "확인하지 않음"
+
+#: foundation_deck/model.py:56
+msgid "An update is installed. Restart to start using it."
+msgstr "업데이트가 설치되었습니다. 다시 시작하면 사용할 수 있습니다."
+
+#: foundation_deck/model.py:74
+msgid "The administrator's password was not given, so nothing was changed."
+msgstr "관리자 암호가 입력되지 않아 아무것도 변경되지 않았습니다."
+
+#: foundation_deck/model.py:76
+msgid "Another change is in progress. Try again when it has finished."
+msgstr "다른 변경이 진행 중입니다. 완료된 후에 다시 시도하세요."
+
+#: foundation_deck/model.py:78
+msgid "This is not available on this system."
+msgstr "이 시스템에서는 사용할 수 없습니다."
+
+#: foundation_deck/model.py:79
+msgid "That did not work."
+msgstr "작동하지 않았습니다."
+
+#: foundation_deck/model.py:100
+msgid "The failed version stays in its slot until the next update replaces it."
+msgstr "실패한 버전은 다음 업데이트가 교체할 때까지 해당 슬롯에 남아 있습니다."
+
+#: foundation_deck/model.py:106
+msgid "Account"
+msgstr "계정"
+
+#: foundation_deck/model.py:107
+msgid "Software"
+msgstr "소프트웨어"
+
+#: foundation_deck/model.py:116
+msgid "History"
+msgstr "기록"
+
+#: foundation_deck/model.py:160
+msgid "Every restart starts that system until you choose another. A failed start is not rolled back automatically."
+msgstr "다른 시스템을 선택할 때까지 다시 시작할 때마다 그 시스템이 시작됩니다. 시작에 실패해도 자동으로 되돌리지 않습니다."
+
+#: foundation_deck/model.py:230
+msgid "This computer did not start through UEFI, so the boot splash cannot follow this choice."
+msgstr "이 컴퓨터는 UEFI로 시작하지 않았으므로 부팅 스플래시가 이 선택을 따를 수 없습니다."
+
+#: foundation_deck/model.py:262
+msgid "just now"
+msgstr "방금"
+
+#: foundation_deck/model.py:273
+msgid "Give the repository a name."
+msgstr "저장소 이름을 입력하세요."
+
+#: foundation_deck/model.py:275 foundation_deck/model.py:447
+msgid "The address must start with https://."
+msgstr "주소는 https://로 시작해야 합니다."
+
+#: foundation_deck/model.py:277
+msgid "Paste the repository's public signing key."
+msgstr "저장소의 공개 서명 키를 붙여 넣으세요."
+
+#: foundation_deck/model.py:294
+msgid "On"
+msgstr "켬"
+
+#: foundation_deck/model.py:319
+msgid "Give the user name."
+msgstr "사용자 이름을 입력하세요."
+
+#: foundation_deck/model.py:322
+msgid "Paste a public key (a line starting with ssh-ed25519, ssh-rsa and so on)."
+msgstr "공개 키(ssh-ed25519, ssh-rsa 등으로 시작하는 한 줄)를 붙여 넣으세요."
+
+#: foundation_deck/model.py:386
+msgid "this file"
+msgstr "이 파일"
+
+#: foundation_deck/model.py:404 foundation_deck/model.py:63
+msgid "Choose a file."
+msgstr "파일을 선택하세요."
+
+#: foundation_deck/model.py:406
+msgid "That does not look like an RPM package."
+msgstr "RPM 패키지가 아닌 것 같습니다."
+
+#: foundation_deck/model.py:445
+msgid "Give the source a short name: letters, digits, dots, dashes."
+msgstr "소스의 짧은 이름을 입력하세요(영문자, 숫자, 점, 대시)."
+
+#: foundation_deck/model.py:449
+msgid "Paste the source's public signing key (an address that is not a .flatpakrepo file needs one)."
+msgstr "소스의 공개 서명 키를 붙여 넣으세요(.flatpakrepo 파일이 아닌 주소에는 필요합니다)."
+
+#: foundation_deck/model.py:466
+msgid "Applications from it are installed for everyone and run with the permissions they ask for. Check the fingerprint with the publisher."
+msgstr "이 소스의 애플리케이션은 모든 사용자를 위해 설치되며 요청한 권한으로 실행됩니다. 게시자에게 지문을 확인하세요."
+
+#: foundation_deck/model.py:484
+msgid "Signed in"
+msgstr "로그인됨"
+
+#: foundation_deck/model.py:14
+msgid "Slot {name}"
+msgstr "슬롯 {name}"
+
+#: foundation_deck/model.py:21
+msgid "Empty"
+msgstr "비어 있음"
+
+#: foundation_deck/model.py:23
+msgid "running now"
+msgstr "실행 중"
+
+#: foundation_deck/model.py:25
+msgid "starts by default"
+msgstr "기본으로 시작"
+
+#: foundation_deck/model.py:45
+msgid "This start was confirmed good"
+msgstr "이번 시작은 정상으로 확인되었습니다"
+
+#: foundation_deck/model.py:65
+msgid "That file does not exist."
+msgstr "해당 파일이 없습니다."
+
+#: foundation_deck/model.py:67
+msgid "That does not look like an update archive (.tar.zst)."
+msgstr "업데이트 아카이브(.tar.zst)가 아닌 것 같습니다."
+
+#: foundation_deck/model.py:150
+msgid "Start Once"
+msgstr "한 번만 시작"
+
+#: foundation_deck/model.py:150
+msgid "Always Start"
+msgstr "항상 시작"
+
+#: foundation_deck/model.py:158
+msgid "The next restart starts that system. The one after goes back to the usual choice."
+msgstr "다음에 다시 시작하면 그 시스템이 시작됩니다. 그다음부터는 평소 선택으로 돌아갑니다."
+
+#: foundation_deck/model.py:173 foundation_deck/model.py:183
+msgid "turned off"
+msgstr "꺼짐"
+
+#: foundation_deck/model.py:180
+msgid "version unknown"
+msgstr "버전을 알 수 없음"
+
+#: foundation_deck/model.py:238 foundation_deck/pages.py:477
+msgid "Name"
+msgstr "이름"
+
+#: foundation_deck/model.py:238
+msgid "Version"
+msgstr "버전"
+
+#: foundation_deck/model.py:239
+msgid "Architecture"
+msgstr "아키텍처"
+
+#: foundation_deck/model.py:253 foundation_deck/model.py:434
+msgid "signed"
+msgstr "서명됨"
+
+#: foundation_deck/model.py:253 foundation_deck/model.py:434
+msgid "not signed"
+msgstr "서명되지 않음"
+
+#: foundation_deck/model.py:254 foundation_deck/model.py:438
+msgid "comes with the system"
+msgstr "시스템에 포함됨"
+
+#: foundation_deck/model.py:254
+msgid "added by you"
+msgstr "사용자가 추가함"
+
+#: foundation_deck/model.py:256
+msgid "never refreshed"
+msgstr "새로 고친 적 없음"
+
+#: foundation_deck/model.py:267
+msgid "{count} day ago"
+msgid_plural "{count} days ago"
+msgstr[0] "{count}일 전"
+
+#: foundation_deck/model.py:292
+msgid "Not available"
+msgstr "사용할 수 없음"
+
+#: foundation_deck/model.py:292
+msgid "The SSH server is not part of this system."
+msgstr "SSH 서버는 이 시스템에 포함되어 있지 않습니다."
+
+#: foundation_deck/model.py:296
+msgid "On at the next start"
+msgstr "다음 시작 시 켬"
+
+#: foundation_deck/model.py:298
+msgid "Off"
+msgstr "끔"
+
+#: foundation_deck/model.py:392
+msgid "Missing: "
+msgstr "누락: "
+
+#: foundation_deck/model.py:392
+msgid "Missing library: "
+msgstr "누락된 라이브러리: "
+
+#: foundation_deck/model.py:393
+msgid "Would replace: "
+msgstr "교체될 항목: "
+
+#: foundation_deck/model.py:397
+msgid "Its install scripts are not run."
+msgstr "설치 스크립트는 실행되지 않습니다."
+
+#: foundation_deck/model.py:436
+msgid "no apps installed"
+msgstr "설치된 앱 없음"
+
+#: foundation_deck/model.py:33 foundation_deck/model.py:21
+msgid "Version {version}"
+msgstr "버전 {version}"
+
+#: foundation_deck/model.py:38
+msgid "Running from slot {slot}"
+msgstr "슬롯 {slot}에서 실행 중"
+
+#: foundation_deck/model.py:56
+msgid "Version {version} is installed. Restart to start using it."
+msgstr "버전 {version}이(가) 설치되었습니다. 다시 시작하면 사용할 수 있습니다."
+
+#: foundation_deck/model.py:85
+msgid "{size:.1f} GB"
+msgstr "{size:.1f} GB"
+
+#: foundation_deck/model.py:85
+msgid "{size:.0f} MB"
+msgstr "{size:.0f} MB"
+
+#: foundation_deck/model.py:99
+msgid "Version {version} did not start, so the previous system was started instead. "
+msgstr "버전 {version}이(가) 시작되지 않아 이전 시스템이 대신 시작되었습니다. "
+
+#: foundation_deck/model.py:108
+msgid "Bundles and Extensions"
+msgstr "번들과 확장 기능"
+
+#: foundation_deck/model.py:109
+msgid "Repositories"
+msgstr "저장소"
+
+#: foundation_deck/model.py:110
+msgid "Application Sources"
+msgstr "애플리케이션 소스"
+
+#: foundation_deck/model.py:111
+msgid "Base Packages"
+msgstr "기본 패키지"
+
+#: foundation_deck/model.py:113
+msgid "Appearance"
+msgstr "모양"
+
+#: foundation_deck/model.py:114
+msgid "Remote Access"
+msgstr "원격 접속"
+
+#: foundation_deck/model.py:115
+msgid "Advanced"
+msgstr "고급"
+
+#: foundation_deck/model.py:116
+msgid "Activity"
+msgstr "활동"
+
+#: foundation_deck/model.py:159
+msgid "Always start {name}?"
+msgstr "항상 {name}을(를) 시작할까요?"
+
+#: foundation_deck/model.py:170 foundation_deck/pages.py:612
+msgid "{count} package"
+msgid_plural "{count} packages"
+msgstr[0] "패키지 {count}개"
+
+#: foundation_deck/model.py:264
+msgid "{count} minute ago"
+msgid_plural "{count} minutes ago"
+msgstr[0] "{count}분 전"
+
+#: foundation_deck/model.py:266
+msgid "{count} hour ago"
+msgid_plural "{count} hours ago"
+msgstr[0] "{count}시간 전"
+
+#: foundation_deck/model.py:300
+msgid "the firewall allows it"
+msgstr "방화벽에서 허용함"
+
+#: foundation_deck/model.py:300
+msgid "the firewall blocks it"
+msgstr "방화벽에서 차단함"
+
+#: foundation_deck/model.py:376
+msgid "{state}: {message}"
+msgstr "{state}: {message}"
+
+#: foundation_deck/model.py:378
+msgid "{state}: {step}"
+msgstr "{state}: {step}"
+
+#: foundation_deck/model.py:27
+msgid "{count} start attempt left"
+msgid_plural "{count} start attempts left"
+msgstr[0] "시작 시도 {count}회 남음"
+
+#: foundation_deck/model.py:47
+msgid "Waiting to be confirmed ({count} attempts left)"
+msgstr "확인 대기 중(시도 {count}회 남음)"
+
+#: foundation_deck/model.py:157
+msgid "Start {name} once?"
+msgstr "{name}을(를) 한 번만 시작할까요?"
+
+#: foundation_deck/model.py:194
+msgid "This turns on the package source: {sources}."
+msgstr "다음 패키지 소스를 켭니다: {sources}."
+
+#: foundation_deck/model.py:256
+msgid "refreshed {age}"
+msgstr "{age} 새로 고침"
+
+#: foundation_deck/model.py:391
+msgid "{name} does not fit this system."
+msgstr "{name}은(는) 이 시스템에 맞지 않습니다."
+
+#: foundation_deck/model.py:436
+msgid "{count} app installed"
+msgid_plural "{count} apps installed"
+msgstr[0] "앱 {count}개 설치됨"
+
+#: foundation_deck/model.py:204
+msgid "Version {version} is available"
+msgstr "버전 {version}을(를) 사용할 수 있습니다"
+
+#: foundation_deck/model.py:389
+msgid "{name} {version} fits this system."
+msgstr "{name} {version}은(는) 이 시스템에 맞습니다."
+
+#: foundation_deck/model.py:370
+msgid "Job"
+msgstr "작업"
+
+#: foundation_deck/pages.py:140
+msgid "This system"
+msgstr "이 시스템"
+
+#: foundation_deck/pages.py:175
+msgid "Check for Updates"
+msgstr "업데이트 확인"
+
+#: foundation_deck/pages.py:176 foundation_deck/pages.py:364 foundation_deck/pages.py:274 foundation_deck/pages.py:344
+msgid "Install"
+msgstr "설치"
+
+#: foundation_deck/pages.py:182
+msgid "Automatic updates"
+msgstr "자동 업데이트"
+
+#: foundation_deck/pages.py:182
+msgid "Nothing restarts the computer by itself."
+msgstr "컴퓨터가 저절로 다시 시작되지는 않습니다."
+
+#: foundation_deck/pages.py:189
+msgid "Developer mode"
+msgstr "개발자 모드"
+
+#: foundation_deck/pages.py:189
+msgid "Developer mode is on, so an update without a signature may be installed."
+msgstr "개발자 모드가 켜져 있어 서명 없는 업데이트가 설치될 수 있습니다."
+
+#: foundation_deck/pages.py:194
+msgid "Install from a file"
+msgstr "파일에서 설치"
+
+#: foundation_deck/pages.py:194
+msgid "For an update you built or were given. It is checked against the trusted keys."
+msgstr "직접 빌드했거나 받은 업데이트용입니다. 신뢰할 수 있는 키로 검증합니다."
+
+#: foundation_deck/pages.py:247
+msgid "Looking for updates…"
+msgstr "업데이트를 찾는 중…"
+
+#: foundation_deck/pages.py:266 foundation_deck/pages.py:289
+msgid "Installing the update…"
+msgstr "업데이트를 설치하는 중…"
+
+#: foundation_deck/pages.py:280
+msgid "Choose an update file"
+msgstr "업데이트 파일 선택"
+
+#: foundation_deck/pages.py:280
+msgid "Update archives"
+msgstr "업데이트 아카이브"
+
+#: foundation_deck/pages.py:297
+msgid "Installed bundles"
+msgstr "설치된 번들"
+
+#: foundation_deck/pages.py:297
+msgid "Extra software added to the system without changing it."
+msgstr "시스템을 변경하지 않고 추가한 소프트웨어입니다."
+
+#: foundation_deck/pages.py:301
+msgid "Available"
+msgstr "사용 가능"
+
+#: foundation_deck/pages.py:302 foundation_deck/pages.py:405 foundation_deck/pages.py:521 foundation_deck/pages.py:710
+msgid "Add…"
+msgstr "추가…"
+
+#: foundation_deck/pages.py:303
+msgid "Extensions"
+msgstr "확장 기능"
+
+#: foundation_deck/pages.py:303
+msgid "Single packages added as extensions."
+msgstr "확장 기능으로 추가한 개별 패키지입니다."
+
+#: foundation_deck/pages.py:386
+msgid "Choose a package"
+msgstr "패키지 선택"
+
+#: foundation_deck/pages.py:386
+msgid "RPM packages"
+msgstr "RPM 패키지"
+
+#: foundation_deck/pages.py:394 foundation_deck/pages.py:361
+msgid "Installing…"
+msgstr "설치하는 중…"
+
+#: foundation_deck/pages.py:406
+msgid "Package sources"
+msgstr "패키지 소스"
+
+#: foundation_deck/pages.py:406
+msgid "Where bundles get their software. Every source must be signed."
+msgstr "번들이 소프트웨어를 가져오는 곳입니다. 모든 소스에 서명이 있어야 합니다."
+
+#: foundation_deck/pages.py:410
+msgid "Results"
+msgstr "결과"
+
+#: foundation_deck/pages.py:438
+msgid "Searching…"
+msgstr "검색하는 중…"
+
+#: foundation_deck/pages.py:458 foundation_deck/pages.py:770 foundation_deck/pages.py:384
+msgid "Add"
+msgstr "추가"
+
+#: foundation_deck/pages.py:473 foundation_deck/pages.py:547
+msgid "Changing…"
+msgstr "변경하는 중…"
+
+#: foundation_deck/pages.py:486 foundation_deck/pages.py:562
+msgid "Continue"
+msgstr "계속"
+
+#: foundation_deck/pages.py:520
+msgid "Application sources"
+msgstr "애플리케이션 소스"
+
+#: foundation_deck/pages.py:520
+msgid "Where Flatpak applications come from. Every source must be signed. They also show up in app stores such as Bazaar."
+msgstr "Flatpak 애플리케이션을 가져오는 곳입니다. 모든 소스에 서명이 있어야 합니다. Bazaar 같은 앱 스토어에도 표시됩니다."
+
+#: foundation_deck/pages.py:627
+msgid "Boot slots"
+msgstr "부팅 슬롯"
+
+#: foundation_deck/pages.py:627
+msgid "Two copies of the system. An update goes to the one that is not running."
+msgstr "시스템의 두 사본입니다. 업데이트는 실행 중이 아닌 쪽에 적용됩니다."
+
+#: foundation_deck/pages.py:654
+msgid "Its system is removed. The next update has more room to choose from, but this slot cannot be started until then."
+msgstr "이 슬롯의 시스템이 제거됩니다. 다음 업데이트에서 선택할 수 있는 폭이 넓어지지만, 그때까지 이 슬롯으로는 시작할 수 없습니다."
+
+#: foundation_deck/pages.py:655
+msgid "Empty Slot"
+msgstr "슬롯 비우기"
+
+#: foundation_deck/pages.py:665
+msgid "Boot splash"
+msgstr "부팅 스플래시"
+
+#: foundation_deck/pages.py:665
+msgid "The picture shown while the computer starts. It changes at the next restart. Colours, wallpaper and fonts of the desktop are in GNOME Settings."
+msgstr "컴퓨터가 시작되는 동안 표시되는 그림입니다. 다음에 다시 시작할 때 바뀝니다. 데스크톱의 색상, 배경 화면, 글꼴은 GNOME 설정에서 바꿀 수 있습니다."
+
+#: foundation_deck/pages.py:694
+msgid "Changing the boot splash"
+msgstr "부팅 스플래시를 변경하는 중"
+
+#: foundation_deck/pages.py:705
+msgid "SSH"
+msgstr "SSH"
+
+#: foundation_deck/pages.py:705
+msgid "Sign in from another computer over the network, with an authorized key."
+msgstr "승인된 키를 사용해 네트워크로 다른 컴퓨터에서 로그인합니다."
+
+#: foundation_deck/pages.py:710
+msgid "Authorized keys"
+msgstr "승인된 키"
+
+#: foundation_deck/pages.py:710
+msgid "Computers that may sign in without a password."
+msgstr "암호 없이 로그인할 수 있는 컴퓨터입니다."
+
+#: foundation_deck/pages.py:747
+msgid "Changing remote access…"
+msgstr "원격 접속을 변경하는 중…"
+
+#: foundation_deck/pages.py:850
+msgid "Recent changes"
+msgstr "최근 변경 사항"
+
+#: foundation_deck/pages.py:850
+msgid "What the system did on request, newest first. foundationd keeps the last fifty."
+msgstr "요청에 따라 시스템이 수행한 작업을 최신순으로 표시합니다. foundationd는 최근 50개를 보관합니다."
+
+#: foundation_deck/pages.py:896
+msgid "Approve this sign-in"
+msgstr "이 로그인 승인"
+
+#: foundation_deck/pages.py:896
+msgid "Open the page on any device and enter this code."
+msgstr "아무 기기에서나 이 페이지를 열고 이 코드를 입력하세요."
+
+#: foundation_deck/pages.py:901 foundation_deck/pages.py:991
+msgid "Open the Sign-in Page"
+msgstr "로그인 페이지 열기"
+
+#: foundation_deck/pages.py:904 foundation_deck/pages.py:1013
+msgid "Sign Out"
+msgstr "로그아웃"
+
+#: foundation_deck/pages.py:968 foundation_deck/pages.py:133
+msgid "…"
+msgstr "…"
+
+#: foundation_deck/pages.py:1013
+msgid "Sign out of Ersa ID?"
+msgstr "Ersa ID에서 로그아웃할까요?"
+
+#: foundation_deck/pages.py:1013
+msgid "This computer forgets your account. Your files and settings stay."
+msgstr "이 컴퓨터가 계정 정보를 잊습니다. 파일과 설정은 그대로 남습니다."
+
+#: foundation_deck/pages.py:184
+msgid "Check automatically"
+msgstr "자동으로 확인"
+
+#: foundation_deck/pages.py:184
+msgid "Install automatically"
+msgstr "자동으로 설치"
+
+#: foundation_deck/pages.py:190
+msgid "Install without checking the signature"
+msgstr "서명을 확인하지 않고 설치"
+
+#: foundation_deck/pages.py:191
+msgid "For images you built yourself. Anything can be installed this way."
+msgstr "직접 빌드한 이미지용입니다. 이 방법으로는 무엇이든 설치할 수 있습니다."
+
+#: foundation_deck/pages.py:195
+msgid "Update file"
+msgstr "업데이트 파일"
+
+#: foundation_deck/pages.py:195
+msgid "A .tar.zst archive"
+msgstr ".tar.zst 아카이브"
+
+#: foundation_deck/pages.py:196
+msgid "Choose…"
+msgstr "선택…"
+
+#: foundation_deck/pages.py:278
+msgid "Install this update?"
+msgstr "이 업데이트를 설치할까요?"
+
+#: foundation_deck/pages.py:298
+msgid "Update All"
+msgstr "모두 업데이트"
+
+#: foundation_deck/pages.py:313 foundation_deck/pages.py:330
+msgid "None installed"
+msgstr "설치된 항목 없음"
+
+#: foundation_deck/pages.py:403
+msgid "Refresh"
+msgstr "새로 고침"
+
+#: foundation_deck/pages.py:407
+msgid "Find a package in these sources"
+msgstr "이 소스에서 패키지 찾기"
+
+#: foundation_deck/pages.py:419
+msgid "No repositories"
+msgstr "저장소 없음"
+
+#: foundation_deck/pages.py:453
+msgid "Bundle name"
+msgstr "번들 이름"
+
+#: foundation_deck/pages.py:455
+msgid "A bundle is one group of extra software. A new name makes a new bundle; an existing name adds to it."
+msgstr "번들은 추가 소프트웨어의 한 묶음입니다. 새 이름을 쓰면 새 번들이 만들어지고, 기존 이름을 쓰면 그 번들에 추가됩니다."
+
+#: foundation_deck/pages.py:478
+msgid "https://example.org/repo"
+msgstr "https://example.org/repo"
+
+#: foundation_deck/pages.py:483
+msgid "Add a repository"
+msgstr "저장소 추가"
+
+#: foundation_deck/pages.py:483
+msgid "Only add sources you trust: their software is installed as bundles."
+msgstr "신뢰하는 소스만 추가하세요. 해당 소프트웨어가 번들로 설치됩니다."
+
+#: foundation_deck/pages.py:509 foundation_deck/pages.py:581
+msgid "Trust and Add"
+msgstr "신뢰하고 추가"
+
+#: foundation_deck/pages.py:529
+msgid "No sources. Flathub is added when the computer is first online."
+msgstr "소스가 없습니다. 컴퓨터가 처음 온라인이 되면 Flathub가 추가됩니다."
+
+#: foundation_deck/pages.py:551
+msgid "https://example.org/apps.flatpakrepo"
+msgstr "https://example.org/apps.flatpakrepo"
+
+#: foundation_deck/pages.py:552
+msgid "Short name, for example acme"
+msgstr "짧은 이름(예: acme)"
+
+#: foundation_deck/pages.py:553
+msgid "Title (optional)"
+msgstr "제목(선택 사항)"
+
+#: foundation_deck/pages.py:559
+msgid "Add an application source"
+msgstr "애플리케이션 소스 추가"
+
+#: foundation_deck/pages.py:559
+msgid "Only add sources you trust: their applications run on this computer."
+msgstr "신뢰하는 소스만 추가하세요. 해당 애플리케이션이 이 컴퓨터에서 실행됩니다."
+
+#: foundation_deck/pages.py:593
+msgid "Search the system's packages"
+msgstr "시스템 패키지 검색"
+
+#: foundation_deck/pages.py:667
+msgid "Style"
+msgstr "스타일"
+
+#: foundation_deck/pages.py:669
+msgid "Light"
+msgstr "밝게"
+
+#: foundation_deck/pages.py:670
+msgid "Dark"
+msgstr "어둡게"
+
+#: foundation_deck/pages.py:706
+msgid "Remote login (SSH)"
+msgstr "원격 로그인(SSH)"
+
+#: foundation_deck/pages.py:738
+msgid "Add a key first"
+msgstr "먼저 키를 추가하세요"
+
+#: foundation_deck/pages.py:739
+msgid "No user has an SSH key, so nobody could sign in. Add a key, then turn remote login on."
+msgstr "SSH 키가 있는 사용자가 없어 아무도 로그인할 수 없습니다. 키를 추가한 다음 원격 로그인을 켜세요."
+
+#: foundation_deck/pages.py:753
+msgid "No keys"
+msgstr "키 없음"
+
+#: foundation_deck/pages.py:763
+msgid "User"
+msgstr "사용자"
+
+#: foundation_deck/pages.py:767
+msgid "Add an SSH key"
+msgstr "SSH 키 추가"
+
+#: foundation_deck/pages.py:767
+msgid "Paste the public key (one line, from a .pub file)."
+msgstr "공개 키(.pub 파일의 한 줄)를 붙여 넣으세요."
+
+#: foundation_deck/pages.py:783
+msgid "Adding the key…"
+msgstr "키를 추가하는 중…"
+
+#: foundation_deck/pages.py:858
+msgid "Nothing yet since the system started"
+msgstr "시스템이 시작된 이후 아직 아무것도 없음"
+
+#: foundation_deck/pages.py:254
+msgid "Your system is up to date."
+msgstr "시스템이 최신 상태입니다."
+
+#: foundation_deck/pages.py:259
+msgid "No update source is set up yet."
+msgstr "업데이트 소스가 아직 설정되지 않았습니다."
+
+#: foundation_deck/pages.py:316 foundation_deck/pages.py:333 foundation_deck/pages.py:756 foundation_deck/pages.py:429 foundation_deck/pages.py:539 foundation_deck/pages.py:317 foundation_deck/pages.py:334 foundation_deck/pages.py:757 foundation_deck/pages.py:430 foundation_deck/pages.py:540
+msgid "Remove"
+msgstr "제거"
+
+#: foundation_deck/pages.py:394
+msgid "The extension is installed."
+msgstr "확장 기능이 설치되었습니다."
+
+#: foundation_deck/pages.py:481
+msgid "Public signing key (the text of the .asc file)"
+msgstr "공개 서명 키(.asc 파일의 텍스트)"
+
+#: foundation_deck/pages.py:506
+msgid "That is not a usable public key."
+msgstr "사용할 수 있는 공개 키가 아닙니다."
+
+#: foundation_deck/pages.py:556
+msgid "Public signing key (only if the address is not a .flatpakrepo file)"
+msgstr "공개 서명 키(주소가 .flatpakrepo 파일이 아닌 경우에만)"
+
+#: foundation_deck/pages.py:604
+msgid "What the read-only system is made of. Changes come with system updates, not from here."
+msgstr "읽기 전용 시스템의 구성 요소입니다. 변경은 여기가 아니라 시스템 업데이트로 이루어집니다."
+
+#: foundation_deck/pages.py:651
+msgid "Changing the boot choice…"
+msgstr "부팅 선택을 변경하는 중…"
+
+#: foundation_deck/pages.py:657
+msgid "Emptying the slot…"
+msgstr "슬롯을 비우는 중…"
+
+#: foundation_deck/pages.py:943
+msgid "Sign in to link this computer to your account."
+msgstr "로그인하여 이 컴퓨터를 계정에 연결하세요."
+
+#: foundation_deck/pages.py:944
+msgid "No account provider is set up on this computer."
+msgstr "이 컴퓨터에는 계정 공급자가 설정되어 있지 않습니다."
+
+#: foundation_deck/pages.py:945
+msgid "Account sign-in is turned off on this computer."
+msgstr "이 컴퓨터에서는 계정 로그인이 꺼져 있습니다."
+
+#: foundation_deck/pages.py:272
+msgid "That file cannot be used."
+msgstr "해당 파일을 사용할 수 없습니다."
+
+#: foundation_deck/pages.py:276
+msgid "Install Without Signature"
+msgstr "서명 없이 설치"
+
+#: foundation_deck/pages.py:300
+msgid "Updating bundles…"
+msgstr "번들을 업데이트하는 중…"
+
+#: foundation_deck/pages.py:323
+msgid "asked for"
+msgstr "요청됨"
+
+#: foundation_deck/pages.py:382
+msgid "This package does not fit"
+msgstr "이 패키지는 맞지 않습니다"
+
+#: foundation_deck/pages.py:404
+msgid "Refreshing…"
+msgstr "새로 고치는 중…"
+
+#: foundation_deck/pages.py:444
+msgid " (showing the first 40)"
+msgstr " (처음 40개 표시)"
+
+#: foundation_deck/pages.py:448
+msgid "Add to Bundle…"
+msgstr "번들에 추가…"
+
+#: foundation_deck/pages.py:454
+msgid "Add {package} to a bundle"
+msgstr "{package}을(를) 번들에 추가"
+
+#: foundation_deck/pages.py:511 foundation_deck/pages.py:582
+msgid "Adding…"
+msgstr "추가하는 중…"
+
+#: foundation_deck/pages.py:612
+msgid "{shown} of {total} packages"
+msgstr "패키지 {total}개 중 {shown}개"
+
+#: foundation_deck/pages.py:643
+msgid "Empty this slot"
+msgstr "이 슬롯 비우기"
+
+#: foundation_deck/pages.py:740
+msgid "Add a Key…"
+msgstr "키 추가…"
+
+#: foundation_deck/pages.py:265 foundation_deck/pages.py:288
+msgid "Version {version} is ready. Restart to use it."
+msgstr "버전 {version}이(가) 준비되었습니다. 다시 시작하면 사용할 수 있습니다."
+
+#: foundation_deck/pages.py:317
+msgid "Its software is taken away. Your files are not touched."
+msgstr "해당 소프트웨어가 제거됩니다. 파일은 그대로 유지됩니다."
+
+#: foundation_deck/pages.py:334
+msgid "The extension is removed."
+msgstr "확장 기능이 제거되었습니다."
+
+#: foundation_deck/pages.py:444
+msgid "{count} found"
+msgid_plural "{count} found"
+msgstr[0] "{count}개 찾음"
+
+#: foundation_deck/pages.py:466
+msgid "Adding {package}"
+msgstr "{package} 추가하는 중"
+
+#: foundation_deck/pages.py:651
+msgid "Done. Restart to use it."
+msgstr "완료되었습니다. 다시 시작하면 사용할 수 있습니다."
+
+#: foundation_deck/pages.py:757
+msgid "Remove this key?"
+msgstr "이 키를 제거할까요?"
+
+#: foundation_deck/pages.py:300
+msgid "Bundles are up to date."
+msgstr "번들이 최신 상태입니다."
+
+#: foundation_deck/pages.py:404
+msgid "Repositories are up to date."
+msgstr "저장소가 최신 상태입니다."
+
+#: foundation_deck/pages.py:430
+msgid "Bundles that use it must be removed first."
+msgstr "이를 사용하는 번들을 먼저 제거해야 합니다."
+
+#: foundation_deck/pages.py:540
+msgid "Applications installed from it must be removed first."
+msgstr "여기서 설치한 애플리케이션을 먼저 제거해야 합니다."
+
+#: foundation_deck/pages.py:318 foundation_deck/pages.py:335 foundation_deck/pages.py:758 foundation_deck/pages.py:431 foundation_deck/pages.py:541
+msgid "Removing…"
+msgstr "제거하는 중…"
+
+#: foundation_deck/pages.py:466
+msgid "{package} was added to {bundle}."
+msgstr "{package}을(를) {bundle}에 추가했습니다."
+
+#: foundation_deck/tasks.py:24
+msgid "Starting…"
+msgstr "시작하는 중…"
+
+#: foundation_deck/tasks.py:88
+msgid "Clear finished"
+msgstr "완료된 항목 지우기"
+
+#: foundation_deck/tasks.py:97 foundation_deck/tasks.py:114 foundation_deck/tasks.py:153
+msgid "Tasks"
+msgstr "작업"
+
+#: foundation_deck/tasks.py:98
+msgid "Nothing running"
+msgstr "실행 중인 작업 없음"
+
+#: foundation_deck/tasks.py:27
+msgid "Cancel: {title}"
+msgstr "취소: {title}"
+
+#: foundation_deck/tasks.py:142
+msgid "{count} task running"
+msgid_plural "{count} tasks running"
+msgstr[0] "작업 {count}개 실행 중"
+
+#: foundation_deck/tasks.py:154
+msgid "Done: {title}"
+msgstr "완료: {title}"
+
+#: foundation_deck/tasks.py:154
+msgid "Failed: {title}"
+msgstr "실패: {title}"

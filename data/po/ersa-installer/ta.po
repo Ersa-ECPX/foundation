@@ -1,0 +1,343 @@
+# Initial, unreviewed machine-assisted translation.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: ta\nPlural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: foundation_installer/app.py:374
+msgid "Select your language"
+msgstr "உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்"
+
+#: foundation_installer/app.py:374
+msgid "This sets the language of the installed system."
+msgstr "இது நிறுவப்பட்ட கணினியின் மொழியை அமைக்கிறது."
+
+#: foundation_installer/app.py:403 foundation_installer/app.py:236
+msgid "Go Back"
+msgstr "பின்செல்"
+
+#: foundation_installer/app.py:404 foundation_installer/app.py:241
+msgid "Refresh Disks"
+msgstr "வட்டுகளைப் புதுப்பி"
+
+#: foundation_installer/app.py:405 foundation_installer/app.py:245
+msgid "Customize…"
+msgstr "தனிப்பயனாக்கு…"
+
+#: foundation_installer/app.py:407 foundation_installer/app.py:238 foundation_installer/app.py:291 foundation_installer/app.py:316 foundation_installer/app.py:320 foundation_installer/app.py:408
+msgid "Continue"
+msgstr "தொடரவும்"
+
+#: foundation_installer/app.py:419
+msgid "Select your time zone"
+msgstr "உங்கள் நேர மண்டலத்தைத் தேர்ந்தெடுக்கவும்"
+
+#: foundation_installer/app.py:419
+msgid "This sets the clock of the installed system."
+msgstr "இது நிறுவப்பட்ட கணினியின் கடிகாரத்தை அமைக்கிறது."
+
+#: foundation_installer/app.py:458
+msgid "Select the disk where you want to install"
+msgstr "நிறுவ விரும்பும் வட்டைத் தேர்ந்தெடுக்கவும்"
+
+#: foundation_installer/app.py:472
+msgid "Protect your data"
+msgstr ""
+
+#: foundation_installer/app.py:473
+msgid "Encryption keeps your files and settings private if this computer is lost or stolen."
+msgstr ""
+
+#: foundation_installer/app.py:503
+msgid "Without encryption, anyone who has the disk can read your files and settings."
+msgstr ""
+
+#: foundation_installer/app.py:536
+msgid "Ready to install"
+msgstr "நிறுவ தயாராக உள்ளது"
+
+#: foundation_installer/app.py:536
+msgid "Review what will happen."
+msgstr "என்ன நடக்கும் என்பதை சரிபார்க்கவும்."
+
+#: foundation_installer/app.py:612
+msgid "This installs the system on a disk in this computer. You choose the disk next, and you see exactly what will be erased before anything is changed."
+msgstr "இது இந்தக் கணினியில் உள்ள ஒரு வட்டில் கணினியை நிறுவுகிறது. அடுத்து வட்டைத் தேர்ந்தெடுப்பீர்கள்; எதையும் மாற்றுவதற்கு முன் எது அழிக்கப்படும் என்பதைத் துல்லியமாகக் காண்பீர்கள்."
+
+#: foundation_installer/app.py:743
+msgid "Cancel"
+msgstr "ரத்துசெய்"
+
+#: foundation_installer/app.py:744
+msgid "Erase and Install"
+msgstr "அழித்து நிறுவு"
+
+#: foundation_installer/app.py:760 foundation_installer/app.py:552
+msgid "Preparing…"
+msgstr "தயாராகிறது…"
+
+#: foundation_installer/app.py:309
+msgid "Starting…"
+msgstr "தொடங்குகிறது…"
+
+#: foundation_installer/app.py:350
+msgid "Search"
+msgstr "தேடு"
+
+#: foundation_installer/app.py:467
+msgid "No disks were found."
+msgstr "வட்டுகள் எதுவும் கிடைக்கவில்லை."
+
+#: foundation_installer/app.py:475
+msgid "Encrypt your data"
+msgstr ""
+
+#: foundation_installer/app.py:476
+msgid "Your files and settings can only be read with this computer's key or your recovery key."
+msgstr ""
+
+#: foundation_installer/app.py:481 foundation_installer/app.py:482
+msgid "Passphrase"
+msgstr ""
+
+#: foundation_installer/app.py:483
+msgid "Confirm passphrase"
+msgstr ""
+
+#: foundation_installer/app.py:505
+msgid "This computer unlocks your data by itself with its security chip (TPM). You also get a recovery key."
+msgstr ""
+
+#: foundation_installer/app.py:507
+msgid "Your data is unlocked with a passphrase each time the computer starts. You also get a recovery key."
+msgstr ""
+
+#: foundation_installer/app.py:524 foundation_installer/app.py:634 foundation_installer/app.py:732 foundation_installer/app.py:737
+msgid "Install"
+msgstr "நிறுவு"
+
+#: foundation_installer/app.py:542
+msgid "What will be installed"
+msgstr "நிறுவப்படப் போவது"
+
+#: foundation_installer/app.py:558
+msgid "Do not turn off the computer or remove the disk."
+msgstr "கணினியை அணைக்கவோ வட்டை அகற்றவோ வேண்டாம்."
+
+#: foundation_installer/app.py:602
+msgid "This system's management service cannot install to a disk."
+msgstr "இந்தக் கணினியின் மேலாண்மைச் சேவையால் வட்டில் நிறுவ இயலாது."
+
+#: foundation_installer/app.py:615 foundation_installer/app.py:876
+msgid "The installer cannot start"
+msgstr "நிறுவி தொடங்க இயலவில்லை"
+
+#: foundation_installer/app.py:710
+msgid "OK"
+msgstr "சரி"
+
+#: foundation_installer/app.py:721
+msgid "Language"
+msgstr "மொழி"
+
+#: foundation_installer/app.py:721
+msgid "Time zone"
+msgstr "நேர மண்டலம்"
+
+#: foundation_installer/app.py:722
+msgid "Encryption"
+msgstr ""
+
+#: foundation_installer/app.py:821
+msgid "Installation complete"
+msgstr "நிறுவல் முடிந்தது"
+
+#: foundation_installer/app.py:822
+msgid "Remove the installation medium, then restart to start the new system."
+msgstr "நிறுவல் ஊடகத்தை அகற்றி, புதிய கணினியைத் தொடங்க மறுதொடக்கம் செய்யவும்."
+
+#: foundation_installer/app.py:824
+msgid "Restart"
+msgstr "மறுதொடக்கம்"
+
+#: foundation_installer/app.py:831 foundation_installer/app.py:835
+msgid "Show Details"
+msgstr "விவரங்களைக் காட்டு"
+
+#: foundation_installer/app.py:841
+msgid "Installation failed"
+msgstr "நிறுவல் தோல்வியடைந்தது"
+
+#: foundation_installer/app.py:893
+msgid "{product} Installer"
+msgstr "{product} நிறுவி"
+
+#: foundation_installer/app.py:402 foundation_installer/app.py:215
+msgid "Install {product}"
+msgstr "{product} ஐ நிறுவு"
+
+#: foundation_installer/app.py:447
+msgid "Detected from your network. Change it if it is wrong."
+msgstr "உங்கள் பிணையத்திலிருந்து கண்டறியப்பட்டது. தவறாக இருந்தால் மாற்றவும்."
+
+#: foundation_installer/app.py:459
+msgid "{product} is installed on the whole disk. Nothing is changed until you confirm."
+msgstr "{product} முழு வட்டிலும் நிறுவப்படும். நீங்கள் உறுதிசெய்யும் வரை எதுவும் மாற்றப்படாது."
+
+#: foundation_installer/app.py:511
+msgid "Use at least 8 characters."
+msgstr ""
+
+#: foundation_installer/app.py:511
+msgid "The passphrases do not match."
+msgstr ""
+
+#: foundation_installer/app.py:610
+msgid "Install {product}{version}"
+msgstr "{product}{version} ஐ நிறுவு"
+
+#: foundation_installer/app.py:616
+msgid "Try Again"
+msgstr "மீண்டும் முயற்சிக்கவும்"
+
+#: foundation_installer/app.py:616 foundation_installer/app.py:844 foundation_installer/app.py:877
+msgid "Quit"
+msgstr "வெளியேறு"
+
+#: foundation_installer/app.py:708
+msgid "This disk cannot be used"
+msgstr "இந்த வட்டைப் பயன்படுத்த இயலாது"
+
+#: foundation_installer/app.py:722
+msgid "On"
+msgstr ""
+
+#: foundation_installer/app.py:722
+msgid "Off"
+msgstr ""
+
+#: foundation_installer/app.py:815
+msgid "Write this key down and keep it somewhere safe, away from this computer. It is the only way to unlock your data if the security chip or your passphrase cannot."
+msgstr ""
+
+#: foundation_installer/app.py:818
+msgid "I have saved my recovery key"
+msgstr ""
+
+#: foundation_installer/app.py:835
+msgid "Hide Details"
+msgstr "விவரங்களை மறை"
+
+#: foundation_installer/app.py:844
+msgid "Choose a Disk"
+msgstr "வட்டைத் தேர்ந்தெடு"
+
+#: foundation_installer/app.py:889
+msgid "{product} installer"
+msgstr "{product} நிறுவி"
+
+#: foundation_installer/app.py:558
+msgid "Installing {product}"
+msgstr "{product} நிறுவப்படுகிறது"
+
+#: foundation_installer/app.py:665 foundation_installer/model.py:45
+msgid "cannot be used"
+msgstr "பயன்படுத்த இயலாது"
+
+#: foundation_installer/app.py:709
+msgid "The service refused this disk."
+msgstr "சேவை இந்த வட்டை ஏற்கவில்லை."
+
+#: foundation_installer/app.py:742
+msgid "Erase {disk}?"
+msgstr "{disk} ஐ அழிக்கவா?"
+
+#: foundation_installer/app.py:820
+msgid "Your recovery key"
+msgstr ""
+
+#: foundation_installer/app.py:842
+msgid "{message}\n\nThe disk may have been erased and will not start. It is safe to try again."
+msgstr "{message}\n\nவட்டு அழிந்திருக்கக்கூடும்; அது தொடங்காது. மீண்டும் முயற்சிப்பது பாதுகாப்பானது."
+
+#: foundation_installer/model.py:24
+msgid "Boot"
+msgstr "துவக்கம்"
+
+#: foundation_installer/model.py:25
+msgid "Recovery"
+msgstr "மீட்பு"
+
+#: foundation_installer/model.py:26
+msgid "System slot A"
+msgstr "கணினி நகல் A"
+
+#: foundation_installer/model.py:27
+msgid "Integrity data for slot A"
+msgstr "நகல் A க்கான ஒருமைப்பாட்டுத் தரவு"
+
+#: foundation_installer/model.py:28
+msgid "System slot B"
+msgstr "கணினி நகல் B"
+
+#: foundation_installer/model.py:29
+msgid "Integrity data for slot B"
+msgstr "நகல் B க்கான ஒருமைப்பாட்டுத் தரவு"
+
+#: foundation_installer/model.py:30
+msgid "Your files and settings"
+msgstr "உங்கள் கோப்புகளும் அமைப்புகளும்"
+
+#: foundation_installer/model.py:31
+msgid "The installer's workspace"
+msgstr "நிறுவியின் பணியிடம்"
+
+#: foundation_installer/model.py:50
+msgid "The rest of the disk"
+msgstr "வட்டின் மீதமுள்ள பகுதி"
+
+#: foundation_installer/model.py:66
+msgid "Permission was not granted to change the disk."
+msgstr "வட்டை மாற்ற அனுமதி வழங்கப்படவில்லை."
+
+#: foundation_installer/model.py:70
+msgid "Another installation is already running."
+msgstr "மற்றொரு நிறுவல் ஏற்கனவே நடந்துகொண்டிருக்கிறது."
+
+#: foundation_installer/model.py:71
+msgid "The installation failed for an unknown reason."
+msgstr "தெரியாத காரணத்தால் நிறுவல் தோல்வியடைந்தது."
+
+#: foundation_installer/model.py:80
+msgid "Less than a minute remaining"
+msgstr "ஒரு நிமிடத்திற்கும் குறைவாக மீதமுள்ளது"
+
+#: foundation_installer/model.py:126
+msgid "Default"
+msgstr "இயல்புநிலை"
+
+#: foundation_installer/model.py:37
+msgid "Removable disk"
+msgstr "அகற்றக்கூடிய வட்டு"
+
+#: foundation_installer/model.py:37
+msgid "Disk"
+msgstr "வட்டு"
+
+#: foundation_installer/model.py:43
+msgid "removable"
+msgstr "அகற்றக்கூடியது"
+
+#: foundation_installer/model.py:58
+msgid "Everything on {disk} will be erased and cannot be recovered.{note}"
+msgstr "{disk} இல் உள்ள அனைத்தும் அழிக்கப்படும்; அவற்றை மீட்க இயலாது.{note}"
+
+#: foundation_installer/model.py:82
+msgid "About {count} minute remaining"
+msgid_plural "About {count} minutes remaining"
+msgstr[0] "சுமார் {count} நிமிடம் மீதமுள்ளது"
+msgstr[1] "சுமார் {count} நிமிடங்கள் மீதமுள்ளன"
+
+#: foundation_installer/model.py:57
+msgid "It currently holds {count} partition."
+msgid_plural "It currently holds {count} partitions."
+msgstr[0] "இதில் தற்போது {count} பகிர்வு உள்ளது."
+msgstr[1] "இதில் தற்போது {count} பகிர்வுகள் உள்ளன."

@@ -1,0 +1,1255 @@
+# Initial, unreviewed machine-assisted translation.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: ar\nPlural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5);\n"
+
+#: foundation_deck/app.py:395 foundation_deck/app.py:48 foundation_deck/app.py:101
+msgid "Deck"
+msgstr "Deck"
+
+#: foundation_deck/app.py:65
+msgid "Refresh (Ctrl+R)"
+msgstr "تحديث (Ctrl+R)"
+
+#: foundation_deck/app.py:283 foundation_deck/pages.py:457 foundation_deck/pages.py:485 foundation_deck/pages.py:561 foundation_deck/pages.py:769 foundation_deck/pages.py:902
+msgid "Cancel"
+msgstr "إلغاء"
+
+#: foundation_deck/app.py:293
+msgid "OK"
+msgstr "موافق"
+
+#: foundation_deck/app.py:297
+msgid "Restart now?"
+msgstr "هل تريد إعادة التشغيل الآن؟"
+
+#: foundation_deck/app.py:297 foundation_deck/pages.py:629
+msgid "Open applications will be closed."
+msgstr "ستُغلق التطبيقات المفتوحة."
+
+#: foundation_deck/app.py:297 foundation_deck/pages.py:629
+msgid "Restart"
+msgstr "إعادة التشغيل"
+
+#: foundation_deck/app.py:386
+msgid "open this page"
+msgstr "افتح هذه الصفحة"
+
+#: foundation_deck/app.py:388
+msgid "after the first login: offer Ersa ID sign-in once, if a provider is set up (used by a user service)"
+msgstr "بعد أول تسجيل دخول: اعرض تسجيل الدخول بـ Ersa ID مرة واحدة إن كان هناك مزوّد مُعدّ (تستخدمه خدمة مستخدم)"
+
+#: foundation_deck/app.py:393
+msgid "ersa-deck: no display is available"
+msgstr "ersa-deck: لا توجد شاشة متاحة"
+
+#: foundation_deck/app.py:63 foundation_deck/model.py:105
+msgid "Overview"
+msgstr "نظرة عامة"
+
+#: foundation_deck/app.py:68 foundation_deck/pages.py:177 foundation_deck/pages.py:630
+msgid "Restart…"
+msgstr "إعادة التشغيل…"
+
+#: foundation_deck/app.py:70 foundation_deck/model.py:112
+msgid "Boot Slots"
+msgstr "نُسخ النظام"
+
+#: foundation_deck/app.py:107
+msgid "Search"
+msgstr "بحث"
+
+#: foundation_deck/app.py:261
+msgid "All files"
+msgstr "كل الملفات"
+
+#: foundation_deck/app.py:305
+msgid "Ersa ID"
+msgstr "Ersa ID"
+
+#: foundation_deck/app.py:306
+msgid "Sign in to Ersa ID"
+msgstr "تسجيل الدخول إلى Ersa ID"
+
+#: foundation_deck/app.py:307
+msgid "Link this computer to your account. You can skip this and sign in later in Deck."
+msgstr "اربط هذا الحاسوب بحسابك. يمكنك تخطي هذه الخطوة وتسجيل الدخول لاحقًا في Deck."
+
+#: foundation_deck/app.py:308 foundation_deck/pages.py:903
+msgid "Sign In"
+msgstr "تسجيل الدخول"
+
+#: foundation_deck/app.py:309
+msgid "Not Now"
+msgstr "ليس الآن"
+
+#: foundation_deck/app.py:383
+msgid "{product} management window"
+msgstr "نافذة إدارة {product}"
+
+#: foundation_deck/app.py:217
+msgid "Working"
+msgstr "قيد العمل"
+
+#: foundation_deck/app.py:233 foundation_deck/model.py:366
+msgid "Done"
+msgstr "تم"
+
+#: foundation_deck/app.py:369
+msgid "Quit"
+msgstr "إنهاء"
+
+#: foundation_deck/app.py:249
+msgid "Cannot open the file: {reason}"
+msgstr "تعذّر فتح الملف: {reason}"
+
+#: foundation_deck/app.py:368
+msgid "Deck cannot start"
+msgstr "تعذّر بدء Deck"
+
+#: foundation_deck/model.py:336 foundation_deck/model.py:107
+msgid "Updates"
+msgstr "التحديثات"
+
+#: foundation_deck/model.py:336 foundation_deck/model.py:112
+msgid "System"
+msgstr "النظام"
+
+#: foundation_deck/model.py:336
+msgid "Applications"
+msgstr "التطبيقات"
+
+#: foundation_deck/model.py:351
+msgid "Installed a system update"
+msgstr "ثُبِّت تحديث للنظام"
+
+#: foundation_deck/model.py:351
+msgid "Installed the newest system update"
+msgstr "ثُبِّت أحدث تحديث للنظام"
+
+#: foundation_deck/model.py:352
+msgid "Changed which system starts"
+msgstr "تغيّر النظام الذي يبدأ التشغيل"
+
+#: foundation_deck/model.py:352
+msgid "Chose the next start"
+msgstr "اختير التشغيل التالي"
+
+#: foundation_deck/model.py:353
+msgid "Emptied a slot"
+msgstr "أُفرغت نسخة"
+
+#: foundation_deck/model.py:353
+msgid "Changed the boot splash"
+msgstr "تغيّرت شاشة الإقلاع"
+
+#: foundation_deck/model.py:354
+msgid "Installed an application"
+msgstr "ثُبِّت تطبيق"
+
+#: foundation_deck/model.py:354
+msgid "Removed an application"
+msgstr "أُزيل تطبيق"
+
+#: foundation_deck/model.py:354
+msgid "Updated applications"
+msgstr "حُدّثت التطبيقات"
+
+#: foundation_deck/model.py:355
+msgid "Set up the application source"
+msgstr "أُعدّ مصدر التطبيقات"
+
+#: foundation_deck/model.py:356
+msgid "Installed an extension"
+msgstr "ثُبِّت امتداد"
+
+#: foundation_deck/model.py:356
+msgid "Removed an extension"
+msgstr "أُزيل امتداد"
+
+#: foundation_deck/model.py:356
+msgid "Checked extensions"
+msgstr "فُحصت الامتدادات"
+
+#: foundation_deck/model.py:357
+msgid "Added packages to a bundle"
+msgstr "أُضيفت حزم إلى باقة"
+
+#: foundation_deck/model.py:357
+msgid "Installed a bundle"
+msgstr "ثُبِّتت باقة"
+
+#: foundation_deck/model.py:358
+msgid "Removed a bundle"
+msgstr "أُزيلت باقة"
+
+#: foundation_deck/model.py:358
+msgid "Updated bundles"
+msgstr "حُدّثت الباقات"
+
+#: foundation_deck/model.py:358
+msgid "Rebuilt bundles"
+msgstr "أُعيد بناء الباقات"
+
+#: foundation_deck/model.py:359
+msgid "Changed a repository"
+msgstr "عُدّل مستودع"
+
+#: foundation_deck/model.py:359
+msgid "Added a repository"
+msgstr "أُضيف مستودع"
+
+#: foundation_deck/model.py:359
+msgid "Removed a repository"
+msgstr "أُزيل مستودع"
+
+#: foundation_deck/model.py:360
+msgid "Refreshed repositories"
+msgstr "حُدّثت المستودعات"
+
+#: foundation_deck/model.py:360
+msgid "Changed remote access"
+msgstr "تغيّر الوصول عن بُعد"
+
+#: foundation_deck/model.py:361
+msgid "Added an SSH key"
+msgstr "أُضيف مفتاح SSH"
+
+#: foundation_deck/model.py:361
+msgid "Removed an SSH key"
+msgstr "أُزيل مفتاح SSH"
+
+#: foundation_deck/model.py:362
+msgid "Installed the system on a disk"
+msgstr "ثُبِّت النظام على قرص"
+
+#: foundation_deck/model.py:362
+msgid "Merged extensions"
+msgstr "دُمجت الامتدادات"
+
+#: foundation_deck/model.py:362
+msgid "Unmerged extensions"
+msgstr "فُصلت الامتدادات"
+
+#: foundation_deck/model.py:363
+msgid "Refreshed extensions"
+msgstr "حُدّثت الامتدادات"
+
+#: foundation_deck/model.py:366
+msgid "Failed"
+msgstr "فشل"
+
+#: foundation_deck/model.py:366
+msgid "Cancelled"
+msgstr "أُلغي"
+
+#: foundation_deck/model.py:366
+msgid "Running"
+msgstr "قيد التشغيل"
+
+#: foundation_deck/model.py:366
+msgid "Waiting"
+msgstr "في الانتظار"
+
+#: foundation_deck/model.py:416 foundation_deck/model.py:205
+msgid "Check to see whether an update is available."
+msgstr "تحقق مما إذا كان هناك تحديث متاح."
+
+#: foundation_deck/model.py:417
+msgid "Your Ersa ID account on this computer."
+msgstr "حساب Ersa ID الخاص بك على هذا الحاسوب."
+
+#: foundation_deck/model.py:418
+msgid "System-level software such as codecs and tools."
+msgstr "برمجيات على مستوى النظام مثل المرمِّزات والأدوات."
+
+#: foundation_deck/model.py:419
+msgid "Where the packages for bundles come from."
+msgstr "مصدر الحزم الخاصة بالباقات."
+
+#: foundation_deck/model.py:420
+msgid "Where applications come from."
+msgstr "مصدر التطبيقات."
+
+#: foundation_deck/model.py:421
+msgid "Everything the system image contains."
+msgstr "كل ما تحتويه صورة النظام."
+
+#: foundation_deck/model.py:422
+msgid "The two system copies, so an update can fall back."
+msgstr "نسختا النظام، ليتمكن التحديث من التراجع."
+
+#: foundation_deck/model.py:423
+msgid "How the computer starts up."
+msgstr "كيف يبدأ الحاسوب التشغيل."
+
+#: foundation_deck/model.py:424
+msgid "Sign in from another computer."
+msgstr "سجّل الدخول من حاسوب آخر."
+
+#: foundation_deck/model.py:425
+msgid "Every setting, with what it does."
+msgstr "كل إعداد مع شرح وظيفته."
+
+#: foundation_deck/model.py:426
+msgid "What the system did, and how it went."
+msgstr "ما أجراه النظام وكيف سارت الأمور."
+
+#: foundation_deck/model.py:20
+msgid "The installer medium's own system"
+msgstr "نظام وسيط التثبيت نفسه"
+
+#: foundation_deck/model.py:33
+msgid "Version unknown"
+msgstr "الإصدار غير معروف"
+
+#: foundation_deck/model.py:38
+msgid "The running slot is unknown"
+msgstr "النسخة قيد التشغيل غير معروفة"
+
+#: foundation_deck/model.py:48
+msgid "Not checked"
+msgstr "لم يُفحص"
+
+#: foundation_deck/model.py:56
+msgid "An update is installed. Restart to start using it."
+msgstr "ثُبِّت تحديث. أعد التشغيل لبدء استخدامه."
+
+#: foundation_deck/model.py:74
+msgid "The administrator's password was not given, so nothing was changed."
+msgstr "لم تُدخَل كلمة مرور المسؤول، لذا لم يتغير شيء."
+
+#: foundation_deck/model.py:76
+msgid "Another change is in progress. Try again when it has finished."
+msgstr "هناك تغيير آخر قيد التنفيذ. حاول مرة أخرى بعد انتهائه."
+
+#: foundation_deck/model.py:78
+msgid "This is not available on this system."
+msgstr "هذا غير متاح على هذا النظام."
+
+#: foundation_deck/model.py:79
+msgid "That did not work."
+msgstr "لم ينجح ذلك."
+
+#: foundation_deck/model.py:100
+msgid "The failed version stays in its slot until the next update replaces it."
+msgstr "يبقى الإصدار الذي فشل في نسخته إلى أن يستبدله التحديث التالي."
+
+#: foundation_deck/model.py:106
+msgid "Account"
+msgstr "الحساب"
+
+#: foundation_deck/model.py:107
+msgid "Software"
+msgstr "البرمجيات"
+
+#: foundation_deck/model.py:116
+msgid "History"
+msgstr "السجل"
+
+#: foundation_deck/model.py:160
+msgid "Every restart starts that system until you choose another. A failed start is not rolled back automatically."
+msgstr "كل إعادة تشغيل تبدأ ذلك النظام إلى أن تختار غيره. ولا يُتراجع تلقائيًا عن التشغيل الفاشل."
+
+#: foundation_deck/model.py:230
+msgid "This computer did not start through UEFI, so the boot splash cannot follow this choice."
+msgstr "لم يبدأ هذا الحاسوب عبر UEFI، لذا لا يمكن لشاشة الإقلاع اتباع هذا الاختيار."
+
+#: foundation_deck/model.py:262
+msgid "just now"
+msgstr "الآن"
+
+#: foundation_deck/model.py:273
+msgid "Give the repository a name."
+msgstr "أدخل اسمًا للمستودع."
+
+#: foundation_deck/model.py:275 foundation_deck/model.py:447
+msgid "The address must start with https://."
+msgstr "يجب أن يبدأ العنوان بـ https://."
+
+#: foundation_deck/model.py:277
+msgid "Paste the repository's public signing key."
+msgstr "الصق مفتاح التوقيع العام للمستودع."
+
+#: foundation_deck/model.py:294
+msgid "On"
+msgstr "مفعّل"
+
+#: foundation_deck/model.py:319
+msgid "Give the user name."
+msgstr "أدخل اسم المستخدم."
+
+#: foundation_deck/model.py:322
+msgid "Paste a public key (a line starting with ssh-ed25519, ssh-rsa and so on)."
+msgstr "الصق مفتاحًا عامًا (سطر يبدأ بـ ssh-ed25519 أو ssh-rsa وهكذا)."
+
+#: foundation_deck/model.py:386
+msgid "this file"
+msgstr "هذا الملف"
+
+#: foundation_deck/model.py:404 foundation_deck/model.py:63
+msgid "Choose a file."
+msgstr "اختر ملفًا."
+
+#: foundation_deck/model.py:406
+msgid "That does not look like an RPM package."
+msgstr "لا يبدو أن هذه حزمة RPM."
+
+#: foundation_deck/model.py:445
+msgid "Give the source a short name: letters, digits, dots, dashes."
+msgstr "أدخل اسمًا قصيرًا للمصدر: أحرف وأرقام ونقاط وشرطات."
+
+#: foundation_deck/model.py:449
+msgid "Paste the source's public signing key (an address that is not a .flatpakrepo file needs one)."
+msgstr "الصق مفتاح التوقيع العام للمصدر (العنوان الذي ليس ملف .flatpakrepo يحتاج إلى مفتاح)."
+
+#: foundation_deck/model.py:466
+msgid "Applications from it are installed for everyone and run with the permissions they ask for. Check the fingerprint with the publisher."
+msgstr "تُثبَّت التطبيقات القادمة منه لجميع المستخدمين وتعمل بالأذونات التي تطلبها. تحقق من البصمة مع الناشر."
+
+#: foundation_deck/model.py:484
+msgid "Signed in"
+msgstr "تم تسجيل الدخول"
+
+#: foundation_deck/model.py:14
+msgid "Slot {name}"
+msgstr "النسخة {name}"
+
+#: foundation_deck/model.py:21
+msgid "Empty"
+msgstr "فارغة"
+
+#: foundation_deck/model.py:23
+msgid "running now"
+msgstr "قيد التشغيل الآن"
+
+#: foundation_deck/model.py:25
+msgid "starts by default"
+msgstr "تبدأ افتراضيًا"
+
+#: foundation_deck/model.py:45
+msgid "This start was confirmed good"
+msgstr "تأكّد أن هذا التشغيل سليم"
+
+#: foundation_deck/model.py:65
+msgid "That file does not exist."
+msgstr "هذا الملف غير موجود."
+
+#: foundation_deck/model.py:67
+msgid "That does not look like an update archive (.tar.zst)."
+msgstr "لا يبدو أن هذا أرشيف تحديث (.tar.zst)."
+
+#: foundation_deck/model.py:150
+msgid "Start Once"
+msgstr "ابدأ مرة واحدة"
+
+#: foundation_deck/model.py:150
+msgid "Always Start"
+msgstr "ابدأ دائمًا"
+
+#: foundation_deck/model.py:158
+msgid "The next restart starts that system. The one after goes back to the usual choice."
+msgstr "تبدأ إعادة التشغيل التالية ذلك النظام، ثم تعود التي تليها إلى الاختيار المعتاد."
+
+#: foundation_deck/model.py:173 foundation_deck/model.py:183
+msgid "turned off"
+msgstr "متوقف"
+
+#: foundation_deck/model.py:180
+msgid "version unknown"
+msgstr "الإصدار غير معروف"
+
+#: foundation_deck/model.py:238 foundation_deck/pages.py:477
+msgid "Name"
+msgstr "الاسم"
+
+#: foundation_deck/model.py:238
+msgid "Version"
+msgstr "الإصدار"
+
+#: foundation_deck/model.py:239
+msgid "Architecture"
+msgstr "المعمارية"
+
+#: foundation_deck/model.py:253 foundation_deck/model.py:434
+msgid "signed"
+msgstr "موقَّع"
+
+#: foundation_deck/model.py:253 foundation_deck/model.py:434
+msgid "not signed"
+msgstr "غير موقَّع"
+
+#: foundation_deck/model.py:254 foundation_deck/model.py:438
+msgid "comes with the system"
+msgstr "يأتي مع النظام"
+
+#: foundation_deck/model.py:254
+msgid "added by you"
+msgstr "أضفته أنت"
+
+#: foundation_deck/model.py:256
+msgid "never refreshed"
+msgstr "لم يُحدَّث أبدًا"
+
+#: foundation_deck/model.py:267
+msgid "{count} day ago"
+msgid_plural "{count} days ago"
+msgstr[0] "منذ {count} يوم"
+msgstr[1] "منذ {count} يوم"
+msgstr[2] "منذ {count} يومين"
+msgstr[3] "منذ {count} أيام"
+msgstr[4] "منذ {count} يومًا"
+msgstr[5] "منذ {count} يوم"
+
+#: foundation_deck/model.py:292
+msgid "Not available"
+msgstr "غير متاح"
+
+#: foundation_deck/model.py:292
+msgid "The SSH server is not part of this system."
+msgstr "خادم SSH ليس جزءًا من هذا النظام."
+
+#: foundation_deck/model.py:296
+msgid "On at the next start"
+msgstr "يُفعَّل عند التشغيل التالي"
+
+#: foundation_deck/model.py:298
+msgid "Off"
+msgstr "متوقف"
+
+#: foundation_deck/model.py:392
+msgid "Missing: "
+msgstr "مفقود: "
+
+#: foundation_deck/model.py:392
+msgid "Missing library: "
+msgstr "مكتبة مفقودة: "
+
+#: foundation_deck/model.py:393
+msgid "Would replace: "
+msgstr "سيستبدل: "
+
+#: foundation_deck/model.py:397
+msgid "Its install scripts are not run."
+msgstr "لا تُشغَّل نصوص التثبيت الخاصة بها."
+
+#: foundation_deck/model.py:436
+msgid "no apps installed"
+msgstr "لا توجد تطبيقات مثبَّتة"
+
+#: foundation_deck/model.py:33 foundation_deck/model.py:21
+msgid "Version {version}"
+msgstr "الإصدار {version}"
+
+#: foundation_deck/model.py:38
+msgid "Running from slot {slot}"
+msgstr "يعمل من النسخة {slot}"
+
+#: foundation_deck/model.py:56
+msgid "Version {version} is installed. Restart to start using it."
+msgstr "ثُبِّت الإصدار {version}. أعد التشغيل لبدء استخدامه."
+
+#: foundation_deck/model.py:85
+msgid "{size:.1f} GB"
+msgstr "{size:.1f} غيغابايت"
+
+#: foundation_deck/model.py:85
+msgid "{size:.0f} MB"
+msgstr "{size:.0f} ميغابايت"
+
+#: foundation_deck/model.py:99
+msgid "Version {version} did not start, so the previous system was started instead. "
+msgstr "لم يبدأ الإصدار {version}، فبدأ النظام السابق بدلًا منه. "
+
+#: foundation_deck/model.py:108
+msgid "Bundles and Extensions"
+msgstr "الباقات والامتدادات"
+
+#: foundation_deck/model.py:109
+msgid "Repositories"
+msgstr "المستودعات"
+
+#: foundation_deck/model.py:110
+msgid "Application Sources"
+msgstr "مصادر التطبيقات"
+
+#: foundation_deck/model.py:111
+msgid "Base Packages"
+msgstr "الحزم الأساسية"
+
+#: foundation_deck/model.py:113
+msgid "Appearance"
+msgstr "المظهر"
+
+#: foundation_deck/model.py:114
+msgid "Remote Access"
+msgstr "الوصول عن بُعد"
+
+#: foundation_deck/model.py:115
+msgid "Advanced"
+msgstr "متقدم"
+
+#: foundation_deck/model.py:116
+msgid "Activity"
+msgstr "النشاط"
+
+#: foundation_deck/model.py:159
+msgid "Always start {name}?"
+msgstr "هل تريد بدء {name} دائمًا؟"
+
+#: foundation_deck/model.py:170 foundation_deck/pages.py:612
+msgid "{count} package"
+msgid_plural "{count} packages"
+msgstr[0] "{count} حزمة"
+msgstr[1] "{count} حزمة"
+msgstr[2] "{count} حزمتان"
+msgstr[3] "{count} حزم"
+msgstr[4] "{count} حزمة"
+msgstr[5] "{count} حزمة"
+
+#: foundation_deck/model.py:264
+msgid "{count} minute ago"
+msgid_plural "{count} minutes ago"
+msgstr[0] "منذ {count} دقيقة"
+msgstr[1] "منذ {count} دقيقة"
+msgstr[2] "منذ {count} دقيقتين"
+msgstr[3] "منذ {count} دقائق"
+msgstr[4] "منذ {count} دقيقة"
+msgstr[5] "منذ {count} دقيقة"
+
+#: foundation_deck/model.py:266
+msgid "{count} hour ago"
+msgid_plural "{count} hours ago"
+msgstr[0] "منذ {count} ساعة"
+msgstr[1] "منذ {count} ساعة"
+msgstr[2] "منذ {count} ساعتين"
+msgstr[3] "منذ {count} ساعات"
+msgstr[4] "منذ {count} ساعة"
+msgstr[5] "منذ {count} ساعة"
+
+#: foundation_deck/model.py:300
+msgid "the firewall allows it"
+msgstr "جدار الحماية يسمح بذلك"
+
+#: foundation_deck/model.py:300
+msgid "the firewall blocks it"
+msgstr "جدار الحماية يمنع ذلك"
+
+#: foundation_deck/model.py:376
+msgid "{state}: {message}"
+msgstr "{state}: {message}"
+
+#: foundation_deck/model.py:378
+msgid "{state}: {step}"
+msgstr "{state}: {step}"
+
+#: foundation_deck/model.py:27
+msgid "{count} start attempt left"
+msgid_plural "{count} start attempts left"
+msgstr[0] "تبقّت {count} محاولات بدء"
+msgstr[1] "تبقّت {count} محاولة بدء"
+msgstr[2] "تبقّت {count} محاولتا بدء"
+msgstr[3] "تبقّت {count} محاولات بدء"
+msgstr[4] "تبقّت {count} محاولة بدء"
+msgstr[5] "تبقّت {count} محاولة بدء"
+
+#: foundation_deck/model.py:47
+msgid "Waiting to be confirmed ({count} attempts left)"
+msgstr "بانتظار التأكيد (تبقّت {count} محاولات)"
+
+#: foundation_deck/model.py:157
+msgid "Start {name} once?"
+msgstr "هل تريد بدء {name} مرة واحدة؟"
+
+#: foundation_deck/model.py:194
+msgid "This turns on the package source: {sources}."
+msgstr "سيؤدي هذا إلى تفعيل مصدر الحزم: {sources}."
+
+#: foundation_deck/model.py:256
+msgid "refreshed {age}"
+msgstr "حُدِّث {age}"
+
+#: foundation_deck/model.py:391
+msgid "{name} does not fit this system."
+msgstr "{name} لا يناسب هذا النظام."
+
+#: foundation_deck/model.py:436
+msgid "{count} app installed"
+msgid_plural "{count} apps installed"
+msgstr[0] "{count} تطبيق مثبَّت"
+msgstr[1] "{count} تطبيق مثبَّت"
+msgstr[2] "{count} تطبيقان مثبَّتان"
+msgstr[3] "{count} تطبيقات مثبَّتة"
+msgstr[4] "{count} تطبيقًا مثبَّتًا"
+msgstr[5] "{count} تطبيق مثبَّت"
+
+#: foundation_deck/model.py:204
+msgid "Version {version} is available"
+msgstr "الإصدار {version} متاح"
+
+#: foundation_deck/model.py:389
+msgid "{name} {version} fits this system."
+msgstr "{name} {version} يناسب هذا النظام."
+
+#: foundation_deck/model.py:370
+msgid "Job"
+msgstr "المهمة"
+
+#: foundation_deck/pages.py:140
+msgid "This system"
+msgstr "هذا النظام"
+
+#: foundation_deck/pages.py:175
+msgid "Check for Updates"
+msgstr "التحقق من وجود تحديثات"
+
+#: foundation_deck/pages.py:176 foundation_deck/pages.py:364 foundation_deck/pages.py:274 foundation_deck/pages.py:344
+msgid "Install"
+msgstr "تثبيت"
+
+#: foundation_deck/pages.py:182
+msgid "Automatic updates"
+msgstr "التحديثات التلقائية"
+
+#: foundation_deck/pages.py:182
+msgid "Nothing restarts the computer by itself."
+msgstr "لا شيء يعيد تشغيل الحاسوب من تلقاء نفسه."
+
+#: foundation_deck/pages.py:189
+msgid "Developer mode"
+msgstr "وضع المطوّر"
+
+#: foundation_deck/pages.py:189
+msgid "Developer mode is on, so an update without a signature may be installed."
+msgstr "وضع المطوّر مفعّل، لذا قد يُثبَّت تحديث بلا توقيع."
+
+#: foundation_deck/pages.py:194
+msgid "Install from a file"
+msgstr "التثبيت من ملف"
+
+#: foundation_deck/pages.py:194
+msgid "For an update you built or were given. It is checked against the trusted keys."
+msgstr "لتحديث بنيته أو أُعطيته. يُتحقق منه بالمفاتيح الموثوقة."
+
+#: foundation_deck/pages.py:247
+msgid "Looking for updates…"
+msgstr "جارٍ البحث عن تحديثات…"
+
+#: foundation_deck/pages.py:266 foundation_deck/pages.py:289
+msgid "Installing the update…"
+msgstr "جارٍ تثبيت التحديث…"
+
+#: foundation_deck/pages.py:280
+msgid "Choose an update file"
+msgstr "اختر ملف تحديث"
+
+#: foundation_deck/pages.py:280
+msgid "Update archives"
+msgstr "أرشيفات التحديث"
+
+#: foundation_deck/pages.py:297
+msgid "Installed bundles"
+msgstr "الباقات المثبَّتة"
+
+#: foundation_deck/pages.py:297
+msgid "Extra software added to the system without changing it."
+msgstr "برمجيات إضافية تُضاف إلى النظام دون تغييره."
+
+#: foundation_deck/pages.py:301
+msgid "Available"
+msgstr "المتاحة"
+
+#: foundation_deck/pages.py:302 foundation_deck/pages.py:405 foundation_deck/pages.py:521 foundation_deck/pages.py:710
+msgid "Add…"
+msgstr "إضافة…"
+
+#: foundation_deck/pages.py:303
+msgid "Extensions"
+msgstr "الامتدادات"
+
+#: foundation_deck/pages.py:303
+msgid "Single packages added as extensions."
+msgstr "حزم مفردة تُضاف كامتدادات."
+
+#: foundation_deck/pages.py:386
+msgid "Choose a package"
+msgstr "اختر حزمة"
+
+#: foundation_deck/pages.py:386
+msgid "RPM packages"
+msgstr "حزم RPM"
+
+#: foundation_deck/pages.py:394 foundation_deck/pages.py:361
+msgid "Installing…"
+msgstr "جارٍ التثبيت…"
+
+#: foundation_deck/pages.py:406
+msgid "Package sources"
+msgstr "مصادر الحزم"
+
+#: foundation_deck/pages.py:406
+msgid "Where bundles get their software. Every source must be signed."
+msgstr "من أين تحصل الباقات على برمجياتها. يجب أن يكون كل مصدر موقَّعًا."
+
+#: foundation_deck/pages.py:410
+msgid "Results"
+msgstr "النتائج"
+
+#: foundation_deck/pages.py:438
+msgid "Searching…"
+msgstr "جارٍ البحث…"
+
+#: foundation_deck/pages.py:458 foundation_deck/pages.py:770 foundation_deck/pages.py:384
+msgid "Add"
+msgstr "إضافة"
+
+#: foundation_deck/pages.py:473 foundation_deck/pages.py:547
+msgid "Changing…"
+msgstr "جارٍ التغيير…"
+
+#: foundation_deck/pages.py:486 foundation_deck/pages.py:562
+msgid "Continue"
+msgstr "متابعة"
+
+#: foundation_deck/pages.py:520
+msgid "Application sources"
+msgstr "مصادر التطبيقات"
+
+#: foundation_deck/pages.py:520
+msgid "Where Flatpak applications come from. Every source must be signed. They also show up in app stores such as Bazaar."
+msgstr "من أين تأتي تطبيقات Flatpak. يجب أن يكون كل مصدر موقَّعًا. وتظهر أيضًا في متاجر التطبيقات مثل Bazaar."
+
+#: foundation_deck/pages.py:627
+msgid "Boot slots"
+msgstr "نُسخ النظام"
+
+#: foundation_deck/pages.py:627
+msgid "Two copies of the system. An update goes to the one that is not running."
+msgstr "نسختان من النظام. يذهب التحديث إلى النسخة غير العاملة."
+
+#: foundation_deck/pages.py:654
+msgid "Its system is removed. The next update has more room to choose from, but this slot cannot be started until then."
+msgstr "يُزال نظامها. يصبح أمام التحديث التالي مجال أوسع للاختيار، لكن لا يمكن بدء هذه النسخة حتى ذلك الحين."
+
+#: foundation_deck/pages.py:655
+msgid "Empty Slot"
+msgstr "إفراغ النسخة"
+
+#: foundation_deck/pages.py:665
+msgid "Boot splash"
+msgstr "شاشة الإقلاع"
+
+#: foundation_deck/pages.py:665
+msgid "The picture shown while the computer starts. It changes at the next restart. Colours, wallpaper and fonts of the desktop are in GNOME Settings."
+msgstr "الصورة التي تظهر أثناء بدء تشغيل الحاسوب. تتغير عند إعادة التشغيل التالية. ألوان سطح المكتب وخلفيته وخطوطه في إعدادات GNOME."
+
+#: foundation_deck/pages.py:694
+msgid "Changing the boot splash"
+msgstr "جارٍ تغيير شاشة الإقلاع"
+
+#: foundation_deck/pages.py:705
+msgid "SSH"
+msgstr "SSH"
+
+#: foundation_deck/pages.py:705
+msgid "Sign in from another computer over the network, with an authorized key."
+msgstr "سجّل الدخول من حاسوب آخر عبر الشبكة باستخدام مفتاح مخوَّل."
+
+#: foundation_deck/pages.py:710
+msgid "Authorized keys"
+msgstr "المفاتيح المخوَّلة"
+
+#: foundation_deck/pages.py:710
+msgid "Computers that may sign in without a password."
+msgstr "حواسيب يمكنها تسجيل الدخول دون كلمة مرور."
+
+#: foundation_deck/pages.py:747
+msgid "Changing remote access…"
+msgstr "جارٍ تغيير الوصول عن بُعد…"
+
+#: foundation_deck/pages.py:850
+msgid "Recent changes"
+msgstr "التغييرات الأخيرة"
+
+#: foundation_deck/pages.py:850
+msgid "What the system did on request, newest first. foundationd keeps the last fifty."
+msgstr "ما أجراه النظام بناءً على الطلب، الأحدث أولًا. يحتفظ foundationd بآخر خمسين."
+
+#: foundation_deck/pages.py:896
+msgid "Approve this sign-in"
+msgstr "وافق على تسجيل الدخول هذا"
+
+#: foundation_deck/pages.py:896
+msgid "Open the page on any device and enter this code."
+msgstr "افتح الصفحة على أي جهاز وأدخل هذا الرمز."
+
+#: foundation_deck/pages.py:901 foundation_deck/pages.py:991
+msgid "Open the Sign-in Page"
+msgstr "فتح صفحة تسجيل الدخول"
+
+#: foundation_deck/pages.py:904 foundation_deck/pages.py:1013
+msgid "Sign Out"
+msgstr "تسجيل الخروج"
+
+#: foundation_deck/pages.py:968 foundation_deck/pages.py:133
+msgid "…"
+msgstr "…"
+
+#: foundation_deck/pages.py:1013
+msgid "Sign out of Ersa ID?"
+msgstr "هل تريد تسجيل الخروج من Ersa ID؟"
+
+#: foundation_deck/pages.py:1013
+msgid "This computer forgets your account. Your files and settings stay."
+msgstr "سينسى هذا الحاسوب حسابك. تبقى ملفاتك وإعداداتك."
+
+#: foundation_deck/pages.py:184
+msgid "Check automatically"
+msgstr "التحقق تلقائيًا"
+
+#: foundation_deck/pages.py:184
+msgid "Install automatically"
+msgstr "التثبيت تلقائيًا"
+
+#: foundation_deck/pages.py:190
+msgid "Install without checking the signature"
+msgstr "التثبيت دون التحقق من التوقيع"
+
+#: foundation_deck/pages.py:191
+msgid "For images you built yourself. Anything can be installed this way."
+msgstr "للصور التي بنيتها بنفسك. يمكن تثبيت أي شيء بهذه الطريقة."
+
+#: foundation_deck/pages.py:195
+msgid "Update file"
+msgstr "ملف التحديث"
+
+#: foundation_deck/pages.py:195
+msgid "A .tar.zst archive"
+msgstr "أرشيف .tar.zst"
+
+#: foundation_deck/pages.py:196
+msgid "Choose…"
+msgstr "اختيار…"
+
+#: foundation_deck/pages.py:278
+msgid "Install this update?"
+msgstr "هل تريد تثبيت هذا التحديث؟"
+
+#: foundation_deck/pages.py:298
+msgid "Update All"
+msgstr "تحديث الكل"
+
+#: foundation_deck/pages.py:313 foundation_deck/pages.py:330
+msgid "None installed"
+msgstr "لا شيء مثبَّت"
+
+#: foundation_deck/pages.py:403
+msgid "Refresh"
+msgstr "تحديث"
+
+#: foundation_deck/pages.py:407
+msgid "Find a package in these sources"
+msgstr "ابحث عن حزمة في هذه المصادر"
+
+#: foundation_deck/pages.py:419
+msgid "No repositories"
+msgstr "لا توجد مستودعات"
+
+#: foundation_deck/pages.py:453
+msgid "Bundle name"
+msgstr "اسم الباقة"
+
+#: foundation_deck/pages.py:455
+msgid "A bundle is one group of extra software. A new name makes a new bundle; an existing name adds to it."
+msgstr "الباقة مجموعة واحدة من البرمجيات الإضافية. الاسم الجديد ينشئ باقة جديدة، والاسم الموجود يضيف إليها."
+
+#: foundation_deck/pages.py:478
+msgid "https://example.org/repo"
+msgstr "https://example.org/repo"
+
+#: foundation_deck/pages.py:483
+msgid "Add a repository"
+msgstr "إضافة مستودع"
+
+#: foundation_deck/pages.py:483
+msgid "Only add sources you trust: their software is installed as bundles."
+msgstr "أضف المصادر التي تثق بها فقط: تُثبَّت برمجياتها على هيئة باقات."
+
+#: foundation_deck/pages.py:509 foundation_deck/pages.py:581
+msgid "Trust and Add"
+msgstr "ثق وأضف"
+
+#: foundation_deck/pages.py:529
+msgid "No sources. Flathub is added when the computer is first online."
+msgstr "لا توجد مصادر. يُضاف Flathub عند اتصال الحاسوب بالإنترنت أول مرة."
+
+#: foundation_deck/pages.py:551
+msgid "https://example.org/apps.flatpakrepo"
+msgstr "https://example.org/apps.flatpakrepo"
+
+#: foundation_deck/pages.py:552
+msgid "Short name, for example acme"
+msgstr "اسم قصير، مثل acme"
+
+#: foundation_deck/pages.py:553
+msgid "Title (optional)"
+msgstr "العنوان (اختياري)"
+
+#: foundation_deck/pages.py:559
+msgid "Add an application source"
+msgstr "إضافة مصدر تطبيقات"
+
+#: foundation_deck/pages.py:559
+msgid "Only add sources you trust: their applications run on this computer."
+msgstr "أضف المصادر التي تثق بها فقط: تعمل تطبيقاتها على هذا الحاسوب."
+
+#: foundation_deck/pages.py:593
+msgid "Search the system's packages"
+msgstr "ابحث في حزم النظام"
+
+#: foundation_deck/pages.py:667
+msgid "Style"
+msgstr "النمط"
+
+#: foundation_deck/pages.py:669
+msgid "Light"
+msgstr "فاتح"
+
+#: foundation_deck/pages.py:670
+msgid "Dark"
+msgstr "داكن"
+
+#: foundation_deck/pages.py:706
+msgid "Remote login (SSH)"
+msgstr "تسجيل الدخول عن بُعد (SSH)"
+
+#: foundation_deck/pages.py:738
+msgid "Add a key first"
+msgstr "أضف مفتاحًا أولًا"
+
+#: foundation_deck/pages.py:739
+msgid "No user has an SSH key, so nobody could sign in. Add a key, then turn remote login on."
+msgstr "لا يملك أي مستخدم مفتاح SSH، فلن يتمكن أحد من تسجيل الدخول. أضف مفتاحًا ثم فعّل تسجيل الدخول عن بُعد."
+
+#: foundation_deck/pages.py:753
+msgid "No keys"
+msgstr "لا توجد مفاتيح"
+
+#: foundation_deck/pages.py:763
+msgid "User"
+msgstr "المستخدم"
+
+#: foundation_deck/pages.py:767
+msgid "Add an SSH key"
+msgstr "إضافة مفتاح SSH"
+
+#: foundation_deck/pages.py:767
+msgid "Paste the public key (one line, from a .pub file)."
+msgstr "الصق المفتاح العام (سطر واحد، من ملف .pub)."
+
+#: foundation_deck/pages.py:783
+msgid "Adding the key…"
+msgstr "جارٍ إضافة المفتاح…"
+
+#: foundation_deck/pages.py:858
+msgid "Nothing yet since the system started"
+msgstr "لا شيء بعد منذ بدء تشغيل النظام"
+
+#: foundation_deck/pages.py:254
+msgid "Your system is up to date."
+msgstr "نظامك محدَّث."
+
+#: foundation_deck/pages.py:259
+msgid "No update source is set up yet."
+msgstr "لم يُعدّ أي مصدر للتحديثات بعد."
+
+#: foundation_deck/pages.py:316 foundation_deck/pages.py:333 foundation_deck/pages.py:756 foundation_deck/pages.py:429 foundation_deck/pages.py:539 foundation_deck/pages.py:317 foundation_deck/pages.py:334 foundation_deck/pages.py:757 foundation_deck/pages.py:430 foundation_deck/pages.py:540
+msgid "Remove"
+msgstr "إزالة"
+
+#: foundation_deck/pages.py:394
+msgid "The extension is installed."
+msgstr "الامتداد مثبَّت."
+
+#: foundation_deck/pages.py:481
+msgid "Public signing key (the text of the .asc file)"
+msgstr "مفتاح التوقيع العام (نص ملف .asc)"
+
+#: foundation_deck/pages.py:506
+msgid "That is not a usable public key."
+msgstr "هذا ليس مفتاحًا عامًا صالحًا للاستخدام."
+
+#: foundation_deck/pages.py:556
+msgid "Public signing key (only if the address is not a .flatpakrepo file)"
+msgstr "مفتاح التوقيع العام (فقط إن لم يكن العنوان ملف .flatpakrepo)"
+
+#: foundation_deck/pages.py:604
+msgid "What the read-only system is made of. Changes come with system updates, not from here."
+msgstr "مما يتكوّن النظام للقراءة فقط. تأتي التغييرات مع تحديثات النظام لا من هنا."
+
+#: foundation_deck/pages.py:651
+msgid "Changing the boot choice…"
+msgstr "جارٍ تغيير خيار الإقلاع…"
+
+#: foundation_deck/pages.py:657
+msgid "Emptying the slot…"
+msgstr "جارٍ إفراغ النسخة…"
+
+#: foundation_deck/pages.py:943
+msgid "Sign in to link this computer to your account."
+msgstr "سجّل الدخول لربط هذا الحاسوب بحسابك."
+
+#: foundation_deck/pages.py:944
+msgid "No account provider is set up on this computer."
+msgstr "لم يُعدّ أي مزوّد حسابات على هذا الحاسوب."
+
+#: foundation_deck/pages.py:945
+msgid "Account sign-in is turned off on this computer."
+msgstr "تسجيل الدخول بالحساب متوقف على هذا الحاسوب."
+
+#: foundation_deck/pages.py:272
+msgid "That file cannot be used."
+msgstr "لا يمكن استخدام هذا الملف."
+
+#: foundation_deck/pages.py:276
+msgid "Install Without Signature"
+msgstr "التثبيت دون توقيع"
+
+#: foundation_deck/pages.py:300
+msgid "Updating bundles…"
+msgstr "جارٍ تحديث الباقات…"
+
+#: foundation_deck/pages.py:323
+msgid "asked for"
+msgstr "المطلوب"
+
+#: foundation_deck/pages.py:382
+msgid "This package does not fit"
+msgstr "هذه الحزمة غير مناسبة"
+
+#: foundation_deck/pages.py:404
+msgid "Refreshing…"
+msgstr "جارٍ التحديث…"
+
+#: foundation_deck/pages.py:444
+msgid " (showing the first 40)"
+msgstr " (عرض أول 40)"
+
+#: foundation_deck/pages.py:448
+msgid "Add to Bundle…"
+msgstr "إضافة إلى باقة…"
+
+#: foundation_deck/pages.py:454
+msgid "Add {package} to a bundle"
+msgstr "إضافة {package} إلى باقة"
+
+#: foundation_deck/pages.py:511 foundation_deck/pages.py:582
+msgid "Adding…"
+msgstr "جارٍ الإضافة…"
+
+#: foundation_deck/pages.py:612
+msgid "{shown} of {total} packages"
+msgstr "{shown} من أصل {total} حزمة"
+
+#: foundation_deck/pages.py:643
+msgid "Empty this slot"
+msgstr "إفراغ هذه النسخة"
+
+#: foundation_deck/pages.py:740
+msgid "Add a Key…"
+msgstr "إضافة مفتاح…"
+
+#: foundation_deck/pages.py:265 foundation_deck/pages.py:288
+msgid "Version {version} is ready. Restart to use it."
+msgstr "الإصدار {version} جاهز. أعد التشغيل لاستخدامه."
+
+#: foundation_deck/pages.py:317
+msgid "Its software is taken away. Your files are not touched."
+msgstr "تُزال برمجياته. ولا تُمَس ملفاتك."
+
+#: foundation_deck/pages.py:334
+msgid "The extension is removed."
+msgstr "أُزيل الامتداد."
+
+#: foundation_deck/pages.py:444
+msgid "{count} found"
+msgid_plural "{count} found"
+msgstr[0] "لم يُعثر على شيء ({count})"
+msgstr[1] "عُثر على {count}"
+msgstr[2] "عُثر على {count}"
+msgstr[3] "عُثر على {count}"
+msgstr[4] "عُثر على {count}"
+msgstr[5] "عُثر على {count}"
+
+#: foundation_deck/pages.py:466
+msgid "Adding {package}"
+msgstr "جارٍ إضافة {package}"
+
+#: foundation_deck/pages.py:651
+msgid "Done. Restart to use it."
+msgstr "تم. أعد التشغيل لاستخدامه."
+
+#: foundation_deck/pages.py:757
+msgid "Remove this key?"
+msgstr "هل تريد إزالة هذا المفتاح؟"
+
+#: foundation_deck/pages.py:300
+msgid "Bundles are up to date."
+msgstr "الباقات محدَّثة."
+
+#: foundation_deck/pages.py:404
+msgid "Repositories are up to date."
+msgstr "المستودعات محدَّثة."
+
+#: foundation_deck/pages.py:430
+msgid "Bundles that use it must be removed first."
+msgstr "يجب إزالة الباقات التي تستخدمه أولًا."
+
+#: foundation_deck/pages.py:540
+msgid "Applications installed from it must be removed first."
+msgstr "يجب إزالة التطبيقات المثبَّتة منه أولًا."
+
+#: foundation_deck/pages.py:318 foundation_deck/pages.py:335 foundation_deck/pages.py:758 foundation_deck/pages.py:431 foundation_deck/pages.py:541
+msgid "Removing…"
+msgstr "جارٍ الإزالة…"
+
+#: foundation_deck/pages.py:466
+msgid "{package} was added to {bundle}."
+msgstr "أُضيفت {package} إلى {bundle}."
+
+#: foundation_deck/tasks.py:24
+msgid "Starting…"
+msgstr "جارٍ البدء…"
+
+#: foundation_deck/tasks.py:88
+msgid "Clear finished"
+msgstr "مسح المنتهية"
+
+#: foundation_deck/tasks.py:97 foundation_deck/tasks.py:114 foundation_deck/tasks.py:153
+msgid "Tasks"
+msgstr "المهام"
+
+#: foundation_deck/tasks.py:98
+msgid "Nothing running"
+msgstr "لا شيء قيد التشغيل"
+
+#: foundation_deck/tasks.py:27
+msgid "Cancel: {title}"
+msgstr "إلغاء: {title}"
+
+#: foundation_deck/tasks.py:142
+msgid "{count} task running"
+msgid_plural "{count} tasks running"
+msgstr[0] "{count} مهمة قيد التشغيل"
+msgstr[1] "{count} مهمة قيد التشغيل"
+msgstr[2] "{count} مهمتان قيد التشغيل"
+msgstr[3] "{count} مهام قيد التشغيل"
+msgstr[4] "{count} مهمة قيد التشغيل"
+msgstr[5] "{count} مهمة قيد التشغيل"
+
+#: foundation_deck/tasks.py:154
+msgid "Done: {title}"
+msgstr "تم: {title}"
+
+#: foundation_deck/tasks.py:154
+msgid "Failed: {title}"
+msgstr "فشل: {title}"

@@ -1,0 +1,343 @@
+# Initial, unreviewed Hindi translation.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nPlural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: foundation_installer/app.py:374
+msgid "Select your language"
+msgstr "अपनी भाषा चुनें"
+
+#: foundation_installer/app.py:374
+msgid "This sets the language of the installed system."
+msgstr "इससे इंस्टॉल किए गए सिस्टम की भाषा तय होगी।"
+
+#: foundation_installer/app.py:403 foundation_installer/app.py:236
+msgid "Go Back"
+msgstr "वापस जाएँ"
+
+#: foundation_installer/app.py:404 foundation_installer/app.py:241
+msgid "Refresh Disks"
+msgstr "डिस्क फिर से खोजें"
+
+#: foundation_installer/app.py:405 foundation_installer/app.py:245
+msgid "Customize…"
+msgstr "बदलें…"
+
+#: foundation_installer/app.py:407 foundation_installer/app.py:238 foundation_installer/app.py:291 foundation_installer/app.py:316 foundation_installer/app.py:320 foundation_installer/app.py:408
+msgid "Continue"
+msgstr "आगे बढ़ें"
+
+#: foundation_installer/app.py:419
+msgid "Select your time zone"
+msgstr "अपना समय क्षेत्र चुनें"
+
+#: foundation_installer/app.py:419
+msgid "This sets the clock of the installed system."
+msgstr "इससे इंस्टॉल किए गए सिस्टम का समय तय होगा।"
+
+#: foundation_installer/app.py:458
+msgid "Select the disk where you want to install"
+msgstr "इंस्टॉल करने के लिए डिस्क चुनें"
+
+#: foundation_installer/app.py:472
+msgid "Protect your data"
+msgstr "अपने डेटा को सुरक्षित रखें"
+
+#: foundation_installer/app.py:473
+msgid "Encryption keeps your files and settings private if this computer is lost or stolen."
+msgstr "कंप्यूटर खो जाने या चोरी होने पर एन्क्रिप्शन आपकी फ़ाइलों और सेटिंग को निजी रखता है।"
+
+#: foundation_installer/app.py:503
+msgid "Without encryption, anyone who has the disk can read your files and settings."
+msgstr "एन्क्रिप्शन के बिना, डिस्क जिसके हाथ लगे वह आपकी फ़ाइलें और सेटिंग पढ़ सकता है।"
+
+#: foundation_installer/app.py:536
+msgid "Ready to install"
+msgstr "इंस्टॉल करने के लिए तैयार"
+
+#: foundation_installer/app.py:536
+msgid "Review what will happen."
+msgstr "देखें कि क्या होगा।"
+
+#: foundation_installer/app.py:612
+msgid "This installs the system on a disk in this computer. You choose the disk next, and you see exactly what will be erased before anything is changed."
+msgstr "यह इस कंप्यूटर की एक डिस्क पर सिस्टम इंस्टॉल करेगा। अगली स्क्रीन पर डिस्क चुनें। कोई बदलाव होने से पहले आप देख सकेंगे कि क्या मिटाया जाएगा।"
+
+#: foundation_installer/app.py:743
+msgid "Cancel"
+msgstr "रद्द करें"
+
+#: foundation_installer/app.py:744
+msgid "Erase and Install"
+msgstr "मिटाकर इंस्टॉल करें"
+
+#: foundation_installer/app.py:760 foundation_installer/app.py:552
+msgid "Preparing…"
+msgstr "तैयारी हो रही है…"
+
+#: foundation_installer/app.py:309
+msgid "Starting…"
+msgstr "शुरू हो रहा है…"
+
+#: foundation_installer/app.py:350
+msgid "Search"
+msgstr "खोजें"
+
+#: foundation_installer/app.py:467
+msgid "No disks were found."
+msgstr "कोई डिस्क नहीं मिली।"
+
+#: foundation_installer/app.py:475
+msgid "Encrypt your data"
+msgstr "अपना डेटा एन्क्रिप्ट करें"
+
+#: foundation_installer/app.py:476
+msgid "Your files and settings can only be read with this computer's key or your recovery key."
+msgstr "आपकी फ़ाइलें और सेटिंग केवल इस कंप्यूटर की कुंजी या आपकी रिकवरी कुंजी से पढ़ी जा सकती हैं।"
+
+#: foundation_installer/app.py:481 foundation_installer/app.py:482
+msgid "Passphrase"
+msgstr "पासफ़्रेज़"
+
+#: foundation_installer/app.py:483
+msgid "Confirm passphrase"
+msgstr "पासफ़्रेज़ की पुष्टि करें"
+
+#: foundation_installer/app.py:505
+msgid "This computer unlocks your data by itself with its security chip (TPM). You also get a recovery key."
+msgstr "यह कंप्यूटर अपनी सुरक्षा चिप (TPM) से आपका डेटा अपने आप अनलॉक करता है। आपको एक रिकवरी कुंजी भी मिलती है।"
+
+#: foundation_installer/app.py:507
+msgid "Your data is unlocked with a passphrase each time the computer starts. You also get a recovery key."
+msgstr "कंप्यूटर चालू होने पर हर बार पासफ़्रेज़ से आपका डेटा अनलॉक होता है। आपको एक रिकवरी कुंजी भी मिलती है।"
+
+#: foundation_installer/app.py:524 foundation_installer/app.py:634 foundation_installer/app.py:732 foundation_installer/app.py:737
+msgid "Install"
+msgstr "इंस्टॉल करें"
+
+#: foundation_installer/app.py:542
+msgid "What will be installed"
+msgstr "क्या इंस्टॉल होगा"
+
+#: foundation_installer/app.py:558
+msgid "Do not turn off the computer or remove the disk."
+msgstr "कंप्यूटर बंद न करें और डिस्क न निकालें।"
+
+#: foundation_installer/app.py:602
+msgid "This system's management service cannot install to a disk."
+msgstr "इस सिस्टम की प्रबंधन सेवा डिस्क पर इंस्टॉल नहीं कर सकती।"
+
+#: foundation_installer/app.py:615 foundation_installer/app.py:876
+msgid "The installer cannot start"
+msgstr "इंस्टॉलर शुरू नहीं हो सका"
+
+#: foundation_installer/app.py:710
+msgid "OK"
+msgstr "ठीक है"
+
+#: foundation_installer/app.py:721
+msgid "Language"
+msgstr "भाषा"
+
+#: foundation_installer/app.py:721
+msgid "Time zone"
+msgstr "समय क्षेत्र"
+
+#: foundation_installer/app.py:722
+msgid "Encryption"
+msgstr "एन्क्रिप्शन"
+
+#: foundation_installer/app.py:821
+msgid "Installation complete"
+msgstr "इंस्टॉलेशन पूरा हुआ"
+
+#: foundation_installer/app.py:822
+msgid "Remove the installation medium, then restart to start the new system."
+msgstr "इंस्टॉलेशन माध्यम निकालें, फिर नया सिस्टम शुरू करने के लिए पुनः आरंभ करें।"
+
+#: foundation_installer/app.py:824
+msgid "Restart"
+msgstr "पुनः आरंभ करें"
+
+#: foundation_installer/app.py:831 foundation_installer/app.py:835
+msgid "Show Details"
+msgstr "विवरण दिखाएँ"
+
+#: foundation_installer/app.py:841
+msgid "Installation failed"
+msgstr "इंस्टॉलेशन विफल रहा"
+
+#: foundation_installer/app.py:893
+msgid "{product} Installer"
+msgstr "{product} इंस्टॉलर"
+
+#: foundation_installer/app.py:402 foundation_installer/app.py:215
+msgid "Install {product}"
+msgstr "{product} इंस्टॉल करें"
+
+#: foundation_installer/app.py:447
+msgid "Detected from your network. Change it if it is wrong."
+msgstr "आपके नेटवर्क से पता चला। गलत हो तो बदलें।"
+
+#: foundation_installer/app.py:459
+msgid "{product} is installed on the whole disk. Nothing is changed until you confirm."
+msgstr "{product} पूरी डिस्क पर इंस्टॉल होगा। आपकी पुष्टि तक कुछ नहीं बदलेगा।"
+
+#: foundation_installer/app.py:511
+msgid "Use at least 8 characters."
+msgstr "कम से कम 8 अक्षर रखें।"
+
+#: foundation_installer/app.py:511
+msgid "The passphrases do not match."
+msgstr "पासफ़्रेज़ मेल नहीं खाते।"
+
+#: foundation_installer/app.py:610
+msgid "Install {product}{version}"
+msgstr "{product}{version} इंस्टॉल करें"
+
+#: foundation_installer/app.py:616
+msgid "Try Again"
+msgstr "फिर प्रयास करें"
+
+#: foundation_installer/app.py:616 foundation_installer/app.py:844 foundation_installer/app.py:877
+msgid "Quit"
+msgstr "बंद करें"
+
+#: foundation_installer/app.py:708
+msgid "This disk cannot be used"
+msgstr "इस डिस्क का उपयोग नहीं हो सकता"
+
+#: foundation_installer/app.py:722
+msgid "On"
+msgstr "चालू"
+
+#: foundation_installer/app.py:722
+msgid "Off"
+msgstr "बंद"
+
+#: foundation_installer/app.py:815
+msgid "Write this key down and keep it somewhere safe, away from this computer. It is the only way to unlock your data if the security chip or your passphrase cannot."
+msgstr "इस कुंजी को लिख लें और कंप्यूटर से दूर किसी सुरक्षित जगह रखें। सुरक्षा चिप या आपका पासफ़्रेज़ काम न करे तो आपका डेटा अनलॉक करने का यही एकमात्र तरीका है।"
+
+#: foundation_installer/app.py:818
+msgid "I have saved my recovery key"
+msgstr "मैंने अपनी रिकवरी कुंजी सहेज ली है"
+
+#: foundation_installer/app.py:835
+msgid "Hide Details"
+msgstr "विवरण छिपाएँ"
+
+#: foundation_installer/app.py:844
+msgid "Choose a Disk"
+msgstr "डिस्क चुनें"
+
+#: foundation_installer/app.py:889
+msgid "{product} installer"
+msgstr "{product} इंस्टॉलर"
+
+#: foundation_installer/app.py:558
+msgid "Installing {product}"
+msgstr "{product} इंस्टॉल हो रहा है"
+
+#: foundation_installer/app.py:665 foundation_installer/model.py:45
+msgid "cannot be used"
+msgstr "उपयोग नहीं हो सकता"
+
+#: foundation_installer/app.py:709
+msgid "The service refused this disk."
+msgstr "सेवा ने इस डिस्क को अस्वीकार कर दिया।"
+
+#: foundation_installer/app.py:742
+msgid "Erase {disk}?"
+msgstr "{disk} मिटाएँ?"
+
+#: foundation_installer/app.py:820
+msgid "Your recovery key"
+msgstr "आपकी रिकवरी कुंजी"
+
+#: foundation_installer/app.py:842
+msgid "{message}\n\nThe disk may have been erased and will not start. It is safe to try again."
+msgstr "{message}\n\nडिस्क मिट गई हो सकती है और शायद शुरू न हो। फिर से प्रयास करना सुरक्षित है।"
+
+#: foundation_installer/model.py:24
+msgid "Boot"
+msgstr "बूट"
+
+#: foundation_installer/model.py:25
+msgid "Recovery"
+msgstr "पुनर्प्राप्ति"
+
+#: foundation_installer/model.py:26
+msgid "System slot A"
+msgstr "सिस्टम स्लॉट A"
+
+#: foundation_installer/model.py:27
+msgid "Integrity data for slot A"
+msgstr "स्लॉट A का अखंडता डेटा"
+
+#: foundation_installer/model.py:28
+msgid "System slot B"
+msgstr "सिस्टम स्लॉट B"
+
+#: foundation_installer/model.py:29
+msgid "Integrity data for slot B"
+msgstr "स्लॉट B का अखंडता डेटा"
+
+#: foundation_installer/model.py:30
+msgid "Your files and settings"
+msgstr "आपकी फ़ाइलें और सेटिंग"
+
+#: foundation_installer/model.py:31
+msgid "The installer's workspace"
+msgstr "इंस्टॉलर का कार्यक्षेत्र"
+
+#: foundation_installer/model.py:50
+msgid "The rest of the disk"
+msgstr "डिस्क की शेष जगह"
+
+#: foundation_installer/model.py:66
+msgid "Permission was not granted to change the disk."
+msgstr "डिस्क बदलने की अनुमति नहीं मिली।"
+
+#: foundation_installer/model.py:70
+msgid "Another installation is already running."
+msgstr "एक और इंस्टॉलेशन पहले से चल रहा है।"
+
+#: foundation_installer/model.py:71
+msgid "The installation failed for an unknown reason."
+msgstr "अज्ञात कारण से इंस्टॉलेशन विफल रहा।"
+
+#: foundation_installer/model.py:80
+msgid "Less than a minute remaining"
+msgstr "एक मिनट से कम बाकी है"
+
+#: foundation_installer/model.py:126
+msgid "Default"
+msgstr "डिफ़ॉल्ट"
+
+#: foundation_installer/model.py:37
+msgid "Removable disk"
+msgstr "निकाली जा सकने वाली डिस्क"
+
+#: foundation_installer/model.py:37
+msgid "Disk"
+msgstr "डिस्क"
+
+#: foundation_installer/model.py:43
+msgid "removable"
+msgstr "निकाली जा सकने वाली"
+
+#: foundation_installer/model.py:58
+msgid "Everything on {disk} will be erased and cannot be recovered.{note}"
+msgstr "{disk} पर मौजूद सब कुछ मिट जाएगा और वापस नहीं लाया जा सकेगा।{note}"
+
+#: foundation_installer/model.py:82
+msgid "About {count} minute remaining"
+msgid_plural "About {count} minutes remaining"
+msgstr[0] "लगभग {count} मिनट बाकी है"
+msgstr[1] "लगभग {count} मिनट बाकी हैं"
+
+#: foundation_installer/model.py:57
+msgid "It currently holds {count} partition."
+msgid_plural "It currently holds {count} partitions."
+msgstr[0] "इसमें अभी {count} विभाजन है।"
+msgstr[1] "इसमें अभी {count} विभाजन हैं।"

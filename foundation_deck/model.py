@@ -2,47 +2,50 @@
 
 import os
 import re
+from foundation.i18n import Domain
+
+_ = Domain("ersa-deck")
 
 PRODUCT = "Ersa Compute Platform"
 ARCHIVE_SUFFIXES = (".tar.zst", ".tar", ".zst")
 
 
 def slot_title(slot):
-    return "Slot " + str(slot["name"]).upper()
+    return _("Slot {name}").format(name=str(slot["name"]).upper())
 
 
 def slot_subtitle(slot):
     """One line under a slot's name: what it holds and what it does."""
     if slot.get("live"):
-        return "The installer medium's own system"
-    parts = [f"Version {slot['version']}" if slot.get("version") else "Empty"]
+        return _("The installer medium's own system")
+    parts = [_("Version {version}").format(version=slot["version"]) if slot.get("version") else _("Empty")]
     if slot.get("running"):
-        parts.append("running now")
+        parts.append(_("running now"))
     if slot.get("default"):
-        parts.append("starts by default")
+        parts.append(_("starts by default"))
     if slot.get("bootable") and not slot.get("running") and slot.get("tries_left", -1) >= 0:
-        parts.append(f"{slot['tries_left']} start attempts left")
+        parts.append(_.ngettext("{count} start attempt left", "{count} start attempts left", slot["tries_left"]).format(count=slot["tries_left"]))
     return " · ".join(parts)
 
 
 def running_title(state):
     version = state.get("running_version") or ""
-    return f"Version {version}" if version else "Version unknown"
+    return _("Version {version}").format(version=version) if version else _("Version unknown")
 
 
 def running_subtitle(state):
     slot = state.get("running_slot") or ""
-    return f"Running from slot {slot.upper()}" if slot else "The running slot is unknown"
+    return _("Running from slot {slot}").format(slot=slot.upper()) if slot else _("The running slot is unknown")
 
 
 def assessment(state):
     """(style, text) for the boot assessment: style is good, pending or unknown."""
     kind = state.get("assessment", "unknown")
     if kind == "good":
-        return "good", "This start was confirmed good"
+        return "good", _("This start was confirmed good")
     if kind == "pending":
-        return "pending", f"Waiting to be confirmed ({state.get('tries_left', 0)} attempts left)"
-    return "unknown", "Not checked"
+        return "pending", _("Waiting to be confirmed ({count} attempts left)").format(count=state.get("tries_left", 0))
+    return "unknown", _("Not checked")
 
 
 def pending_text(update):
@@ -50,36 +53,36 @@ def pending_text(update):
     if not update:
         return ""
     version = update.get("version") or ""
-    return f"Version {version} is installed. Restart to start using it." if version else "An update is installed. Restart to start using it."
+    return _("Version {version} is installed. Restart to start using it.").format(version=version) if version else _("An update is installed. Restart to start using it.")
 
 
 def classify_source(path):
     """('file', None) for an update archive that exists, else ('', why not)."""
     path = (path or "").strip()
     if not path:
-        return "", "Choose a file."
+        return "", _("Choose a file.")
     if not os.path.isfile(path):
-        return "", "That file does not exist."
+        return "", _("That file does not exist.")
     if not path.endswith(ARCHIVE_SUFFIXES):
-        return "", "That does not look like an update archive (.tar.zst)."
+        return "", _("That does not look like an update archive (.tar.zst).")
     return "file", None
 
 
 def error_text(name, message):
     """What to tell the person when a call failed."""
     if name == "NotAuthorized":
-        return "The administrator's password was not given, so nothing was changed."
+        return _("The administrator's password was not given, so nothing was changed.")
     if name == "Busy":
-        return "Another change is in progress. Try again when it has finished."
+        return _("Another change is in progress. Try again when it has finished.")
     if "FileNotFoundError" in (message or ""):
-        return "This is not available on this system."
-    return message or "That did not work."
+        return _("This is not available on this system.")
+    return message or _("That did not work.")
 
 
 def size_text(size):
     if not size:
         return ""
-    return f"{size / 1024 ** 3:.1f} GB" if size >= 1024 ** 3 else f"{size / 1024 ** 2:.0f} MB"
+    return _("{size:.1f} GB").format(size=size / 1024 ** 3) if size >= 1024 ** 3 else _("{size:.0f} MB").format(size=size / 1024 ** 2)
 
 
 def failed_update(slots):
@@ -93,24 +96,24 @@ def failed_update(slots):
 
 
 def rollback_text(version):
-    return (f"Version {version} did not start, so the previous system was started instead. "
-            "The failed version stays in its slot until the next update replaces it.")
+    return (_("Version {version} did not start, so the previous system was started instead. ").format(version=version) +
+            _("The failed version stays in its slot until the next update replaces it."))
 
 
 # The sidebar, in the order a person looks for things: (heading, [(page id, title, icon)]). The first group has no heading.
 SECTIONS = (
-    (None, (("overview", "Overview", "computer-symbolic"),)),
-    ("Account", (("ersaid", "Ersa ID", "avatar-default-symbolic"),)),
-    ("Software", (("updates", "Updates", "system-software-update-symbolic"),
-                  ("bundles", "Bundles and Extensions", "extension-symbolic"),
-                  ("repositories", "Repositories", "folder-remote-symbolic"),
-                  ("appsources", "Application Sources", "system-software-install-symbolic"),
-                  ("packages", "Base Packages", "package-symbolic"))),
-    ("System", (("slots", "Boot Slots", "drive-harddisk-symbolic"),
-                ("appearance", "Appearance", "applications-graphics-symbolic"),
-                ("remote", "Remote Access", "network-wired-symbolic"),
-                ("advanced", "Advanced", "preferences-other-symbolic"))),
-    ("History", (("activity", "Activity", "document-open-recent-symbolic"),)),
+    (None, (("overview", _("Overview"), "computer-symbolic"),)),
+    (_("Account"), (("ersaid", "Ersa ID", "avatar-default-symbolic"),)),
+    (_("Software"), (("updates", _("Updates"), "system-software-update-symbolic"),
+                  ("bundles", _("Bundles and Extensions"), "extension-symbolic"),
+                  ("repositories", _("Repositories"), "folder-remote-symbolic"),
+                  ("appsources", _("Application Sources"), "system-software-install-symbolic"),
+                  ("packages", _("Base Packages"), "package-symbolic"))),
+    (_("System"), (("slots", _("Boot Slots"), "drive-harddisk-symbolic"),
+                ("appearance", _("Appearance"), "applications-graphics-symbolic"),
+                ("remote", _("Remote Access"), "network-wired-symbolic"),
+                ("advanced", _("Advanced"), "preferences-other-symbolic"))),
+    (_("History"), (("activity", _("Activity"), "document-open-recent-symbolic"),)),
 )
 SEARCH_TERMS = {
     "overview": "overview about version system status machine developer build license website foundation deck", "updates": "update upgrade install check restart automatic",
@@ -144,17 +147,17 @@ def slot_can_release(slot):
 
 
 def slot_action_text(action):
-    return {"once": "Start Once", "default": "Always Start"}[action]
+    return {"once": _("Start Once"), "default": _("Always Start")}[action]
 
 
 def slot_confirm(slot, action):
     """(heading, body) to confirm a change of boot choice."""
     name = slot_title(slot)
     if action == "once":
-        return (f"Start {name} once?",
-                "The next restart starts that system. The one after goes back to the usual choice.")
-    return (f"Always start {name}?",
-            "Every restart starts that system until you choose another. A failed start is not rolled back automatically.")
+        return (_("Start {name} once?").format(name=name),
+                _("The next restart starts that system. The one after goes back to the usual choice."))
+    return (_("Always start {name}?").format(name=name),
+            _("Every restart starts that system until you choose another. A failed start is not rolled back automatically."))
 
 
 def bundle_title(bundle):
@@ -164,20 +167,20 @@ def bundle_title(bundle):
 def bundle_subtitle(bundle):
     """One line: how many packages and whether it matches the running system."""
     count = len(bundle.get("packages", []))
-    parts = [f"{count} package" + ("" if count == 1 else "s")]
+    parts = [_.ngettext("{count} package", "{count} packages", count).format(count=count)]
     state = bundle.get("state", "")
     if not bundle.get("enabled", True):
-        parts.append("turned off")
+        parts.append(_("turned off"))
     elif state and state not in ("ready", "merged", "ok"):
         parts.append(state.replace("_", " "))
     return " · ".join(parts)
 
 
 def extension_subtitle(extension):
-    parts = [f"{extension.get('version', '')}".strip() or "version unknown"]
+    parts = [f"{extension.get('version', '')}".strip() or _("version unknown")]
     if not extension.get("enabled", True):
         problems = extension.get("problems", [])
-        parts.append("turned off" + (f": {problems[0]}" if problems else ""))
+        parts.append(_("turned off") + (f": {problems[0]}" if problems else ""))
     return " · ".join(parts)
 
 
@@ -188,7 +191,7 @@ def catalog_notice(entry):
         lines.append(entry["notice"])
     needs = entry.get("needs_enabling", [])
     if needs:
-        lines.append("This turns on the package source: " + ", ".join(needs) + ".")
+        lines.append(_("This turns on the package source: {sources}.").format(sources=", ".join(needs)))
     return "\n\n".join(lines)
 
 
@@ -198,8 +201,8 @@ def update_status(available, pending):
         return "available", pending_text(pending)
     if available and available.get("available"):
         size = size_text(available.get("size", 0))
-        return "available", f"Version {available['version']} is available" + (f" ({size})" if size else "")
-    return "", "Check to see whether an update is available."
+        return "available", _("Version {version} is available").format(version=available["version"]) + (f" ({size})" if size else "")
+    return "", _("Check to see whether an update is available.")
 
 
 def job_error(job_name, message):
@@ -224,7 +227,7 @@ def package_names(packages):
 def splash_text(info):
     """A line under the boot splash choice, or ''."""
     if info and info.get("uefi") is False:
-        return "This computer did not start through UEFI, so the boot splash cannot follow this choice."
+        return _("This computer did not start through UEFI, so the boot splash cannot follow this choice.")
     return ""
 
 
@@ -232,8 +235,8 @@ def about_rows(info, status):
     """[(label, value)] for the About group; every fact is optional."""
     os_info = info.get("os", {}) if info else {}
     rows = []
-    for label, value in (("Name", os_info.get("name")), ("Version", os_info.get("image_version")),
-                         ("Architecture", (info or {}).get("architecture"))):
+    for label, value in ((_("Name"), os_info.get("name")), (_("Version"), os_info.get("image_version")),
+                         (_("Architecture"), (info or {}).get("architecture"))):
         if value:
             rows.append((label, str(value)))
     return rows
@@ -247,31 +250,31 @@ def repo_title(repo):
 
 def repo_subtitle(repo):
     parts = [repo.get("url", "")]
-    parts.append("signed" if repo.get("signed") else "not signed")
-    parts.append("comes with the system" if repo.get("shipped") else "added by you")
+    parts.append(_("signed") if repo.get("signed") else _("not signed"))
+    parts.append(_("comes with the system") if repo.get("shipped") else _("added by you"))
     age = repo.get("refreshed_seconds_ago", -1)
-    parts.append("never refreshed" if age is None or age < 0 else "refreshed " + age_text(age))
+    parts.append(_("never refreshed") if age is None or age < 0 else _("refreshed {age}").format(age=age_text(age)))
     return " · ".join(p for p in parts if p)
 
 
 def age_text(seconds):
     if seconds < 90:
-        return "just now"
+        return _("just now")
     if seconds < 3600 * 2:
-        return f"{seconds // 60} minutes ago"
+        return _.ngettext("{count} minute ago", "{count} minutes ago", seconds // 60).format(count=seconds // 60)
     if seconds < 86400 * 2:
-        return f"{seconds // 3600} hours ago"
-    return f"{seconds // 86400} days ago"
+        return _.ngettext("{count} hour ago", "{count} hours ago", seconds // 3600).format(count=seconds // 3600)
+    return _.ngettext("{count} day ago", "{count} days ago", seconds // 86400).format(count=seconds // 86400)
 
 
 def repo_form_problem(alias, url, key):
     """Why the add-repository form cannot be used yet, or ''."""
     if not alias.strip():
-        return "Give the repository a name."
+        return _("Give the repository a name.")
     if not (url.startswith("https://") or url.startswith("/")):
-        return "The address must start with https://."
+        return _("The address must start with https://.")
     if "BEGIN PGP PUBLIC KEY BLOCK" not in key:
-        return "Paste the repository's public signing key."
+        return _("Paste the repository's public signing key.")
     return ""
 
 
@@ -286,15 +289,15 @@ def alias_from(name):
 def remote_summary(status):
     """(title, subtitle) for the SSH row."""
     if not status.get("installed", False):
-        return "Not available", "The SSH server is not part of this system."
+        return _("Not available"), _("The SSH server is not part of this system.")
     if status.get("active"):
-        text = "On"
+        text = _("On")
     elif status.get("enabled"):
-        text = "On at the next start"
+        text = _("On at the next start")
     else:
-        text = "Off"
+        text = _("Off")
     firewall = status.get("firewall", "")
-    extra = {"open": "the firewall allows it", "closed": "the firewall blocks it", "unknown": ""}.get(firewall, "")
+    extra = {"open": _("the firewall allows it"), "closed": _("the firewall blocks it"), "unknown": ""}.get(firewall, "")
     return text, extra
 
 
@@ -313,10 +316,10 @@ def key_subtitle(key):
 
 def key_form_problem(user, key):
     if not user.strip():
-        return "Give the user name."
+        return _("Give the user name.")
     words = key.strip().split()
     if len(words) < 2 or not (words[0].startswith("ssh-") or words[0].startswith("ecdsa-") or words[0].startswith("sk-")):
-        return "Paste a public key (a line starting with ssh-ed25519, ssh-rsa and so on)."
+        return _("Paste a public key (a line starting with ssh-ed25519, ssh-rsa and so on).")
     return ""
 
 
@@ -330,7 +333,7 @@ def setting_hidden(key):
     return key.startswith(HIDDEN_SETTING_PREFIXES)
 
 
-GROUP_TITLES = {"ota": "Updates", "system": "System", "apps": "Applications"}
+GROUP_TITLES = {"ota": _("Updates"), "system": _("System"), "apps": _("Applications")}
 
 
 def config_group(key):
@@ -345,34 +348,34 @@ def config_title(key):
 # -- activity ------------------------------------------------------------------------------------
 
 JOB_TITLES = {
-    "updates.install": "Installed a system update", "updates.install_latest": "Installed the newest system update",
-    "boot.set_default": "Changed which system starts", "boot.set_next": "Chose the next start",
-    "boot.release": "Emptied a slot", "boot.splash": "Changed the boot splash",
-    "apps.install": "Installed an application", "apps.remove": "Removed an application", "apps.update": "Updated applications",
-    "apps.setup": "Set up the application source",
-    "compat.install": "Installed an extension", "compat.remove": "Removed an extension", "compat.revalidate": "Checked extensions",
-    "bundles.install": "Added packages to a bundle", "bundles.install_catalog": "Installed a bundle",
-    "bundles.remove": "Removed a bundle", "bundles.update": "Updated bundles", "bundles.refresh": "Rebuilt bundles",
-    "repos.enable": "Changed a repository", "repos.add": "Added a repository", "repos.remove": "Removed a repository",
-    "repos.refresh": "Refreshed repositories", "remote.set_ssh": "Changed remote access",
-    "remote.add_key": "Added an SSH key", "remote.remove_key": "Removed an SSH key",
-    "deploy.run": "Installed the system on a disk", "ext.merge": "Merged extensions", "ext.unmerge": "Unmerged extensions",
-    "ext.refresh": "Refreshed extensions",
+    "updates.install": _("Installed a system update"), "updates.install_latest": _("Installed the newest system update"),
+    "boot.set_default": _("Changed which system starts"), "boot.set_next": _("Chose the next start"),
+    "boot.release": _("Emptied a slot"), "boot.splash": _("Changed the boot splash"),
+    "apps.install": _("Installed an application"), "apps.remove": _("Removed an application"), "apps.update": _("Updated applications"),
+    "apps.setup": _("Set up the application source"),
+    "compat.install": _("Installed an extension"), "compat.remove": _("Removed an extension"), "compat.revalidate": _("Checked extensions"),
+    "bundles.install": _("Added packages to a bundle"), "bundles.install_catalog": _("Installed a bundle"),
+    "bundles.remove": _("Removed a bundle"), "bundles.update": _("Updated bundles"), "bundles.refresh": _("Rebuilt bundles"),
+    "repos.enable": _("Changed a repository"), "repos.add": _("Added a repository"), "repos.remove": _("Removed a repository"),
+    "repos.refresh": _("Refreshed repositories"), "remote.set_ssh": _("Changed remote access"),
+    "remote.add_key": _("Added an SSH key"), "remote.remove_key": _("Removed an SSH key"),
+    "deploy.run": _("Installed the system on a disk"), "ext.merge": _("Merged extensions"), "ext.unmerge": _("Unmerged extensions"),
+    "ext.refresh": _("Refreshed extensions"),
 }
 
-JOB_STATES = {"done": "Done", "failed": "Failed", "cancelled": "Cancelled", "running": "Running", "queued": "Waiting"}
+JOB_STATES = {"done": _("Done"), "failed": _("Failed"), "cancelled": _("Cancelled"), "running": _("Running"), "queued": _("Waiting")}
 
 
 def job_title(kind):
-    return JOB_TITLES.get(kind) or (kind or "Job").replace(".", " ").replace("_", " ").capitalize()
+    return JOB_TITLES.get(kind) or (kind or _("Job")).replace(".", " ").replace("_", " ").capitalize()
 
 
 def job_subtitle(job):
     state = JOB_STATES.get(job.get("State", ""), job.get("State", ""))
     if job.get("State") == "failed" and job.get("ErrorMessage"):
-        return f"{state}: {job['ErrorMessage']}"
+        return _("{state}: {message}").format(state=state, message=job["ErrorMessage"])
     if job.get("State") == "running" and job.get("StepTitle"):
-        return f"{state}: {job['StepTitle']}"
+        return _("{state}: {step}").format(state=state, step=job["StepTitle"])
     return state
 
 
@@ -380,27 +383,27 @@ def job_subtitle(job):
 
 def inspect_summary(report):
     """(ok, text) for a compatibility report from Compat.Inspect."""
-    name = report.get("name", "this file")
+    name = report.get("name", _("this file"))
     lines = []
     if report.get("compatible"):
-        lines.append(f"{name} {report.get('version', '')} fits this system.".replace("  ", " "))
+        lines.append(_("{name} {version} fits this system.").format(name=name, version=report.get("version", "")).replace("  ", " "))
     else:
-        lines.append(f"{name} does not fit this system.")
-    for key, label in (("problems", ""), ("missing_requires", "Missing: "), ("missing_libraries", "Missing library: "),
-                       ("conflicts", "Would replace: "), ("notes", "")):
+        lines.append(_("{name} does not fit this system.").format(name=name))
+    for key, label in (("problems", ""), ("missing_requires", _("Missing: ")), ("missing_libraries", _("Missing library: ")),
+                       ("conflicts", _("Would replace: ")), ("notes", "")):
         for item in report.get(key, []):
             lines.append(label + item)
     if report.get("scriptlets"):
-        lines.append("Its install scripts are not run.")
+        lines.append(_("Its install scripts are not run."))
     return bool(report.get("compatible")), "\n".join(lines)
 
 
 def classify_rpm(path):
     path = (path or "").strip()
     if not path:
-        return "Choose a file."
+        return _("Choose a file.")
     if not path.endswith(".rpm"):
-        return "That does not look like an RPM package."
+        return _("That does not look like an RPM package.")
     return ""
 
 
@@ -410,17 +413,17 @@ def package_line(package):
 
 # The line under each page's headline (Updates sets its own: it shows the update state).
 PAGE_BLURBS = {
-    "updates": "Check to see whether an update is available.",
-    "ersaid": "Your Ersa ID account on this computer.",
-    "bundles": "System-level software such as codecs and tools.",
-    "repositories": "Where the packages for bundles come from.",
-    "appsources": "Where applications come from.",
-    "packages": "Everything the system image contains.",
-    "slots": "The two system copies, so an update can fall back.",
-    "appearance": "How the computer starts up.",
-    "remote": "Sign in from another computer.",
-    "advanced": "Every setting, with what it does.",
-    "activity": "What the system did, and how it went.",
+    "updates": _("Check to see whether an update is available."),
+    "ersaid": _("Your Ersa ID account on this computer."),
+    "bundles": _("System-level software such as codecs and tools."),
+    "repositories": _("Where the packages for bundles come from."),
+    "appsources": _("Where applications come from."),
+    "packages": _("Everything the system image contains."),
+    "slots": _("The two system copies, so an update can fall back."),
+    "appearance": _("How the computer starts up."),
+    "remote": _("Sign in from another computer."),
+    "advanced": _("Every setting, with what it does."),
+    "activity": _("What the system did, and how it went."),
 }
 
 
@@ -428,22 +431,22 @@ PAGE_BLURBS = {
 
 def remote_subtitle(remote):
     parts = [remote.get("url", "")]
-    parts.append("signed" if remote.get("signed", True) else "not signed")
+    parts.append(_("signed") if remote.get("signed", True) else _("not signed"))
     apps = remote.get("apps", 0)
-    parts.append(f"{apps} app" + ("" if apps == 1 else "s") + " installed" if apps else "no apps installed")
+    parts.append(_.ngettext("{count} app installed", "{count} apps installed", apps).format(count=apps) if apps else _("no apps installed"))
     if remote.get("default"):
-        parts.append("comes with the system")
+        parts.append(_("comes with the system"))
     return " · ".join(p for p in parts if p)
 
 
 def remote_form_problem(name, location, key):
     """Why the add-source form cannot be used yet, or ''."""
     if not re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$", name.strip()):
-        return "Give the source a short name: letters, digits, dots, dashes."
+        return _("Give the source a short name: letters, digits, dots, dashes.")
     if not (location.startswith("https://") or location.startswith("file:///")) or " " in location:
-        return "The address must start with https://."
+        return _("The address must start with https://.")
     if not location.endswith(".flatpakrepo") and "BEGIN PGP PUBLIC KEY BLOCK" not in key:
-        return "Paste the source's public signing key (an address that is not a .flatpakrepo file needs one)."
+        return _("Paste the source's public signing key (an address that is not a .flatpakrepo file needs one).")
     return ""
 
 
@@ -460,8 +463,7 @@ def remote_trust_text(info):
     lines.append(info.get("url", ""))
     for fingerprint, owner in zip(info.get("fingerprints", []), info.get("owners", []) + [""] * 9):
         lines.append(f"{owner}\n{fingerprint}".strip())
-    lines.append("Applications from it are installed for everyone and run with the permissions they ask for. "
-                 "Check the fingerprint with the publisher.")
+    lines.append(_("Applications from it are installed for everyone and run with the permissions they ask for. Check the fingerprint with the publisher."))
     return "\n\n".join(l for l in lines if l)
 
 
@@ -479,7 +481,7 @@ def identity_view(settings, session):
     claims = session.get("claims", {})
     email = claims.get("email", "")
     known = claims.get("name") or claims.get("preferred_username") or email.split("@")[0]
-    name = known or "Signed in"
+    name = known or _("Signed in")
     words = [w for w in known.replace(".", " ").replace("_", " ").split() if w]
     initials = "".join(w[0] for w in (words[:2] if len(words) > 1 else words[:1])).upper()
     return {"state": "in", "name": name, "email": email, "initials": initials, "provider": provider,

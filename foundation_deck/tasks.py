@@ -7,6 +7,9 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
+from foundation.i18n import Domain
+
+_ = Domain("ersa-deck")
 from . import icons  # noqa: E402
 
 MAX_FINISHED = 12
@@ -18,10 +21,10 @@ class Task:
     def __init__(self, panel, title):
         self.panel, self.title = panel, title
         self.running, self.ok, self.fraction, self.on_cancel = True, None, -1.0, None
-        self.step = Gtk.Label(label="Starting…", xalign=0, css_classes=["dim-label", "caption"], ellipsize=3)
+        self.step = Gtk.Label(label=_("Starting…"), xalign=0, css_classes=["dim-label", "caption"], ellipsize=3)
         self.bar = Gtk.ProgressBar(css_classes=["task-progress"], margin_top=2)
         self.icon = Gtk.Image(valign=Gtk.Align.START, margin_top=2)
-        self.cancel = icons.button("window-close-symbolic", f"Cancel: {title}", css=("flat", "circular"), valign=Gtk.Align.CENTER)
+        self.cancel = icons.button("window-close-symbolic", _("Cancel: {title}").format(title=title), css=("flat", "circular"), valign=Gtk.Align.CENTER)
         self.cancel.connect("clicked", lambda _b: self.on_cancel and self.on_cancel())
         self.heading = Gtk.Label(label=title, xalign=0, hexpand=True, ellipsize=3, css_classes=["heading"])
         text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1, hexpand=True)
@@ -82,7 +85,7 @@ class TaskPanel(Gtk.Box):
         self.list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, css_classes=["task-list"])
         self.scroller = Gtk.ScrolledWindow(child=self.list, hscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True,
                                            max_content_height=170)
-        self.clear = Gtk.Button(label="Clear finished", css_classes=["flat", "caption"], halign=Gtk.Align.END, visible=False)
+        self.clear = Gtk.Button(label=_("Clear finished"), css_classes=["flat", "caption"], halign=Gtk.Align.END, visible=False)
         self.clear.connect("clicked", lambda _b: self.clear_finished())
         inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_bottom=6)
         inner.append(self.scroller)
@@ -91,8 +94,8 @@ class TaskPanel(Gtk.Box):
         self.append(self.revealer)
         self.spinner = Adw.Spinner() if hasattr(Adw, "Spinner") else Gtk.Spinner()
         self.idle_icon = icons.image("view-list-symbolic")
-        self.title = Gtk.Label(label="Tasks", xalign=0, hexpand=True, ellipsize=3)
-        self.sub = Gtk.Label(label="Nothing running", xalign=0, css_classes=["dim-label", "caption"], ellipsize=3)
+        self.title = Gtk.Label(label=_("Tasks"), xalign=0, hexpand=True, ellipsize=3)
+        self.sub = Gtk.Label(label=_("Nothing running"), xalign=0, css_classes=["dim-label", "caption"], ellipsize=3)
         self.chevron = icons.image("pan-up-symbolic")
         self.meter = Gtk.ProgressBar(visible=False, css_classes=["task-progress"])
         texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
@@ -108,7 +111,7 @@ class TaskPanel(Gtk.Box):
         column.append(row)
         column.append(self.meter)
         self.toggle = Gtk.ToggleButton(child=column, css_classes=["flat", "task-toggle"])
-        self.toggle.update_property([Gtk.AccessibleProperty.LABEL], ["Tasks"])
+        self.toggle.update_property([Gtk.AccessibleProperty.LABEL], [_("Tasks")])
         self.toggle.connect("toggled", lambda b: self.show_list(b.get_active()))
         self.append(self.toggle)
 
@@ -136,7 +139,7 @@ class TaskPanel(Gtk.Box):
         if running:
             self.icon_slot.append(self.spinner)
             first = running[0]
-            self.title.set_label(first.title if len(running) == 1 else f"{len(running)} tasks running")
+            self.title.set_label(first.title if len(running) == 1 else _.ngettext("{count} task running", "{count} tasks running", len(running)).format(count=len(running)))
             self.sub.set_label(first.step.get_label() if len(running) == 1 else ", ".join(t.title for t in running)[:80])
             self.meter.set_visible(True)
             if first.fraction >= 0:
@@ -147,8 +150,8 @@ class TaskPanel(Gtk.Box):
             self.icon_slot.append(self.idle_icon)
             self.meter.set_visible(False)
             last = self.tasks[0] if self.tasks else None
-            self.title.set_label("Tasks")
-            self.sub.set_label("Nothing running" if last is None else (f"Done: {last.title}" if last.ok else f"Failed: {last.title}"))
+            self.title.set_label(_("Tasks"))
+            self.sub.set_label("Nothing running" if last is None else (_("Done: {title}").format(title=last.title) if last.ok else _("Failed: {title}").format(title=last.title)))
         self.clear.set_visible(any(not t.running for t in self.tasks))
 
     def finished(self, task):

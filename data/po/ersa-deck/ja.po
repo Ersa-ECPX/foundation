@@ -1,0 +1,1215 @@
+# Initial, unreviewed machine-assisted translation.
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8\nLanguage: ja\nPlural-Forms: nplurals=1; plural=0;\n"
+
+#: foundation_deck/app.py:395 foundation_deck/app.py:48 foundation_deck/app.py:101
+msgid "Deck"
+msgstr "Deck"
+
+#: foundation_deck/app.py:65
+msgid "Refresh (Ctrl+R)"
+msgstr "再読み込み (Ctrl+R)"
+
+#: foundation_deck/app.py:283 foundation_deck/pages.py:457 foundation_deck/pages.py:485 foundation_deck/pages.py:561 foundation_deck/pages.py:769 foundation_deck/pages.py:902
+msgid "Cancel"
+msgstr "キャンセル"
+
+#: foundation_deck/app.py:293
+msgid "OK"
+msgstr "OK"
+
+#: foundation_deck/app.py:297
+msgid "Restart now?"
+msgstr "今すぐ再起動しますか？"
+
+#: foundation_deck/app.py:297 foundation_deck/pages.py:629
+msgid "Open applications will be closed."
+msgstr "開いているアプリケーションは閉じられます。"
+
+#: foundation_deck/app.py:297 foundation_deck/pages.py:629
+msgid "Restart"
+msgstr "再起動"
+
+#: foundation_deck/app.py:386
+msgid "open this page"
+msgstr "このページを開く"
+
+#: foundation_deck/app.py:388
+msgid "after the first login: offer Ersa ID sign-in once, if a provider is set up (used by a user service)"
+msgstr "初回ログイン後: プロバイダーが設定されていれば、Ersa ID へのサインインを一度だけ提案する (ユーザーサービスが使用)"
+
+#: foundation_deck/app.py:393
+msgid "ersa-deck: no display is available"
+msgstr "ersa-deck: 使用できるディスプレイがありません"
+
+#: foundation_deck/app.py:63 foundation_deck/model.py:105
+msgid "Overview"
+msgstr "概要"
+
+#: foundation_deck/app.py:68 foundation_deck/pages.py:177 foundation_deck/pages.py:630
+msgid "Restart…"
+msgstr "再起動…"
+
+#: foundation_deck/app.py:70 foundation_deck/model.py:112
+msgid "Boot Slots"
+msgstr "起動スロット"
+
+#: foundation_deck/app.py:107
+msgid "Search"
+msgstr "検索"
+
+#: foundation_deck/app.py:261
+msgid "All files"
+msgstr "すべてのファイル"
+
+#: foundation_deck/app.py:305
+msgid "Ersa ID"
+msgstr "Ersa ID"
+
+#: foundation_deck/app.py:306
+msgid "Sign in to Ersa ID"
+msgstr "Ersa ID にサインイン"
+
+#: foundation_deck/app.py:307
+msgid "Link this computer to your account. You can skip this and sign in later in Deck."
+msgstr "このコンピューターをアカウントに関連付けます。スキップして、後で Deck からサインインすることもできます。"
+
+#: foundation_deck/app.py:308 foundation_deck/pages.py:903
+msgid "Sign In"
+msgstr "サインイン"
+
+#: foundation_deck/app.py:309
+msgid "Not Now"
+msgstr "後で"
+
+#: foundation_deck/app.py:383
+msgid "{product} management window"
+msgstr "{product} 管理ウィンドウ"
+
+#: foundation_deck/app.py:217
+msgid "Working"
+msgstr "処理中"
+
+#: foundation_deck/app.py:233 foundation_deck/model.py:366
+msgid "Done"
+msgstr "完了"
+
+#: foundation_deck/app.py:369
+msgid "Quit"
+msgstr "終了"
+
+#: foundation_deck/app.py:249
+msgid "Cannot open the file: {reason}"
+msgstr "ファイルを開けません: {reason}"
+
+#: foundation_deck/app.py:368
+msgid "Deck cannot start"
+msgstr "Deck を起動できません"
+
+#: foundation_deck/model.py:336 foundation_deck/model.py:107
+msgid "Updates"
+msgstr "アップデート"
+
+#: foundation_deck/model.py:336 foundation_deck/model.py:112
+msgid "System"
+msgstr "システム"
+
+#: foundation_deck/model.py:336
+msgid "Applications"
+msgstr "アプリケーション"
+
+#: foundation_deck/model.py:351
+msgid "Installed a system update"
+msgstr "システムのアップデートをインストールしました"
+
+#: foundation_deck/model.py:351
+msgid "Installed the newest system update"
+msgstr "最新のシステムアップデートをインストールしました"
+
+#: foundation_deck/model.py:352
+msgid "Changed which system starts"
+msgstr "起動するシステムを変更しました"
+
+#: foundation_deck/model.py:352
+msgid "Chose the next start"
+msgstr "次回の起動を選択しました"
+
+#: foundation_deck/model.py:353
+msgid "Emptied a slot"
+msgstr "スロットを空にしました"
+
+#: foundation_deck/model.py:353
+msgid "Changed the boot splash"
+msgstr "起動スプラッシュを変更しました"
+
+#: foundation_deck/model.py:354
+msgid "Installed an application"
+msgstr "アプリケーションをインストールしました"
+
+#: foundation_deck/model.py:354
+msgid "Removed an application"
+msgstr "アプリケーションを削除しました"
+
+#: foundation_deck/model.py:354
+msgid "Updated applications"
+msgstr "アプリケーションをアップデートしました"
+
+#: foundation_deck/model.py:355
+msgid "Set up the application source"
+msgstr "アプリケーションソースを設定しました"
+
+#: foundation_deck/model.py:356
+msgid "Installed an extension"
+msgstr "拡張機能をインストールしました"
+
+#: foundation_deck/model.py:356
+msgid "Removed an extension"
+msgstr "拡張機能を削除しました"
+
+#: foundation_deck/model.py:356
+msgid "Checked extensions"
+msgstr "拡張機能を確認しました"
+
+#: foundation_deck/model.py:357
+msgid "Added packages to a bundle"
+msgstr "バンドルにパッケージを追加しました"
+
+#: foundation_deck/model.py:357
+msgid "Installed a bundle"
+msgstr "バンドルをインストールしました"
+
+#: foundation_deck/model.py:358
+msgid "Removed a bundle"
+msgstr "バンドルを削除しました"
+
+#: foundation_deck/model.py:358
+msgid "Updated bundles"
+msgstr "バンドルをアップデートしました"
+
+#: foundation_deck/model.py:358
+msgid "Rebuilt bundles"
+msgstr "バンドルを再構築しました"
+
+#: foundation_deck/model.py:359
+msgid "Changed a repository"
+msgstr "リポジトリを変更しました"
+
+#: foundation_deck/model.py:359
+msgid "Added a repository"
+msgstr "リポジトリを追加しました"
+
+#: foundation_deck/model.py:359
+msgid "Removed a repository"
+msgstr "リポジトリを削除しました"
+
+#: foundation_deck/model.py:360
+msgid "Refreshed repositories"
+msgstr "リポジトリを再読み込みしました"
+
+#: foundation_deck/model.py:360
+msgid "Changed remote access"
+msgstr "リモートアクセスを変更しました"
+
+#: foundation_deck/model.py:361
+msgid "Added an SSH key"
+msgstr "SSH 鍵を追加しました"
+
+#: foundation_deck/model.py:361
+msgid "Removed an SSH key"
+msgstr "SSH 鍵を削除しました"
+
+#: foundation_deck/model.py:362
+msgid "Installed the system on a disk"
+msgstr "システムをディスクにインストールしました"
+
+#: foundation_deck/model.py:362
+msgid "Merged extensions"
+msgstr "拡張機能をマージしました"
+
+#: foundation_deck/model.py:362
+msgid "Unmerged extensions"
+msgstr "拡張機能のマージを解除しました"
+
+#: foundation_deck/model.py:363
+msgid "Refreshed extensions"
+msgstr "拡張機能を再読み込みしました"
+
+#: foundation_deck/model.py:366
+msgid "Failed"
+msgstr "失敗"
+
+#: foundation_deck/model.py:366
+msgid "Cancelled"
+msgstr "キャンセル済み"
+
+#: foundation_deck/model.py:366
+msgid "Running"
+msgstr "実行中"
+
+#: foundation_deck/model.py:366
+msgid "Waiting"
+msgstr "待機中"
+
+#: foundation_deck/model.py:416 foundation_deck/model.py:205
+msgid "Check to see whether an update is available."
+msgstr "アップデートがあるか確認します。"
+
+#: foundation_deck/model.py:417
+msgid "Your Ersa ID account on this computer."
+msgstr "このコンピューター上のあなたの Ersa ID アカウント。"
+
+#: foundation_deck/model.py:418
+msgid "System-level software such as codecs and tools."
+msgstr "コーデックやツールなどのシステムレベルのソフトウェア。"
+
+#: foundation_deck/model.py:419
+msgid "Where the packages for bundles come from."
+msgstr "バンドルのパッケージの入手元。"
+
+#: foundation_deck/model.py:420
+msgid "Where applications come from."
+msgstr "アプリケーションの入手元。"
+
+#: foundation_deck/model.py:421
+msgid "Everything the system image contains."
+msgstr "システムイメージに含まれるすべてのもの。"
+
+#: foundation_deck/model.py:422
+msgid "The two system copies, so an update can fall back."
+msgstr "アップデートを元に戻せるようにするための2つのシステムコピー。"
+
+#: foundation_deck/model.py:423
+msgid "How the computer starts up."
+msgstr "コンピューターの起動方法。"
+
+#: foundation_deck/model.py:424
+msgid "Sign in from another computer."
+msgstr "別のコンピューターからサインインします。"
+
+#: foundation_deck/model.py:425
+msgid "Every setting, with what it does."
+msgstr "すべての設定とその説明。"
+
+#: foundation_deck/model.py:426
+msgid "What the system did, and how it went."
+msgstr "システムが行った操作とその結果。"
+
+#: foundation_deck/model.py:20
+msgid "The installer medium's own system"
+msgstr "インストールメディア自身のシステム"
+
+#: foundation_deck/model.py:33
+msgid "Version unknown"
+msgstr "バージョン不明"
+
+#: foundation_deck/model.py:38
+msgid "The running slot is unknown"
+msgstr "実行中のスロットが不明です"
+
+#: foundation_deck/model.py:48
+msgid "Not checked"
+msgstr "未確認"
+
+#: foundation_deck/model.py:56
+msgid "An update is installed. Restart to start using it."
+msgstr "アップデートがインストールされました。再起動すると使用が始まります。"
+
+#: foundation_deck/model.py:74
+msgid "The administrator's password was not given, so nothing was changed."
+msgstr "管理者のパスワードが入力されなかったため、何も変更されませんでした。"
+
+#: foundation_deck/model.py:76
+msgid "Another change is in progress. Try again when it has finished."
+msgstr "別の変更が進行中です。完了してからもう一度お試しください。"
+
+#: foundation_deck/model.py:78
+msgid "This is not available on this system."
+msgstr "このシステムでは利用できません。"
+
+#: foundation_deck/model.py:79
+msgid "That did not work."
+msgstr "うまくいきませんでした。"
+
+#: foundation_deck/model.py:100
+msgid "The failed version stays in its slot until the next update replaces it."
+msgstr "起動に失敗したバージョンは、次のアップデートで置き換えられるまでそのスロットに残ります。"
+
+#: foundation_deck/model.py:106
+msgid "Account"
+msgstr "アカウント"
+
+#: foundation_deck/model.py:107
+msgid "Software"
+msgstr "ソフトウェア"
+
+#: foundation_deck/model.py:116
+msgid "History"
+msgstr "履歴"
+
+#: foundation_deck/model.py:160
+msgid "Every restart starts that system until you choose another. A failed start is not rolled back automatically."
+msgstr "別のシステムを選択するまで、再起動のたびにそのシステムが起動します。起動に失敗しても自動では元に戻りません。"
+
+#: foundation_deck/model.py:230
+msgid "This computer did not start through UEFI, so the boot splash cannot follow this choice."
+msgstr "このコンピューターは UEFI で起動していないため、起動スプラッシュはこの選択に従えません。"
+
+#: foundation_deck/model.py:262
+msgid "just now"
+msgstr "たった今"
+
+#: foundation_deck/model.py:273
+msgid "Give the repository a name."
+msgstr "リポジトリの名前を入力してください。"
+
+#: foundation_deck/model.py:275 foundation_deck/model.py:447
+msgid "The address must start with https://."
+msgstr "アドレスは https:// で始まる必要があります。"
+
+#: foundation_deck/model.py:277
+msgid "Paste the repository's public signing key."
+msgstr "リポジトリの公開署名鍵を貼り付けてください。"
+
+#: foundation_deck/model.py:294
+msgid "On"
+msgstr "オン"
+
+#: foundation_deck/model.py:319
+msgid "Give the user name."
+msgstr "ユーザー名を入力してください。"
+
+#: foundation_deck/model.py:322
+msgid "Paste a public key (a line starting with ssh-ed25519, ssh-rsa and so on)."
+msgstr "公開鍵 (ssh-ed25519、ssh-rsa などで始まる1行) を貼り付けてください。"
+
+#: foundation_deck/model.py:386
+msgid "this file"
+msgstr "このファイル"
+
+#: foundation_deck/model.py:404 foundation_deck/model.py:63
+msgid "Choose a file."
+msgstr "ファイルを選択してください。"
+
+#: foundation_deck/model.py:406
+msgid "That does not look like an RPM package."
+msgstr "RPM パッケージではないようです。"
+
+#: foundation_deck/model.py:445
+msgid "Give the source a short name: letters, digits, dots, dashes."
+msgstr "ソースの短い名前を入力してください (英字、数字、ドット、ダッシュ)。"
+
+#: foundation_deck/model.py:449
+msgid "Paste the source's public signing key (an address that is not a .flatpakrepo file needs one)."
+msgstr "ソースの公開署名鍵を貼り付けてください (.flatpakrepo ファイルではないアドレスには必要です)。"
+
+#: foundation_deck/model.py:466
+msgid "Applications from it are installed for everyone and run with the permissions they ask for. Check the fingerprint with the publisher."
+msgstr "このソースのアプリケーションはすべてのユーザー向けにインストールされ、要求された権限で実行されます。フィンガープリントを発行元に確認してください。"
+
+#: foundation_deck/model.py:484
+msgid "Signed in"
+msgstr "サインイン済み"
+
+#: foundation_deck/model.py:14
+msgid "Slot {name}"
+msgstr "スロット {name}"
+
+#: foundation_deck/model.py:21
+msgid "Empty"
+msgstr "空"
+
+#: foundation_deck/model.py:23
+msgid "running now"
+msgstr "実行中"
+
+#: foundation_deck/model.py:25
+msgid "starts by default"
+msgstr "デフォルトで起動"
+
+#: foundation_deck/model.py:45
+msgid "This start was confirmed good"
+msgstr "この起動は正常と確認されました"
+
+#: foundation_deck/model.py:65
+msgid "That file does not exist."
+msgstr "そのファイルは存在しません。"
+
+#: foundation_deck/model.py:67
+msgid "That does not look like an update archive (.tar.zst)."
+msgstr "アップデートアーカイブ (.tar.zst) ではないようです。"
+
+#: foundation_deck/model.py:150
+msgid "Start Once"
+msgstr "一度だけ起動"
+
+#: foundation_deck/model.py:150
+msgid "Always Start"
+msgstr "常に起動"
+
+#: foundation_deck/model.py:158
+msgid "The next restart starts that system. The one after goes back to the usual choice."
+msgstr "次回の再起動ではそのシステムが起動します。その次からは通常の選択に戻ります。"
+
+#: foundation_deck/model.py:173 foundation_deck/model.py:183
+msgid "turned off"
+msgstr "オフ"
+
+#: foundation_deck/model.py:180
+msgid "version unknown"
+msgstr "バージョン不明"
+
+#: foundation_deck/model.py:238 foundation_deck/pages.py:477
+msgid "Name"
+msgstr "名前"
+
+#: foundation_deck/model.py:238
+msgid "Version"
+msgstr "バージョン"
+
+#: foundation_deck/model.py:239
+msgid "Architecture"
+msgstr "アーキテクチャー"
+
+#: foundation_deck/model.py:253 foundation_deck/model.py:434
+msgid "signed"
+msgstr "署名あり"
+
+#: foundation_deck/model.py:253 foundation_deck/model.py:434
+msgid "not signed"
+msgstr "署名なし"
+
+#: foundation_deck/model.py:254 foundation_deck/model.py:438
+msgid "comes with the system"
+msgstr "システム付属"
+
+#: foundation_deck/model.py:254
+msgid "added by you"
+msgstr "ユーザーが追加"
+
+#: foundation_deck/model.py:256
+msgid "never refreshed"
+msgstr "未更新"
+
+#: foundation_deck/model.py:267
+msgid "{count} day ago"
+msgid_plural "{count} days ago"
+msgstr[0] "{count} 日前"
+
+#: foundation_deck/model.py:292
+msgid "Not available"
+msgstr "利用不可"
+
+#: foundation_deck/model.py:292
+msgid "The SSH server is not part of this system."
+msgstr "SSH サーバーはこのシステムに含まれていません。"
+
+#: foundation_deck/model.py:296
+msgid "On at the next start"
+msgstr "次回の起動時にオン"
+
+#: foundation_deck/model.py:298
+msgid "Off"
+msgstr "オフ"
+
+#: foundation_deck/model.py:392
+msgid "Missing: "
+msgstr "不足: "
+
+#: foundation_deck/model.py:392
+msgid "Missing library: "
+msgstr "不足しているライブラリ: "
+
+#: foundation_deck/model.py:393
+msgid "Would replace: "
+msgstr "置き換えられるもの: "
+
+#: foundation_deck/model.py:397
+msgid "Its install scripts are not run."
+msgstr "インストールスクリプトは実行されません。"
+
+#: foundation_deck/model.py:436
+msgid "no apps installed"
+msgstr "インストール済みアプリなし"
+
+#: foundation_deck/model.py:33 foundation_deck/model.py:21
+msgid "Version {version}"
+msgstr "バージョン {version}"
+
+#: foundation_deck/model.py:38
+msgid "Running from slot {slot}"
+msgstr "スロット {slot} から実行中"
+
+#: foundation_deck/model.py:56
+msgid "Version {version} is installed. Restart to start using it."
+msgstr "バージョン {version} がインストールされました。再起動すると使用が始まります。"
+
+#: foundation_deck/model.py:85
+msgid "{size:.1f} GB"
+msgstr "{size:.1f} GB"
+
+#: foundation_deck/model.py:85
+msgid "{size:.0f} MB"
+msgstr "{size:.0f} MB"
+
+#: foundation_deck/model.py:99
+msgid "Version {version} did not start, so the previous system was started instead. "
+msgstr "バージョン {version} が起動しなかったため、代わりに以前のシステムが起動しました。"
+
+#: foundation_deck/model.py:108
+msgid "Bundles and Extensions"
+msgstr "バンドルと拡張機能"
+
+#: foundation_deck/model.py:109
+msgid "Repositories"
+msgstr "リポジトリ"
+
+#: foundation_deck/model.py:110
+msgid "Application Sources"
+msgstr "アプリケーションソース"
+
+#: foundation_deck/model.py:111
+msgid "Base Packages"
+msgstr "基本パッケージ"
+
+#: foundation_deck/model.py:113
+msgid "Appearance"
+msgstr "外観"
+
+#: foundation_deck/model.py:114
+msgid "Remote Access"
+msgstr "リモートアクセス"
+
+#: foundation_deck/model.py:115
+msgid "Advanced"
+msgstr "詳細設定"
+
+#: foundation_deck/model.py:116
+msgid "Activity"
+msgstr "アクティビティ"
+
+#: foundation_deck/model.py:159
+msgid "Always start {name}?"
+msgstr "常に {name} を起動しますか？"
+
+#: foundation_deck/model.py:170 foundation_deck/pages.py:612
+msgid "{count} package"
+msgid_plural "{count} packages"
+msgstr[0] "{count} 個のパッケージ"
+
+#: foundation_deck/model.py:264
+msgid "{count} minute ago"
+msgid_plural "{count} minutes ago"
+msgstr[0] "{count} 分前"
+
+#: foundation_deck/model.py:266
+msgid "{count} hour ago"
+msgid_plural "{count} hours ago"
+msgstr[0] "{count} 時間前"
+
+#: foundation_deck/model.py:300
+msgid "the firewall allows it"
+msgstr "ファイアウォールで許可されています"
+
+#: foundation_deck/model.py:300
+msgid "the firewall blocks it"
+msgstr "ファイアウォールでブロックされています"
+
+#: foundation_deck/model.py:376
+msgid "{state}: {message}"
+msgstr "{state}: {message}"
+
+#: foundation_deck/model.py:378
+msgid "{state}: {step}"
+msgstr "{state}: {step}"
+
+#: foundation_deck/model.py:27
+msgid "{count} start attempt left"
+msgid_plural "{count} start attempts left"
+msgstr[0] "起動の試行 残り {count} 回"
+
+#: foundation_deck/model.py:47
+msgid "Waiting to be confirmed ({count} attempts left)"
+msgstr "確認待ち (残り {count} 回)"
+
+#: foundation_deck/model.py:157
+msgid "Start {name} once?"
+msgstr "{name} を一度だけ起動しますか？"
+
+#: foundation_deck/model.py:194
+msgid "This turns on the package source: {sources}."
+msgstr "次のパッケージソースを有効にします: {sources}。"
+
+#: foundation_deck/model.py:256
+msgid "refreshed {age}"
+msgstr "{age}に更新"
+
+#: foundation_deck/model.py:391
+msgid "{name} does not fit this system."
+msgstr "{name} はこのシステムに適合しません。"
+
+#: foundation_deck/model.py:436
+msgid "{count} app installed"
+msgid_plural "{count} apps installed"
+msgstr[0] "{count} 個のアプリをインストール済み"
+
+#: foundation_deck/model.py:204
+msgid "Version {version} is available"
+msgstr "バージョン {version} を利用できます"
+
+#: foundation_deck/model.py:389
+msgid "{name} {version} fits this system."
+msgstr "{name} {version} はこのシステムに適合します。"
+
+#: foundation_deck/model.py:370
+msgid "Job"
+msgstr "ジョブ"
+
+#: foundation_deck/pages.py:140
+msgid "This system"
+msgstr "このシステム"
+
+#: foundation_deck/pages.py:175
+msgid "Check for Updates"
+msgstr "アップデートを確認"
+
+#: foundation_deck/pages.py:176 foundation_deck/pages.py:364 foundation_deck/pages.py:274 foundation_deck/pages.py:344
+msgid "Install"
+msgstr "インストール"
+
+#: foundation_deck/pages.py:182
+msgid "Automatic updates"
+msgstr "自動アップデート"
+
+#: foundation_deck/pages.py:182
+msgid "Nothing restarts the computer by itself."
+msgstr "コンピューターが自動で再起動することはありません。"
+
+#: foundation_deck/pages.py:189
+msgid "Developer mode"
+msgstr "開発者モード"
+
+#: foundation_deck/pages.py:189
+msgid "Developer mode is on, so an update without a signature may be installed."
+msgstr "開発者モードがオンのため、署名のないアップデートがインストールされる場合があります。"
+
+#: foundation_deck/pages.py:194
+msgid "Install from a file"
+msgstr "ファイルからインストール"
+
+#: foundation_deck/pages.py:194
+msgid "For an update you built or were given. It is checked against the trusted keys."
+msgstr "自分でビルドした、または受け取ったアップデート用です。信頼された鍵に照らして検証されます。"
+
+#: foundation_deck/pages.py:247
+msgid "Looking for updates…"
+msgstr "アップデートを確認しています…"
+
+#: foundation_deck/pages.py:266 foundation_deck/pages.py:289
+msgid "Installing the update…"
+msgstr "アップデートをインストールしています…"
+
+#: foundation_deck/pages.py:280
+msgid "Choose an update file"
+msgstr "アップデートファイルを選択"
+
+#: foundation_deck/pages.py:280
+msgid "Update archives"
+msgstr "アップデートアーカイブ"
+
+#: foundation_deck/pages.py:297
+msgid "Installed bundles"
+msgstr "インストール済みのバンドル"
+
+#: foundation_deck/pages.py:297
+msgid "Extra software added to the system without changing it."
+msgstr "システムを変更せずに追加される追加ソフトウェア。"
+
+#: foundation_deck/pages.py:301
+msgid "Available"
+msgstr "利用可能"
+
+#: foundation_deck/pages.py:302 foundation_deck/pages.py:405 foundation_deck/pages.py:521 foundation_deck/pages.py:710
+msgid "Add…"
+msgstr "追加…"
+
+#: foundation_deck/pages.py:303
+msgid "Extensions"
+msgstr "拡張機能"
+
+#: foundation_deck/pages.py:303
+msgid "Single packages added as extensions."
+msgstr "拡張機能として追加された単一のパッケージ。"
+
+#: foundation_deck/pages.py:386
+msgid "Choose a package"
+msgstr "パッケージを選択"
+
+#: foundation_deck/pages.py:386
+msgid "RPM packages"
+msgstr "RPM パッケージ"
+
+#: foundation_deck/pages.py:394 foundation_deck/pages.py:361
+msgid "Installing…"
+msgstr "インストール中…"
+
+#: foundation_deck/pages.py:406
+msgid "Package sources"
+msgstr "パッケージソース"
+
+#: foundation_deck/pages.py:406
+msgid "Where bundles get their software. Every source must be signed."
+msgstr "バンドルのソフトウェアの入手元。すべてのソースに署名が必要です。"
+
+#: foundation_deck/pages.py:410
+msgid "Results"
+msgstr "結果"
+
+#: foundation_deck/pages.py:438
+msgid "Searching…"
+msgstr "検索中…"
+
+#: foundation_deck/pages.py:458 foundation_deck/pages.py:770 foundation_deck/pages.py:384
+msgid "Add"
+msgstr "追加"
+
+#: foundation_deck/pages.py:473 foundation_deck/pages.py:547
+msgid "Changing…"
+msgstr "変更中…"
+
+#: foundation_deck/pages.py:486 foundation_deck/pages.py:562
+msgid "Continue"
+msgstr "続ける"
+
+#: foundation_deck/pages.py:520
+msgid "Application sources"
+msgstr "アプリケーションソース"
+
+#: foundation_deck/pages.py:520
+msgid "Where Flatpak applications come from. Every source must be signed. They also show up in app stores such as Bazaar."
+msgstr "Flatpak アプリケーションの入手元。すべてのソースに署名が必要です。Bazaar などのアプリストアにも表示されます。"
+
+#: foundation_deck/pages.py:627
+msgid "Boot slots"
+msgstr "起動スロット"
+
+#: foundation_deck/pages.py:627
+msgid "Two copies of the system. An update goes to the one that is not running."
+msgstr "システムの2つのコピー。アップデートは実行中でない方に適用されます。"
+
+#: foundation_deck/pages.py:654
+msgid "Its system is removed. The next update has more room to choose from, but this slot cannot be started until then."
+msgstr "このスロットのシステムは削除されます。次のアップデートで選べる余地は増えますが、それまでこのスロットは起動できません。"
+
+#: foundation_deck/pages.py:655
+msgid "Empty Slot"
+msgstr "スロットを空にする"
+
+#: foundation_deck/pages.py:665
+msgid "Boot splash"
+msgstr "起動スプラッシュ"
+
+#: foundation_deck/pages.py:665
+msgid "The picture shown while the computer starts. It changes at the next restart. Colours, wallpaper and fonts of the desktop are in GNOME Settings."
+msgstr "コンピューターの起動中に表示される画像。次回の再起動で変わります。デスクトップの色、壁紙、フォントは GNOME 設定で変更できます。"
+
+#: foundation_deck/pages.py:694
+msgid "Changing the boot splash"
+msgstr "起動スプラッシュを変更しています"
+
+#: foundation_deck/pages.py:705
+msgid "SSH"
+msgstr "SSH"
+
+#: foundation_deck/pages.py:705
+msgid "Sign in from another computer over the network, with an authorized key."
+msgstr "承認済みの鍵を使って、ネットワーク経由で別のコンピューターからサインインします。"
+
+#: foundation_deck/pages.py:710
+msgid "Authorized keys"
+msgstr "承認済みの鍵"
+
+#: foundation_deck/pages.py:710
+msgid "Computers that may sign in without a password."
+msgstr "パスワードなしでサインインできるコンピューター。"
+
+#: foundation_deck/pages.py:747
+msgid "Changing remote access…"
+msgstr "リモートアクセスを変更しています…"
+
+#: foundation_deck/pages.py:850
+msgid "Recent changes"
+msgstr "最近の変更"
+
+#: foundation_deck/pages.py:850
+msgid "What the system did on request, newest first. foundationd keeps the last fifty."
+msgstr "要求に応じてシステムが行った操作を新しい順に表示します。foundationd は直近の50件を保持します。"
+
+#: foundation_deck/pages.py:896
+msgid "Approve this sign-in"
+msgstr "このサインインを承認"
+
+#: foundation_deck/pages.py:896
+msgid "Open the page on any device and enter this code."
+msgstr "任意のデバイスでこのページを開き、このコードを入力してください。"
+
+#: foundation_deck/pages.py:901 foundation_deck/pages.py:991
+msgid "Open the Sign-in Page"
+msgstr "サインインページを開く"
+
+#: foundation_deck/pages.py:904 foundation_deck/pages.py:1013
+msgid "Sign Out"
+msgstr "サインアウト"
+
+#: foundation_deck/pages.py:968 foundation_deck/pages.py:133
+msgid "…"
+msgstr "…"
+
+#: foundation_deck/pages.py:1013
+msgid "Sign out of Ersa ID?"
+msgstr "Ersa ID からサインアウトしますか？"
+
+#: foundation_deck/pages.py:1013
+msgid "This computer forgets your account. Your files and settings stay."
+msgstr "このコンピューターはアカウントの情報を消去します。ファイルと設定は残ります。"
+
+#: foundation_deck/pages.py:184
+msgid "Check automatically"
+msgstr "自動的に確認"
+
+#: foundation_deck/pages.py:184
+msgid "Install automatically"
+msgstr "自動的にインストール"
+
+#: foundation_deck/pages.py:190
+msgid "Install without checking the signature"
+msgstr "署名を確認せずにインストール"
+
+#: foundation_deck/pages.py:191
+msgid "For images you built yourself. Anything can be installed this way."
+msgstr "自分でビルドしたイメージ用です。この方法ではどんなものでもインストールできてしまいます。"
+
+#: foundation_deck/pages.py:195
+msgid "Update file"
+msgstr "アップデートファイル"
+
+#: foundation_deck/pages.py:195
+msgid "A .tar.zst archive"
+msgstr ".tar.zst アーカイブ"
+
+#: foundation_deck/pages.py:196
+msgid "Choose…"
+msgstr "選択…"
+
+#: foundation_deck/pages.py:278
+msgid "Install this update?"
+msgstr "このアップデートをインストールしますか？"
+
+#: foundation_deck/pages.py:298
+msgid "Update All"
+msgstr "すべてアップデート"
+
+#: foundation_deck/pages.py:313 foundation_deck/pages.py:330
+msgid "None installed"
+msgstr "インストール済みなし"
+
+#: foundation_deck/pages.py:403
+msgid "Refresh"
+msgstr "再読み込み"
+
+#: foundation_deck/pages.py:407
+msgid "Find a package in these sources"
+msgstr "これらのソースからパッケージを探す"
+
+#: foundation_deck/pages.py:419
+msgid "No repositories"
+msgstr "リポジトリなし"
+
+#: foundation_deck/pages.py:453
+msgid "Bundle name"
+msgstr "バンドル名"
+
+#: foundation_deck/pages.py:455
+msgid "A bundle is one group of extra software. A new name makes a new bundle; an existing name adds to it."
+msgstr "バンドルは追加ソフトウェアのひとまとまりです。新しい名前を入力すると新しいバンドルが作成され、既存の名前を入力するとそのバンドルに追加されます。"
+
+#: foundation_deck/pages.py:478
+msgid "https://example.org/repo"
+msgstr "https://example.org/repo"
+
+#: foundation_deck/pages.py:483
+msgid "Add a repository"
+msgstr "リポジトリを追加"
+
+#: foundation_deck/pages.py:483
+msgid "Only add sources you trust: their software is installed as bundles."
+msgstr "信頼できるソースだけを追加してください。そのソフトウェアはバンドルとしてインストールされます。"
+
+#: foundation_deck/pages.py:509 foundation_deck/pages.py:581
+msgid "Trust and Add"
+msgstr "信頼して追加"
+
+#: foundation_deck/pages.py:529
+msgid "No sources. Flathub is added when the computer is first online."
+msgstr "ソースがありません。コンピューターが初めてオンラインになると Flathub が追加されます。"
+
+#: foundation_deck/pages.py:551
+msgid "https://example.org/apps.flatpakrepo"
+msgstr "https://example.org/apps.flatpakrepo"
+
+#: foundation_deck/pages.py:552
+msgid "Short name, for example acme"
+msgstr "短い名前 (例: acme)"
+
+#: foundation_deck/pages.py:553
+msgid "Title (optional)"
+msgstr "タイトル (任意)"
+
+#: foundation_deck/pages.py:559
+msgid "Add an application source"
+msgstr "アプリケーションソースを追加"
+
+#: foundation_deck/pages.py:559
+msgid "Only add sources you trust: their applications run on this computer."
+msgstr "信頼できるソースだけを追加してください。そのアプリケーションはこのコンピューターで実行されます。"
+
+#: foundation_deck/pages.py:593
+msgid "Search the system's packages"
+msgstr "システムのパッケージを検索"
+
+#: foundation_deck/pages.py:667
+msgid "Style"
+msgstr "スタイル"
+
+#: foundation_deck/pages.py:669
+msgid "Light"
+msgstr "ライト"
+
+#: foundation_deck/pages.py:670
+msgid "Dark"
+msgstr "ダーク"
+
+#: foundation_deck/pages.py:706
+msgid "Remote login (SSH)"
+msgstr "リモートログイン (SSH)"
+
+#: foundation_deck/pages.py:738
+msgid "Add a key first"
+msgstr "先に鍵を追加してください"
+
+#: foundation_deck/pages.py:739
+msgid "No user has an SSH key, so nobody could sign in. Add a key, then turn remote login on."
+msgstr "SSH 鍵を持つユーザーがいないため、誰もサインインできません。鍵を追加してから、リモートログインをオンにしてください。"
+
+#: foundation_deck/pages.py:753
+msgid "No keys"
+msgstr "鍵なし"
+
+#: foundation_deck/pages.py:763
+msgid "User"
+msgstr "ユーザー"
+
+#: foundation_deck/pages.py:767
+msgid "Add an SSH key"
+msgstr "SSH 鍵を追加"
+
+#: foundation_deck/pages.py:767
+msgid "Paste the public key (one line, from a .pub file)."
+msgstr "公開鍵 (.pub ファイルの1行) を貼り付けてください。"
+
+#: foundation_deck/pages.py:783
+msgid "Adding the key…"
+msgstr "鍵を追加しています…"
+
+#: foundation_deck/pages.py:858
+msgid "Nothing yet since the system started"
+msgstr "システムの起動後、まだ何もありません"
+
+#: foundation_deck/pages.py:254
+msgid "Your system is up to date."
+msgstr "システムは最新の状態です。"
+
+#: foundation_deck/pages.py:259
+msgid "No update source is set up yet."
+msgstr "アップデートのソースがまだ設定されていません。"
+
+#: foundation_deck/pages.py:316 foundation_deck/pages.py:333 foundation_deck/pages.py:756 foundation_deck/pages.py:429 foundation_deck/pages.py:539 foundation_deck/pages.py:317 foundation_deck/pages.py:334 foundation_deck/pages.py:757 foundation_deck/pages.py:430 foundation_deck/pages.py:540
+msgid "Remove"
+msgstr "削除"
+
+#: foundation_deck/pages.py:394
+msgid "The extension is installed."
+msgstr "拡張機能がインストールされました。"
+
+#: foundation_deck/pages.py:481
+msgid "Public signing key (the text of the .asc file)"
+msgstr "公開署名鍵 (.asc ファイルのテキスト)"
+
+#: foundation_deck/pages.py:506
+msgid "That is not a usable public key."
+msgstr "使用できる公開鍵ではありません。"
+
+#: foundation_deck/pages.py:556
+msgid "Public signing key (only if the address is not a .flatpakrepo file)"
+msgstr "公開署名鍵 (アドレスが .flatpakrepo ファイルでない場合のみ)"
+
+#: foundation_deck/pages.py:604
+msgid "What the read-only system is made of. Changes come with system updates, not from here."
+msgstr "読み取り専用システムの構成内容。変更はここではなく、システムのアップデートで行われます。"
+
+#: foundation_deck/pages.py:651
+msgid "Changing the boot choice…"
+msgstr "起動の選択を変更しています…"
+
+#: foundation_deck/pages.py:657
+msgid "Emptying the slot…"
+msgstr "スロットを空にしています…"
+
+#: foundation_deck/pages.py:943
+msgid "Sign in to link this computer to your account."
+msgstr "サインインして、このコンピューターをアカウントに関連付けます。"
+
+#: foundation_deck/pages.py:944
+msgid "No account provider is set up on this computer."
+msgstr "このコンピューターにはアカウントプロバイダーが設定されていません。"
+
+#: foundation_deck/pages.py:945
+msgid "Account sign-in is turned off on this computer."
+msgstr "このコンピューターではアカウントへのサインインがオフになっています。"
+
+#: foundation_deck/pages.py:272
+msgid "That file cannot be used."
+msgstr "そのファイルは使用できません。"
+
+#: foundation_deck/pages.py:276
+msgid "Install Without Signature"
+msgstr "署名なしでインストール"
+
+#: foundation_deck/pages.py:300
+msgid "Updating bundles…"
+msgstr "バンドルをアップデートしています…"
+
+#: foundation_deck/pages.py:323
+msgid "asked for"
+msgstr "要求済み"
+
+#: foundation_deck/pages.py:382
+msgid "This package does not fit"
+msgstr "このパッケージは適合しません"
+
+#: foundation_deck/pages.py:404
+msgid "Refreshing…"
+msgstr "再読み込み中…"
+
+#: foundation_deck/pages.py:444
+msgid " (showing the first 40)"
+msgstr " (最初の40件を表示)"
+
+#: foundation_deck/pages.py:448
+msgid "Add to Bundle…"
+msgstr "バンドルに追加…"
+
+#: foundation_deck/pages.py:454
+msgid "Add {package} to a bundle"
+msgstr "{package} をバンドルに追加"
+
+#: foundation_deck/pages.py:511 foundation_deck/pages.py:582
+msgid "Adding…"
+msgstr "追加中…"
+
+#: foundation_deck/pages.py:612
+msgid "{shown} of {total} packages"
+msgstr "{total} 個中 {shown} 個のパッケージ"
+
+#: foundation_deck/pages.py:643
+msgid "Empty this slot"
+msgstr "このスロットを空にする"
+
+#: foundation_deck/pages.py:740
+msgid "Add a Key…"
+msgstr "鍵を追加…"
+
+#: foundation_deck/pages.py:265 foundation_deck/pages.py:288
+msgid "Version {version} is ready. Restart to use it."
+msgstr "バージョン {version} の準備ができました。再起動すると使用できます。"
+
+#: foundation_deck/pages.py:317
+msgid "Its software is taken away. Your files are not touched."
+msgstr "このバンドルのソフトウェアは取り除かれます。ファイルには影響しません。"
+
+#: foundation_deck/pages.py:334
+msgid "The extension is removed."
+msgstr "拡張機能が削除されました。"
+
+#: foundation_deck/pages.py:444
+msgid "{count} found"
+msgid_plural "{count} found"
+msgstr[0] "{count} 件見つかりました"
+
+#: foundation_deck/pages.py:466
+msgid "Adding {package}"
+msgstr "{package} を追加しています"
+
+#: foundation_deck/pages.py:651
+msgid "Done. Restart to use it."
+msgstr "完了しました。再起動すると使用できます。"
+
+#: foundation_deck/pages.py:757
+msgid "Remove this key?"
+msgstr "この鍵を削除しますか？"
+
+#: foundation_deck/pages.py:300
+msgid "Bundles are up to date."
+msgstr "バンドルは最新の状態です。"
+
+#: foundation_deck/pages.py:404
+msgid "Repositories are up to date."
+msgstr "リポジトリは最新の状態です。"
+
+#: foundation_deck/pages.py:430
+msgid "Bundles that use it must be removed first."
+msgstr "これを使用しているバンドルを先に削除する必要があります。"
+
+#: foundation_deck/pages.py:540
+msgid "Applications installed from it must be removed first."
+msgstr "ここからインストールしたアプリケーションを先に削除する必要があります。"
+
+#: foundation_deck/pages.py:318 foundation_deck/pages.py:335 foundation_deck/pages.py:758 foundation_deck/pages.py:431 foundation_deck/pages.py:541
+msgid "Removing…"
+msgstr "削除中…"
+
+#: foundation_deck/pages.py:466
+msgid "{package} was added to {bundle}."
+msgstr "{package} を {bundle} に追加しました。"
+
+#: foundation_deck/tasks.py:24
+msgid "Starting…"
+msgstr "開始中…"
+
+#: foundation_deck/tasks.py:88
+msgid "Clear finished"
+msgstr "完了したものを消去"
+
+#: foundation_deck/tasks.py:97 foundation_deck/tasks.py:114 foundation_deck/tasks.py:153
+msgid "Tasks"
+msgstr "タスク"
+
+#: foundation_deck/tasks.py:98
+msgid "Nothing running"
+msgstr "実行中のものはありません"
+
+#: foundation_deck/tasks.py:27
+msgid "Cancel: {title}"
+msgstr "キャンセル: {title}"
+
+#: foundation_deck/tasks.py:142
+msgid "{count} task running"
+msgid_plural "{count} tasks running"
+msgstr[0] "{count} 件のタスクを実行中"
+
+#: foundation_deck/tasks.py:154
+msgid "Done: {title}"
+msgstr "完了: {title}"
+
+#: foundation_deck/tasks.py:154
+msgid "Failed: {title}"
+msgstr "失敗: {title}"
