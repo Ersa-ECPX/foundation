@@ -384,5 +384,10 @@ def main(argv=None):
     parser.add_argument("--offer-sign-in", action="store_true",
                         help="after the first login: offer Ersa ID sign-in once, if a provider is set up (used by a user service)")
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    if Gdk.Display.get_default() is None:
+        # No screen (a service started before the session had one): exit instead of staying alive and holding the application's
+        # name, which would make every later launch of Deck do nothing.
+        print("ersa-deck: no display is available", file=sys.stderr)
+        return 1
     GLib.set_application_name("Deck")
     return DeckApp(args.bus, offer=args.offer_sign_in, page=args.page).run([sys.argv[0]])

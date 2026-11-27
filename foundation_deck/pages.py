@@ -16,7 +16,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from foundation import identity  # noqa: E402
 
-from . import __version__, icons, model  # noqa: E402
+from . import icons, model  # noqa: E402
 
 
 def clear(group):
@@ -68,6 +68,26 @@ class Page(Gtk.ScrolledWindow):
         self.set_child(Adw.Clamp(maximum_size=600, tightening_threshold=500, child=self.column))
         self.error = Adw.Banner(title="", revealed=False, css_classes=["page-error"])
         self.column.append(self.error)
+        self.heading, self.blurb, self.actions = None, None, None
+        name = getattr(type(self), "PAGE", None)
+        if name in model.PAGE_BLURBS:                   # every page opens the same way: headline, one line, then its main actions
+            self.build_header(next(t for n, t, _i in model.PAGES if n == name), model.PAGE_BLURBS[name])
+
+    def build_header(self, title, blurb):
+        header = hero_box()
+        self.heading = Gtk.Label(label=title, css_classes=["title-1"], halign=Gtk.Align.CENTER)
+        self.blurb = Gtk.Label(label=blurb, css_classes=["dim-label", "page-blurb"], wrap=True, justify=Gtk.Justification.CENTER,
+                               max_width_chars=44)
+        self.actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10, halign=Gtk.Align.CENTER, margin_top=10, visible=False)
+        for widget in (self.heading, self.blurb, self.actions):
+            header.append(widget)
+        self.column.append(header)
+
+    def add_action(self, button):
+        """A main action of the page, shown under the headline (suggested-action pill for the primary one)."""
+        self.actions.append(button)
+        self.actions.set_visible(True)
+        return button
 
     def ask(self, interface, method, signature, args, handler=None, failed=None, **kwargs):
         """win.ask, but a failure is shown on this page (a banner at its top) instead of a toast that follows you around."""
@@ -101,7 +121,7 @@ class Page(Gtk.ScrolledWindow):
 # -- Overview ------------------------------------------------------------------------------------
 
 class Overview(Page):
-    """The running version and whether this start was good, then the system's facts, the software versions and the project."""
+    """The running version and whether this start was good, then the system's facts."""
 
     def __init__(self, win):
         super().__init__(win)
@@ -115,12 +135,6 @@ class Overview(Page):
             hero.append(widget)
         self.add(hero)
         self.system = self.group("This system")
-        self.software = self.group("Software")
-        project = self.group("Project")
-        row = Adw.ActionRow(title="Website", subtitle=model.WEBSITE, activatable=True)
-        row.add_suffix(icons.image("adw-external-link-symbolic"))
-        row.connect("activated", lambda _r: Gtk.UriLauncher(uri=model.WEBSITE).launch(win, None, None, None))
-        project.add(row)
         self.facts = {}
 
     def load(self):
@@ -139,16 +153,12 @@ class Overview(Page):
             clear(self.system)
             for label, value in model.about_rows(self.facts.get("info", {}), self.facts.get("status", {})):
                 add_row(self.system, Adw.ActionRow(title=label, subtitle=value, subtitle_selectable=True))
-            clear(self.software)
-            for label, value in model.software_rows(__version__, self.facts.get("api", "")):
-                add_row(self.software, Adw.ActionRow(title=label, subtitle=value, subtitle_selectable=True))
 
         def got(key):
             return lambda value: (self.facts.update({key: value}), show())
         self.ask("Boot", "GetBootState", None, None, state)
         self.ask("Manager", "GetSystemInfo", None, None, got("info"))
         self.ask("Manager", "GetStatus", None, None, got("status"))
-        self.ask("org.freedesktop.DBus.Properties", "Get", "(ss)", ("org.ersa.Foundation1.Manager", "Version"), got("api"))
 
 
 # -- Updates -------------------------------------------------------------------------------------
@@ -157,21 +167,15 @@ class Updates(Page):
     def __init__(self, win):
         super().__init__(win)
         self.available, self.pending = {}, {}
-        hero = hero_box()
-        self.title = Gtk.Label(label="Updates", css_classes=["title-1"])
-        self.status = Gtk.Label(label="", css_classes=["update-status", "dim-label"], wrap=True,
-                                justify=Gtk.Justification.CENTER, max_width_chars=44)
-        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10, halign=Gtk.Align.CENTER, margin_top=10)
+        self.status = self.blurb                       # the line under the headline is the update state
+        self.status.add_css_class("update-status")
         self.check_button = text_button("Check for Updates", self.check, "pill")
         self.install_button = text_button("Install", self.install, "pill", "suggested-action")
         self.restart_button = text_button("Restart…", win.ask_restart, "pill", "suggested-action")
         self.install_button.set_visible(False)
         self.restart_button.set_visible(False)
-        for widget in (self.check_button, self.install_button, self.restart_button):
-            buttons.append(widget)
-        for widget in (self.title, self.status, buttons):
-            hero.append(widget)
-        self.add(hero)
+        for button in (self.check_button, self.install_button, self.restart_button):
+            self.add_action(button)
         auto = self.group("Automatic updates", "Nothing restarts the computer by itself.")
         self.switches = {}
         for key, title in (("ota.auto_check", "Check automatically"), ("ota.auto_update", "Install automatically")):
@@ -789,7 +793,7 @@ class Advanced(Page):
 
     def load(self):
         def listed(values):
-            for key in sorted(values):
+            for key in sorted(k for k in values if not model.setting_hidden(k)):
                 self.ask("Config", "Describe", "(s)", (key,), lambda info, k=key, v=values[key]: self.build(k, info, v))
         self.ask("Config", "List", None, None, listed)
 
@@ -886,7 +890,6 @@ class ErsaId(Page):
         for widget in (self.avatar, self.name, self.email):
             hero.append(widget)
         self.add(hero)
-        self.details = self.group()
         self.code_group = self.group("Approve this sign-in", "Open the page on any device and enter this code.")
         self.code = Gtk.Label(label="", css_classes=["title-1"], selectable=True, halign=Gtk.Align.CENTER, margin_top=6, margin_bottom=6)
         self.code.add_css_class("monospace")
@@ -932,7 +935,8 @@ class ErsaId(Page):
 
     def render(self, view):
         state = view["state"]
-        self.name.set_label({"in": view["name"], "out": "Ersa ID", "unset": "Ersa ID", "off": "Ersa ID"}[state])
+        self.name.set_label(view["name"] if state == "in" else "")
+        self.name.set_visible(state == "in")
         self.email.set_label({"in": view["email"], "out": "Sign in to link this computer to your account.",
                               "unset": "No account provider is set up on this computer.",
                               "off": "Account sign-in is turned off on this computer."}[state])
@@ -948,12 +952,6 @@ class ErsaId(Page):
         self.avatar.set_custom_image(texture)
         if state != "in" and not self.signing_in:
             self.avatar.set_icon_name("avatar-default-symbolic")
-        clear(self.details)
-        if state == "in":
-            add_row(self.details, Adw.ActionRow(title="Account provider", subtitle=view["provider"]))
-        elif state == "out":
-            add_row(self.details, Adw.ActionRow(title="Account provider", subtitle=view["provider"]))
-        self.details.set_visible(state in ("in", "out"))
         self.code_group.set_visible(self.signing_in)
         self.sign_in_button.set_visible(state == "out" and not self.signing_in)
         self.open_button.set_visible(self.signing_in)
@@ -1015,3 +1013,7 @@ class ErsaId(Page):
 
 PAGE_CLASSES = {"ersaid": ErsaId, "overview": Overview, "appsources": AppSources, "updates": Updates, "bundles": Bundles, "repositories": Repositories, "packages": Packages,
                 "slots": Slots, "appearance": Appearance, "remote": Remote, "advanced": Advanced, "activity": Activity}
+
+
+for _name, _class in PAGE_CLASSES.items():
+    _class.PAGE = _name

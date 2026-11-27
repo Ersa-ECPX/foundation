@@ -1,5 +1,8 @@
 [Unit]
 Description=Offer Ersa ID sign-in once, after first-boot setup is done
+# Only in a graphical session: the offer is a window, and the user manager learns the display only once the session has started.
+After=graphical-session.target
+PartOf=graphical-session.target
 # Initial Setup writes this file during the new account's first session; the offer comes after it, never beside it.
 ConditionPathExists=!%S/ersa-id/offered
 
@@ -8,4 +11,4 @@ PathExists=%h/.config/gnome-initial-setup-done
 Unit=foundation-ersa-id-offer.service
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

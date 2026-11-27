@@ -1,6 +1,10 @@
 [Unit]
 Description=Offer Ersa ID sign-in once (if a provider is set up and nobody is signed in)
+After=graphical-session.target
 ConditionPathExists=!%S/ersa-id/offered
+# A window needs a screen: without one the process would stay alive and hold Deck's name, so Deck could not open.
+ConditionEnvironment=|WAYLAND_DISPLAY
+ConditionEnvironment=|DISPLAY
 
 [Service]
 Type=simple

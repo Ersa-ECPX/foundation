@@ -79,8 +79,9 @@ class Text(unittest.TestCase):
         self.assertTrue(model.shorten("x" * 200).endswith("\u2026"))
 
     def test_about_rows_skip_what_is_unknown(self):
-        rows = model.about_rows({"os": {"name": "Ersa", "image_version": "1.0.0"}, "architecture": "x86_64"}, {"developer": False})
-        self.assertEqual(rows, [("Name", "Ersa"), ("Version", "1.0.0"), ("Architecture", "x86_64"), ("Developer mode", "Off")])
+        rows = model.about_rows({"os": {"name": "Ersa", "image_version": "1.0.0", "base": "openSUSE Tumbleweed"},
+                                 "architecture": "x86_64"}, {"developer": False})
+        self.assertEqual(rows, [("Name", "Ersa"), ("Version", "1.0.0"), ("Architecture", "x86_64")])   # no base, no developer mode
         self.assertEqual(model.about_rows({}, {}), [])
 
     def test_repositories(self):
@@ -147,10 +148,6 @@ class Text(unittest.TestCase):
         self.assertIn("UEFI", model.splash_text({"uefi": False}))
         self.assertEqual(model.splash_text({"uefi": True}), "")
         self.assertIn("not available", model.error_text("Failed", "internal error: FileNotFoundError"))
-
-    def test_software_rows(self):
-        self.assertEqual(model.software_rows("0.1.0", ""), [("Deck", "0.1.0")])
-        self.assertEqual(model.software_rows("0.1.0", "1")[1], ("foundationd", "1"))
 
     def test_ssh_needs_a_way_in(self):
         self.assertTrue(model.ssh_needs_a_way_in(False, False))
@@ -222,7 +219,7 @@ class Window(BootDaemon):
         values = {"identity.enabled": True, "identity.issuer": "https://id.example", "identity.client_id": "c"}
         page.got_settings(values)
         self.assertEqual((page.name.get_label(), page.sign_in_button.get_visible(), page.sign_out_button.get_visible()),
-                         ("Ersa ID", True, False))
+                         ("", True, False))      # no name while signed out
         identity.save_session({"issuer": "https://id.example", "client_id": "c", "token_endpoint": "https://id.example/t",
                                "access_token": "a", "refresh_token": None, "expires_at": 9e9,
                                "claims": {"sub": "u", "name": "Ada Lovelace", "email": "ada@example.org"}})
@@ -262,6 +259,29 @@ class Window(BootDaemon):
         by_label["Sign In"].emit("clicked")
         self.assertEqual(calls, ["decline", "accept"])
 
+    def test_the_identity_settings_are_not_listed_in_advanced(self):
+        self.assertTrue(model.setting_hidden("identity.issuer") and model.setting_hidden("identity.client_id"))
+        self.assertFalse(model.setting_hidden("ota.url"))
+
+    def test_every_page_but_the_overview_opens_with_the_same_header(self):
+        for name, title, _icon in model.PAGES:
+            page = self.window.pages[name]
+            if name == "overview":
+                self.assertIsNone(page.heading)               # the overview has its own hero (logo, version)
+                continue
+            self.assertEqual(page.heading.get_label(), title)
+            self.assertTrue(page.blurb.get_label(), name)
+        self.assertFalse(self.window.pages["remote"].actions.get_visible())      # no main action: no empty row
+        self.assertTrue(self.window.pages["updates"].actions.get_visible())
+
+    def test_the_overview_shows_neither_software_nor_project_nor_built_from(self):
+        page = self.show("overview")
+        self.pump(lambda: len(getattr(page.system, "_rows", [])) >= 2)
+        text = " ".join(row.get_title() for row in page.system._rows)
+        self.assertNotIn("Built from", text)
+        self.assertNotIn("Developer mode", text)
+        self.assertFalse(hasattr(page, "software"))
+
     def test_every_page_in_the_sidebar_exists_and_the_sidebar_is_grouped(self):
         for name, _title, _icon in model.PAGES:
             self.assertIn(name, self.window.pages)
@@ -283,10 +303,9 @@ class Window(BootDaemon):
         self.pump(lambda: page.status.get_label())
         self.assertEqual(page.status.get_label(), "Check to see whether an update is available.")
 
-    def test_overview_also_shows_the_system_and_the_software(self):
+    def test_overview_shows_the_system(self):
         page = self.window.pages["overview"]
-        self.pump(lambda: self.rows(page.software) and "Architecture" in [r.get_title() for r in self.rows(page.system)])
-        self.assertEqual([r.get_title() for r in self.rows(page.software)][0], "Deck")
+        self.pump(lambda: "Architecture" in [r.get_title() for r in self.rows(page.system)])
         self.assertIn("Architecture", [r.get_title() for r in self.rows(page.system)])
         self.assertNotIn("about", self.window.pages)
 
@@ -362,7 +381,7 @@ class Window(BootDaemon):
     def test_advanced_lists_the_settings_by_group(self):
         page = self.show("advanced")
         self.pump(lambda: len(getattr(page, "_rows", {})) >= 6)
-        self.assertEqual(sorted(page.groups), ["Applications", "Identity", "System", "Updates"])
+        self.assertEqual(sorted(page.groups), ["Applications", "System", "Updates"])
 
     def test_remote_and_repositories_and_activity_build(self):
         for name in ("remote", "repositories", "activity", "appearance", "packages"):

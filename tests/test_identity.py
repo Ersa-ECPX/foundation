@@ -208,6 +208,25 @@ class Offer(Flow):
         self.assertFalse(identity.offer_needed(self.provider, self.home))
 
 
+class Units(unittest.TestCase):
+    """The sign-in offer must never start without a screen: a display-less Deck process holds the application name and no later
+    launch of Deck can open a window (seen in the first booted image)."""
+    DIRECTORY = os.path.join(os.path.dirname(__file__), "..", "data", "systemd-user")
+
+    def read(self, name):
+        with open(os.path.join(self.DIRECTORY, name), encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_the_offer_waits_for_the_graphical_session_and_needs_a_display(self):
+        path, service = self.read("foundation-ersa-id-offer.path"), self.read("foundation-ersa-id-offer.service")
+        self.assertIn("WantedBy=graphical-session.target", path)
+        self.assertNotIn("WantedBy=default.target", path)
+        for text in (path, service):
+            self.assertIn("After=graphical-session.target", text)
+        self.assertIn("ConditionEnvironment=|WAYLAND_DISPLAY", service)
+        self.assertIn("ConditionEnvironment=|DISPLAY", service)
+
+
 class Commands(unittest.TestCase):
     """The commands with a stub for the service's configuration."""
 

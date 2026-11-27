@@ -233,11 +233,9 @@ def about_rows(info, status):
     os_info = info.get("os", {}) if info else {}
     rows = []
     for label, value in (("Name", os_info.get("name")), ("Version", os_info.get("image_version")),
-                         ("Built from", os_info.get("base")), ("Architecture", (info or {}).get("architecture"))):
+                         ("Architecture", (info or {}).get("architecture"))):
         if value:
             rows.append((label, str(value)))
-    if status and "developer" in status:
-        rows.append(("Developer mode", "On" if status["developer"] else "Off"))
     return rows
 
 
@@ -324,6 +322,14 @@ def key_form_problem(user, key):
 
 # -- advanced ------------------------------------------------------------------------------------
 
+# Settings Deck does not list: they are set by a preseed or the command line, never edited here (the account provider).
+HIDDEN_SETTING_PREFIXES = ("identity.",)
+
+
+def setting_hidden(key):
+    return key.startswith(HIDDEN_SETTING_PREFIXES)
+
+
 GROUP_TITLES = {"ota": "Updates", "system": "System", "apps": "Applications"}
 
 
@@ -402,14 +408,20 @@ def package_line(package):
     return f"{package.get('name', '')}", package.get("version", "")
 
 
-WEBSITE = "https://github.com/Ersa-ECPX"
-
-
-def software_rows(deck_version, foundation_version):
-    rows = [("Deck", deck_version)]
-    if foundation_version:
-        rows.append(("foundationd", foundation_version))
-    return rows
+# The line under each page's headline (Updates sets its own: it shows the update state).
+PAGE_BLURBS = {
+    "updates": "Check to see whether an update is available.",
+    "ersaid": "Your Ersa ID account on this computer.",
+    "bundles": "System-level software such as codecs and tools.",
+    "repositories": "Where the packages for bundles come from.",
+    "appsources": "Where applications come from.",
+    "packages": "Everything the system image contains.",
+    "slots": "The two system copies, so an update can fall back.",
+    "appearance": "How the computer starts up.",
+    "remote": "Sign in from another computer.",
+    "advanced": "Every setting, with what it does.",
+    "activity": "What the system did, and how it went.",
+}
 
 
 # -- application sources (Flatpak remotes) -------------------------------------------------------

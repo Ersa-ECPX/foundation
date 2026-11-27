@@ -1161,13 +1161,12 @@ def cmd_identity_status(client, args):
         return 0
     ui.title("Identity")
     if not provider["enabled"]:
-        ui.kv([("State", "off (identity.enabled is false)")])
+        ui.kv([("State", "off")])
     elif not provider["configured"]:
-        ui.kv([("State", ui.badge("warn", "no provider set up")), ("Set", "identity.issuer and identity.client_id")])
+        ui.kv([("State", ui.badge("warn", "no account provider is set up"))])
     else:
         who = claims.get("email") or claims.get("preferred_username") or claims.get("name") or claims.get("sub")
-        ui.kv([("Provider", provider["issuer"]), ("Client", provider["client_id"]),
-               ("Signed in", ui.badge("ok", who) if session and who else (ui.badge("ok", "yes") if session else "no"))])
+        ui.kv([("Signed in", ui.badge("ok", who) if session and who else (ui.badge("ok", "yes") if session else "no"))])
     print()
     return 0
 
