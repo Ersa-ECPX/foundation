@@ -643,4 +643,56 @@
       <arg name="job" type="o" direction="out"/>
     </method>
   </interface>
+  <interface name="org.ersa.Foundation1.Devices">
+    <!-- This computer's link to an Ersa ID account and its daily health check-in (docs/devices-and-telemetry.md). The computer holds a key
+         of its own and only the public half ever leaves; the check-in is signed with it, so reporting needs no account token. The address
+         of the account service is the setting devices.url, never an argument here. -->
+    <!-- The link, read only. Fields: linked (b), id (s, empty when not linked), url (s), enabled (b: the setting devices.enabled),
+         key_protection (s: "tpm" when the private key is sealed to this computer's TPM, "file" when it is a file only root can read,
+         empty before a key exists), last_attempt (x, epoch seconds, 0 before the first), last_error (s, empty when the last attempt
+         worked). No authorization. -->
+    <method name="Status">
+      <arg name="status" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Exactly what the next check-in would carry, read from this system now: schema, version, arch, slot, update_state, boot_ok,
+         encrypted, tpm (a fact that cannot be read is left out). No authorization. -->
+    <method name="Report">
+      <arg name="report" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Make this computer's key if it has none and return the public half: public_key (s, base64url). The person's client registers it
+         with the account service and passes the id it gets to CompleteLink. Requires org.ersa.foundation.devices. -->
+    <method name="PrepareLink">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Prove this computer holds its key to the account service that handed out `challenge` (expires.nonce.mac, url-safe characters
+         only; anything else is InvalidArgument, so this cannot be used to sign arbitrary data). Result: public_key (s) and signature
+         (s), base64url: the Ed25519 signature over "prism-device-link.<challenge>.<public_key>". Makes the key if there is none.
+         Requires org.ersa.foundation.devices. -->
+    <method name="SignLink">
+      <arg name="challenge" type="s" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Record the id the account service gave this computer's key (InvalidArgument if it is not an id, or devices.url is not https).
+         Requires org.ersa.foundation.devices. -->
+    <method name="CompleteLink">
+      <arg name="id" type="s" direction="in"/>
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Forget the link and the key, so a later link is a new device. The account service is not told: the person removes the device on
+         the website too. Result: was_linked (b). Requires org.ersa.foundation.devices. -->
+    <method name="Unlink">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <!-- Report now if this computer is linked, reporting is on (devices.enabled) and a day has passed since the last attempt. Result:
+         result (s): "sent", "off", "not linked" or "not due". Unavailable or Failed when the service cannot be reached or refuses; the
+         failure is recorded and not retried before the day is over. The request is sent by a child process that has dropped root. Called by the update-check unit, so it costs no wake-up of its own.
+         No authorization: it sends only the fields of Report to the address already linked. -->
+    <method name="CheckinIfDue">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <!-- As CheckinIfDue but without waiting for the day to pass. Requires org.ersa.foundation.devices. -->
+    <method name="CheckinNow">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+  </interface>
 </node>

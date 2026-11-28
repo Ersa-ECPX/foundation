@@ -119,7 +119,7 @@ class ManagerAndReadTests(BusCase):
         (status,) = self.call(MANAGER, "GetStatus")
         self.assertIs(status["provisioned"], False)
         self.assertIs(status["developer"], False)
-        self.assertEqual(status["capabilities"], ["apps", "boot", "compat", "config", "deploy", "extensions", "jobs", "remote", "repos", "updates"])
+        self.assertEqual(status["capabilities"], ["apps", "boot", "compat", "config", "deploy", "devices", "extensions", "jobs", "remote", "repos", "updates"])
 
     def test_get_default(self):
         self.assertEqual(self.call(CONFIG, "Get", "(s)", "ota.channel"), ("stable",))
@@ -128,7 +128,7 @@ class ManagerAndReadTests(BusCase):
     def test_list_contains_every_schema_key(self):
         (values,) = self.call(CONFIG, "List")
         self.assertEqual(sorted(values), [
-            "apps.default_apps", "identity.client_id", "identity.enabled", "identity.issuer", "identity.scopes",
+            "apps.default_apps", "devices.enabled", "devices.url", "identity.client_id", "identity.enabled", "identity.issuer", "identity.scopes",
             "ota.auto_check", "ota.auto_update", "ota.channel", "ota.url", "system.developer_mode"])
 
     def test_describe(self):

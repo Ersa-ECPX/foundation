@@ -52,5 +52,15 @@
     "type": "string",
     "default": "openid profile email offline_access",
     "description": "Scopes asked for at sign-in, separated by spaces."
+  },
+  "devices.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Report this computer's health to the Ersa ID account it is linked to (about once a day, with the update check). Nothing is sent until the person links the computer; foundation devices show lists exactly what is sent."
+  },
+  "devices.url": {
+    "type": "string",
+    "default": "https://id.ersa.dev",
+    "description": "The account service this computer links to and reports to. Changing it needs the config authorization; a linked computer keeps reporting to the address it linked with until it is unlinked."
   }
 }

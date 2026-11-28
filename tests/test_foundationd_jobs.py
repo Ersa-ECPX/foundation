@@ -168,6 +168,9 @@ class Locks(JobCase):
 
 
 class Queries(JobCase):
+    # The device key must not be sealed to this computer's real TPM by a test run.
+    extra_args = JobCase.extra_args + ("--tpm-class-path", "/nonexistent", "--tpmrm-path", "/nonexistent")
+
     def test_a_list_result_becomes_an_array_of_dictionaries(self):
         (slots,) = self.call(BOOT, "GetSlots")
         self.assertEqual(slots, [{"name": "a", "size": 5, "running": True, "tries_left": -1},
@@ -194,6 +197,34 @@ class Queries(JobCase):
         (info,) = self.call(MANAGER, "GetSystemInfo")
         self.assertIn("architecture", info)
         self.assertEqual(info["os"]["ecp"], False)
+
+
+    def test_devices_over_the_bus(self):
+        devices = NAME + ".Devices"
+        (status,) = self.call(devices, "Status")
+        self.assertEqual((status["linked"], status["enabled"], status["url"]), (False, True, "https://id.ersa.dev"))
+        self.assertEqual(self.call(devices, "CheckinIfDue")[0]["result"], "not linked")
+        (report,) = self.call(devices, "Report")
+        self.assertEqual(report["schema"], 1)
+        (made,) = self.call(devices, "PrepareLink")
+        self.assertEqual(len(made["public_key"]), 43)
+        (proof,) = self.call(devices, "SignLink", "(s)", "1900000000.AbC-123_xyz.mac-value_01")
+        self.assertEqual(proof["public_key"], made["public_key"])
+        self.assertEqual(len(proof["signature"]), 86)
+        self.assertEqual(self.error_of(devices, "SignLink", "(s)", "sign this instead"), ERR + "InvalidArgument")
+        self.assertEqual(self.call(devices, "Status")[0]["key_protection"], "file")
+        self.call(devices, "CompleteLink", "(s)", "dev1")
+        (status,) = self.call(devices, "Status")
+        self.assertEqual((status["linked"], status["id"]), (True, "dev1"))
+        self.assertEqual(self.error_of(devices, "CompleteLink", "(s)", "a/b"), "org.ersa.Foundation1.Error.InvalidArgument")
+        self.assertIs(self.call(devices, "Unlink")[0]["was_linked"], True)
+        self.set_value("devices.enabled", "b", False)
+        self.assertEqual(self.call(devices, "CheckinIfDue")[0]["result"], "off")
+
+    def test_the_encryption_status_is_answered_by_a_worker(self):
+        (status,) = self.call(MANAGER, "GetEncryptionStatus")
+        self.assertIn("encrypted", status)
+        self.assertNotIn("key", " ".join(status))                       # facts and counts only, never key material
 
 
 class Validation(JobCase):

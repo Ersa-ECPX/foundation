@@ -6,6 +6,9 @@ It is a client of foundationd like any other: Updates.Check asks the update sour
 update window and the desktop notification read; only if ota.auto_update is on does it start Updates.InstallLatest, which downloads the
 newest update, checks its signature and writes it into the spare slot. The new system starts at the next restart; nothing is restarted
 here. A failure is logged and tried again at the next run, so the service itself does not fail.
+
+It also asks Devices.CheckinIfDue to report this computer's health to its Ersa ID account (linked computers only, about once a day):
+that rides on this run and needs no timer of its own.
 """
 import sys
 import time
@@ -19,6 +22,7 @@ NAME = "org.ersa.Foundation1"
 PATH = "/org/ersa/Foundation1"
 CONFIG = NAME + ".Config"
 UPDATES = NAME + ".Updates"
+DEVICES = NAME + ".Devices"
 JOB = NAME + ".Job"
 LIMIT = 3 * 3600          # a download and install should not take longer than this
 
@@ -29,10 +33,23 @@ def call(bus, interface, method, signature=None, args=(), path=PATH, timeout=120
     return reply.unpack() if reply is not None else ()
 
 
+def report_health(bus):
+    """Tell the account this computer is linked to that it is well, if it is linked and a day has passed. It rides on this run (the
+    network is up, the computer already awake), so it costs no wake-up of its own, and it does not depend on the update settings."""
+    try:
+        result = call(bus, DEVICES, "CheckinIfDue")[0].get("result", "")
+    except GLib.Error as error:
+        print(f"cannot report to the account: {error.message}")
+        return
+    if result == "sent":
+        print("reported this computer's health to the account it is linked to")
+
+
 def main(argv):
     bus_type = Gio.BusType.SESSION if argv[1:] == ["--bus", "session"] else Gio.BusType.SYSTEM     # the session bus is for tests
     try:
         bus = Gio.bus_get_sync(bus_type, None)
+        report_health(bus)
         if not call(bus, CONFIG, "Get", "(s)", ("ota.auto_check",))[0]:
             print("automatic checks are off (ota.auto_check)")
             return 0
