@@ -8,9 +8,11 @@ job the service starts and report how it ended. Everything that prints data also
 import argparse
 import json
 import os
+import socket
 import sys
+import time
 
-from . import __version__, fetch, identity, recovery, ui
+from . import __version__, devices, fetch, identity, recovery, ui
 from .client import Client, ClientError
 
 PRODUCT = "Ersa Compute Platform"
@@ -1195,6 +1197,84 @@ def ext_operation(method, question):
     return command
 
 
+# ----------------------------------------------------------------------------- devices
+
+def _when(epoch):
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(epoch)) if epoch else "never"
+
+
+def cmd_devices_status(client, args):
+    status = client.one("Devices", "Status")
+    if args.json:
+        emit_json(status)
+        return 0
+    ui.title("Devices")
+    protection = {"tpm": "sealed to this computer's TPM", "file": "a file only root can read", "": "no key yet"}[status["key_protection"]]
+    ui.kv([("Linked", ui.badge("ok", "yes") if status["linked"] else "no"),
+           ("Device id", status["id"] or None), ("Account service", status["url"]),
+           ("Reporting", "on" if status["enabled"] else ui.badge("warn", "off (devices.enabled)")),
+           ("Device key", protection),
+           ("Last report", _when(status["last_attempt"]) if status["last_attempt"] else None),
+           ("Last problem", ui.badge("warn", status["last_error"]) if status["last_error"] else None)])
+    if not status["linked"]:
+        ui.note("Link this computer to your Ersa ID account with: foundation devices link")
+    print()
+    return 0
+
+
+def cmd_devices_show(client, args):
+    report = client.one("Devices", "Report")
+    if args.json:
+        emit_json(report)
+        return 0
+    ui.title("What a report contains")
+    ui.kv([(key, str(value).lower() if isinstance(value, bool) else value) for key, value in report.items()])
+    ui.note("This is everything a report carries: no file names, application lists, host names, serial numbers or keys.")
+    print()
+    return 0
+
+
+def cmd_devices_link(client, args):
+    status = client.one("Devices", "Status")
+    if status["linked"]:
+        raise UserError("This computer is already linked. Unlink it first: foundation devices unlink")
+    provider = _provider(client)
+    _identity_ready(provider)
+    name = (args.name or socket.gethostname() or "This computer").strip()[:64]
+    try:
+        device_id = devices.link(client, provider, status["url"], name)
+    except devices.DevicesError as error:
+        raise UserError(str(error))
+    if args.json:
+        emit_json({"linked": True, "id": device_id, "name": name})
+    else:
+        print(ui.badge("ok", f"Linked as \"{name}\"."))
+        ui.note("It reports its health about once a day. See exactly what with: foundation devices show")
+    return 0
+
+
+def cmd_devices_unlink(client, args):
+    if not sure(args, "Unlink this computer and forget its device key?"):
+        return 1
+    was = client.one("Devices", "Unlink")["was_linked"]
+    if args.json:
+        emit_json({"was_linked": was})
+    else:
+        print("Unlinked." if was else "This computer was not linked.")
+        if was:
+            ui.note("The account still lists the computer until you remove it on the website.")
+    return 0
+
+
+def cmd_devices_checkin(client, args):
+    result = client.one("Devices", "CheckinNow")["result"]
+    if args.json:
+        emit_json({"result": result})
+    else:
+        print({"sent": "Reported.", "off": "Reporting is off (devices.enabled).", "not linked": "This computer is not linked."}.get(result, result))
+    return 0 if result == "sent" else 1
+
+
 # ----------------------------------------------------------------------------- settings
 
 def _provider(client):
@@ -1594,6 +1674,14 @@ def build_parser():
     add(ident, "check", cmd_identity_check, "check that the provider offers what this computer needs")
     add(ident, "login", cmd_identity_login, "sign in: approve a code on any device")
     add(ident, "logout", cmd_identity_logout, "sign out and revoke the session")
+
+    _, dev = group("devices", "link this computer to your Ersa ID account")
+    add(dev, "status", cmd_devices_status, "show whether this computer is linked, and how its key is kept")
+    add(dev, "show", cmd_devices_show, "show exactly what a report contains")
+    linker = add(dev, "link", cmd_devices_link, "link this computer: sign in and approve a code on any device")
+    linker.add_argument("--name", help="how the computer is listed on your account (default: its host name)")
+    add(dev, "unlink", cmd_devices_unlink, "unlink this computer and forget its key", yes=True)
+    add(dev, "checkin", cmd_devices_checkin, "report now instead of waiting for the daily check")
 
     _, job = group("job", "follow operations started earlier")
     add(job, "list", cmd_job_list, "list running and recent jobs")

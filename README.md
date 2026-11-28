@@ -78,6 +78,7 @@ foundation apps list|search|info|install|remove|update|setup
 foundation compat inspect|install|remove|list|revalidate
 foundation ext list|merge|unmerge|refresh [--kind sysext|confext]
 foundation config list|get|describe|set|reset
+foundation devices status|show|link|unlink|checkin   link this computer to an Ersa ID account (docs/devices-and-telemetry.md)
 foundation job list|show|cancel|logs
 foundation base [FILTER]                  packages in the read-only base image
 ```
