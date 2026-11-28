@@ -2,6 +2,7 @@
 
 import os
 import re
+import time
 from foundation.i18n import Domain
 
 _ = Domain("ersa-deck")
@@ -110,6 +111,7 @@ SECTIONS = (
                   ("appsources", _("Application Sources"), "system-software-install-symbolic"),
                   ("packages", _("Base Packages"), "package-symbolic"))),
     (_("System"), (("slots", _("Boot Slots"), "drive-harddisk-symbolic"),
+                ("encryption", _("Encryption"), "channel-secure-symbolic"),
                 ("appearance", _("Appearance"), "applications-graphics-symbolic"),
                 ("remote", _("Remote Access"), "network-wired-symbolic"),
                 ("advanced", _("Advanced"), "preferences-other-symbolic"))),
@@ -120,6 +122,7 @@ SEARCH_TERMS = {
     "bundles": "bundles extensions sysext rpm codecs software add install", "repositories": "repositories sources packman signing key find package search",
     "appsources": "application sources flatpak remotes flathub apps store add signed key",
     "packages": "base packages rpm list installed", "slots": "boot slots rollback restart start a b default",
+    "encryption": "encryption encrypted disk luks tpm recovery key passphrase unlock secure protect data",
     "appearance": "boot splash light dark theme", "remote": "remote ssh login keys password network",
     "ersaid": "ersa id account sign in sign out profile name email photo picture login identity oidc",
     "advanced": "advanced settings config developer channel url", "activity": "activity history jobs log tasks",
@@ -203,6 +206,69 @@ def update_status(available, pending):
         size = size_text(available.get("size", 0))
         return "available", _("Version {version} is available").format(version=available["version"]) + (f" ({size})" if size else "")
     return "", _("Check to see whether an update is available.")
+
+
+def installing_title(version=""):
+    """The line under the Updates headline while an update is being installed."""
+    return _("Installing version {version}").format(version=version) if version else _("Installing the update")
+
+
+def percent_text(fraction):
+    """\"42%\" for a fraction of 0 to 1; empty while the progress is not known yet (a negative fraction)."""
+    return "" if fraction is None or fraction < 0 else f"{int(max(0.0, min(1.0, fraction)) * 100)}%"
+
+
+INSTALL_KINDS = ("updates.install", "updates.install_latest")
+
+
+def seen_text(epoch, now):
+    """\"just now\", \"5 min ago\", \"3 h ago\" or a date, for when a computer last reported."""
+    if not epoch:
+        return _("never reported")
+    seconds = max(0, int(now - epoch))
+    if seconds < 90:
+        return _("just now")
+    if seconds < 3600:
+        return _("{n} min ago").format(n=seconds // 60)
+    if seconds < 86400:
+        return _("{n} h ago").format(n=seconds // 3600)
+    return time.strftime("%Y-%m-%d", time.localtime(epoch))
+
+
+def device_rows(devices, this_id, now):
+    """The \"Your devices\" list: this computer first, then the others by when they last reported. Each is a dict with title, subtitle
+    and `this` (whether it is this computer)."""
+    rows = []
+    for device in devices:
+        report = device.get("report") or {}
+        parts = []
+        if report.get("version"):
+            parts.append(_("Version {version}").format(version=report["version"]))
+        if report.get("boot_ok") is False:
+            parts.append(_("Needed a fallback"))
+        elif report.get("update_state") == "failed":
+            parts.append(_("Update failed"))
+        parts.append(seen_text(device.get("last_seen_at"), now))
+        rows.append({"id": device["id"], "title": device["name"], "subtitle": " \u00b7 ".join(parts), "this": device["id"] == this_id,
+                     "seen": device.get("last_seen_at") or 0})
+    rows.sort(key=lambda r: (not r["this"], -r["seen"]))
+    return rows
+
+
+def device_view(status, signed_in):
+    """The \"This computer\" rows on the Ersa ID page, from Devices.Status. `action` is what the button does (link, unlink or none)."""
+    kept = {"tpm": _("The device key is sealed to this computer's security chip."),
+            "file": _("The device key is kept in a file only the system can read."), "": ""}.get(status.get("key_protection", ""), "")
+    if status.get("linked"):
+        off = "" if status.get("enabled", True) else _("Reporting is turned off.")
+        problem = status.get("last_error", "")
+        return {"state": "linked", "title": _("Linked to your account"), "action": "unlink", "problem": problem,
+                "subtitle": " ".join(part for part in (off, kept) if part), "last_attempt": status.get("last_attempt", 0)}
+    if signed_in:
+        return {"state": "unlinked", "title": _("Not linked"), "action": "link", "problem": "", "last_attempt": 0,
+                "subtitle": _("Link this computer so it shows in your Ersa ID account.")}
+    return {"state": "signedout", "title": _("Not linked"), "action": None, "problem": "", "last_attempt": 0,
+            "subtitle": _("Sign in to link this computer to your account.")}
 
 
 def job_error(job_name, message):
@@ -411,6 +477,43 @@ def package_line(package):
     return f"{package.get('name', '')}", package.get("version", "")
 
 
+def encryption_view(status):
+    """What the Encryption page shows, from Manager.GetEncryptionStatus: {"good": bool, "headline", "detail", "rows": [(title, subtitle)]}.
+    The recovery key the installer makes is a password slot with no token, so with one password slot and no recovery token that slot is
+    taken to be the recovery key, and a passphrase exists only when there is another."""
+    if not status.get("encrypted"):
+        return {"good": False, "headline": _("Your files are not encrypted"),
+                "detail": _("Anyone who has this computer's disk can read what is on it. Encryption is chosen when Ersa Compute Platform is "
+                            "installed."), "rows": []}
+    tpm = status.get("tpm_slots", 0) > 0
+    recovery = status.get("recovery_slots", 0) > 0
+    passwords = status.get("password_slots", 0)
+    key = recovery or passwords > 0
+    passphrase = passwords - (0 if recovery else 1) > 0
+    if tpm:
+        detail = _("This computer unlocks them by itself when it starts. Another computer, or a system nobody signed, cannot.")
+    elif passphrase:
+        detail = _("You enter your passphrase, or the recovery key, when the computer starts.")
+    else:
+        detail = _("You enter the recovery key when the computer starts.")
+    rows = [
+        (_("Unlock with this computer"),
+         _("On. The computer's security chip (TPM) releases the key, but only to a system signed by Ersa.") if tpm else
+         _("Off. This computer's security chip is not used.") if status.get("tpm_present") else
+         _("Off. This computer has no usable security chip (TPM).")),
+        (_("Recovery key"),
+         _("Set. Keep your written copy somewhere safe, away from this computer.") if key else
+         _("None. If this computer cannot unlock the files by itself, they cannot be opened.")),
+        (_("Passphrase"), _("Set.") if passphrase else _("None.")),
+    ]
+    if status.get("fido2_slots"):
+        rows.append((_("Security key"), _.ngettext("{count} security key can unlock the files.", "{count} security keys can unlock the files.",
+                                                   status["fido2_slots"]).format(count=status["fido2_slots"])))
+    if status.get("cipher"):
+        rows.append((_("Encryption"), _("LUKS2, {cipher}").format(cipher=status["cipher"])))
+    return {"good": key, "headline": _("Your files are encrypted"), "detail": detail, "rows": rows}
+
+
 # The line under each page's headline (Updates sets its own: it shows the update state).
 PAGE_BLURBS = {
     "updates": _("Check to see whether an update is available."),
@@ -420,6 +523,7 @@ PAGE_BLURBS = {
     "appsources": _("Where applications come from."),
     "packages": _("Everything the system image contains."),
     "slots": _("The two system copies, so an update can fall back."),
+    "encryption": _("Whether your files are protected if someone takes the disk."),
     "appearance": _("How the computer starts up."),
     "remote": _("Sign in from another computer."),
     "advanced": _("Every setting, with what it does."),

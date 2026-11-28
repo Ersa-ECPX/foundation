@@ -8,6 +8,7 @@ import threading
 import time
 import unittest
 import urllib.parse
+import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import os as _os, sys as _sys  # noqa: E401
@@ -43,7 +44,7 @@ class Provider(BaseHTTPRequestHandler):
             return self.reply({}, 404)
         meta = {"issuer": self.state.get("issuer", base), "token_endpoint": base + "/token",
                 "device_authorization_endpoint": base + "/device", "revocation_endpoint": base + "/revoke",
-                "scopes_supported": ["openid", "profile", "email", "offline_access"], "grant_types_supported": ["refresh_token"]}
+                "scopes_supported": ["openid", "profile", "email", "offline_access", "devices:read", "devices:write"], "grant_types_supported": ["refresh_token"]}
         meta.update(self.state.get("meta", {}))
         self.reply({k: v for k, v in meta.items() if v is not None})
 
@@ -183,6 +184,34 @@ class Profile(Flow):
             {"sub": "u-1", "name": "Ada Lovelace", "picture": "https://img.example/a.png", "groups": ["not kept"]}))
         self.assertEqual((claims["name"], claims["picture"], "groups" in claims), ("Ada Lovelace", "https://img.example/a.png", False))
         self.assertEqual(identity.load_session(self.issuer, self.home)["claims"]["name"], "Ada Lovelace")
+
+    def test_signing_out_while_the_profile_is_being_fetched_is_not_undone(self):
+        """The answer arrives after sign-out: it must not write the old session back (that signed the person in again)."""
+        session = self.login()
+        session["userinfo_endpoint"] = self.issuer + "/userinfo"
+        identity.save_session(session, self.home)
+
+        def opener(request, timeout):
+            identity.logout(self.provider, self.home)                        # the person signs out while the request is in flight
+            return __import__("io").BytesIO(json.dumps({"sub": "u-1", "name": "Ada"}).encode())
+        self.assertIsNone(identity.refresh_profile(self.provider, self.home, opener=opener))
+        self.assertIsNone(identity.load_session(self.issuer, self.home))
+
+    def test_signing_out_while_the_token_is_being_refreshed_is_not_undone(self):
+        self.login()
+
+        def opener(request, timeout):
+            identity.logout(self.provider, self.home)
+            return urllib.request.urlopen(request, timeout=timeout)
+        self.assertIsNone(identity.access_token(self.provider, self.home, now=lambda: time.time() + 400, opener=opener))
+        self.assertIsNone(identity.load_session(self.issuer, self.home))
+
+    def test_the_default_sign_in_asks_for_the_devices_permission(self):
+        self.assertIn("devices:write", identity.settings_from({})["scopes"])
+        self.assertTrue(identity.session_has_scope({"scope": "openid devices:write"}, "devices:write"))
+        self.assertTrue(identity.session_has_scope({"scope": "openid,devices:write"}, "devices:write"))
+        self.assertFalse(identity.session_has_scope({"scope": "openid profile"}, "devices:write"))
+        self.assertFalse(identity.session_has_scope(None, "devices:write"))
 
     def test_picture_is_fetched_over_https_and_limited_in_size(self):
         import io

@@ -5,6 +5,7 @@ to its end), win.confirm, win.toast and win.open_fd (a descriptor for a file the
 """
 
 import os
+import socket
 import threading
 import time
 
@@ -179,7 +180,19 @@ class Updates(Page):
         self.restart_button.set_visible(False)
         for button in (self.check_button, self.install_button, self.restart_button):
             self.add_action(button)
+        # While an update installs this is all the page shows: the real progress, and the step it is on.
+        self.installing, self._pulse = False, 0
+        self.progress_bar = Gtk.ProgressBar(hexpand=True, css_classes=["update-progress"])
+        self.progress_percent = Gtk.Label(label="", css_classes=["title-3"], halign=Gtk.Align.CENTER)
+        self.progress_step = Gtk.Label(label="", css_classes=["dim-label"], wrap=True, justify=Gtk.Justification.CENTER)
+        self.progress_note = Gtk.Label(label=_("Nothing restarts the computer by itself."), css_classes=["dim-label", "caption"],
+                                       halign=Gtk.Align.CENTER)
+        self.progress = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, visible=False, margin_top=8)
+        for widget in (self.progress_percent, self.progress_bar, self.progress_step, self.progress_note):
+            self.progress.append(widget)
+        self.add(self.progress)
         auto = self.group(_("Automatic updates"), _("Nothing restarts the computer by itself."))
+        self.auto_group = auto
         self.switches = {}
         for key, title in (("ota.auto_check", _("Check automatically")), ("ota.auto_update", _("Install automatically"))):
             row = Adw.SwitchRow(title=title)
@@ -192,6 +205,7 @@ class Updates(Page):
         self.developer_group.add(self.unsigned_row)
         self.developer_group.set_visible(False)
         local = self.group(_("Install from a file"), _("For an update you built or were given. It is checked against the trusted keys."))
+        self.local_group = local
         row = Adw.ActionRow(title=_("Update file"), subtitle=_("A .tar.zst archive"))
         row.add_suffix(text_button(_("Choose…"), self.choose_file))
         local.add(row)
@@ -218,7 +232,7 @@ class Updates(Page):
             self.load_switch(key, row)
 
         def developer(value):
-            self.developer_group.set_visible(bool(value))
+            self.developer_group.set_visible(bool(value) and not self.installing)
             if not value:
                 self.unsigned_row.set_active(False)
         self.ask("Config", "Get", "(s)", ("system.developer_mode",), developer, lambda _e: None)
@@ -232,8 +246,11 @@ class Updates(Page):
             self.show()
         self.ask("Updates", "Pending", None, None, pending)
         self.ask("Updates", "Available", None, None, available)
+        self.adopt_running_install()
 
     def show(self):
+        if self.installing:                      # the install view owns the page until the job ends
+            return
         style, text = model.update_status(self.available, self.pending)
         self.status.remove_css_class("available")
         if style:
@@ -241,6 +258,73 @@ class Updates(Page):
         self.status.set_label(text)
         self.install_button.set_visible(bool(self.available.get("available")) and not self.pending)
         self.restart_button.set_visible(bool(self.pending))
+
+    # -- the install view --------------------------------------------------------------------
+
+    def begin_install(self):
+        """Hide everything but the progress, and show it. Called when an install starts here or is found already running."""
+        if self.installing:
+            return
+        self.installing = True
+        self.error.set_revealed(False)
+        self.actions.set_visible(False)
+        for group in (self.auto_group, self.developer_group, self.local_group):
+            group.set_visible(False)
+        self.status.remove_css_class("available")
+        self.status.set_label(model.installing_title(self.available.get("version", "") if self.available.get("available") else ""))
+        self.progress_bar.set_fraction(0.0)
+        self.progress_percent.set_label("")
+        self.progress_step.set_label(_("Starting…"))
+        self.progress.set_visible(True)
+        self._pulse = GLib.timeout_add(150, self._pulse_tick)
+
+    def _pulse_tick(self):
+        if not self.installing:
+            return False
+        if self._fraction < 0:
+            self.progress_bar.pulse()
+        return True
+
+    _fraction = -1.0
+
+    def job_event(self, kind, *args):
+        """The job's step and progress, as the daemon reports them (the fraction covers the whole install, download included)."""
+        if kind == "step":
+            self.progress_step.set_label(args[1])
+        elif kind == "progress":
+            self._fraction = args[0]
+            self.progress_bar.set_fraction(max(0.0, min(1.0, args[0])))
+            self.progress_percent.set_label(model.percent_text(args[0]))
+
+    def job_finished(self, problem):
+        """The install ended: bring the page back. A problem is shown on the page; a success is shown by the reloaded state."""
+        self.installing = False
+        self._fraction = -1.0
+        self.progress.set_visible(False)
+        self.actions.set_visible(True)
+        for group in (self.auto_group, self.local_group):
+            group.set_visible(True)
+        if problem:
+            self.error.set_title(problem)
+            self.error.set_revealed(True)
+        # the developer group follows the setting, and the buttons follow what is available: load() sets both again
+
+    def adopt_running_install(self):
+        """An update that is already installing (the automatic one, or started elsewhere) shows here too."""
+        if self.installing:
+            return
+
+        def listed(paths):
+            for path in paths or []:
+                self.win.backend.properties(path, lambda props, error, p=path: props and self.adopt(p, props))
+        self.ask("Manager", "ListJobs", None, None, listed, lambda _e: None)
+
+    def adopt(self, path, props):
+        if self.installing or props.get("State") != "running" or props.get("Kind") not in model.INSTALL_KINDS:
+            return
+        self.begin_install()
+        self.win.run_job(lambda callback: callback(path, None), lambda r: self.win.toast(
+            _("Version {version} is ready. Restart to use it.").format(version=r.get("version", ""))), _("Installing the update…"), watch=self)
 
     def check(self):
         self.check_button.set_sensitive(False)
@@ -261,9 +345,10 @@ class Updates(Page):
 
     def install(self):
         method = "InstallLatestUnsigned" if self.unsigned_row.get_active() else "InstallLatest"
+        self.begin_install()
         self.win.run_job(self.win.job_call("Updates", method, None, None),
                          lambda r: self.win.toast(_("Version {version} is ready. Restart to use it.").format(version=r.get("version", ""))),
-                         _("Installing the update…"))
+                         _("Installing the update…"), watch=self)
 
     def choose_file(self):
         def chosen(path):
@@ -284,9 +369,10 @@ class Updates(Page):
         if opened is None:
             return
         fds, index = opened
+        self.begin_install()
         self.win.run_job(self.win.job_call("Updates", "Install", "(hsbb)", (index, "", unsigned, False), fds=fds),
                          lambda r: self.win.toast(_("Version {version} is ready. Restart to use it.").format(version=r.get("version", ""))),
-                         _("Installing the update…"))
+                         _("Installing the update…"), watch=self)
 
 
 # -- Bundles and extensions ----------------------------------------------------------------------
@@ -657,6 +743,29 @@ class Slots(Page):
                                                   None, _("Emptying the slot…")), True)
 
 
+# -- Encryption ----------------------------------------------------------------------------------
+
+class Encryption(Page):
+    def __init__(self, win):
+        super().__init__(win)
+        self.summary = self.group()
+        self.keys = self.group(_("Ways to unlock"))
+
+    def load(self):
+        self.ask("Manager", "GetEncryptionStatus", None, None, self.show)
+
+    def show(self, status):
+        view = model.encryption_view(status)
+        clear(self.summary)
+        row = Adw.ActionRow(title=view["headline"], subtitle=view["detail"])
+        row.add_prefix(icons.image("emblem-ok-symbolic" if view["good"] and status.get("encrypted") else "dialog-warning-symbolic"))
+        add_row(self.summary, row)
+        clear(self.keys)
+        self.keys.set_visible(bool(view["rows"]))
+        for title, subtitle in view["rows"]:
+            add_row(self.keys, Adw.ActionRow(title=title, subtitle=subtitle))
+
+
 # -- Appearance ----------------------------------------------------------------------------------
 
 class Appearance(Page):
@@ -878,6 +987,11 @@ class Activity(Page):
 
 # -- Ersa ID -------------------------------------------------------------------------------------
 
+def view_state_hidden(settings):
+    """No device row when there is no account provider to link to (nothing set up, or switched off)."""
+    return not (settings.get("configured") and settings.get("enabled"))
+
+
 class ErsaId(Page):
     """The person's identity at the provider named in the settings: profile (photo, name, email), sign in and sign out. The sign-in is
     the device flow (a code to approve on any device), run in a thread so the window stays alive. Devices are not shown: there is no
@@ -886,6 +1000,7 @@ class ErsaId(Page):
     def __init__(self, win):
         super().__init__(win)
         self.settings, self.cancelled, self.signing_in, self.pictures = identity.settings_from({}), False, False, {}
+        self.epoch = 0                       # bumped by every sign-in and sign-out, so a slower answer from before it is ignored
         hero = hero_box()
         self.avatar = Adw.Avatar(size=96, show_initials=True, halign=Gtk.Align.CENTER)
         self.name = Gtk.Label(label="", css_classes=["title-1"], halign=Gtk.Align.CENTER, wrap=True)
@@ -906,6 +1021,15 @@ class ErsaId(Page):
         for button in (self.sign_in_button, self.open_button, self.cancel_button, self.sign_out_button):
             buttons.append(button)
         self.add(buttons)
+        self.device_group = self.group(_("This computer"), _("Linked computers show in your Ersa ID account, with their version and whether the last update worked."))
+        self.device_row = Adw.ActionRow(title="")
+        self.device_button = text_button("", lambda: self.device_action(), "pill")
+        self.device_row.add_suffix(self.device_button)
+        self.device_group.add(self.device_row)
+        self.device_group.set_visible(False)
+        self.devices_group = self.group(_("Your devices"), _("Computers linked to your Ersa ID account."))
+        self.devices_group.set_visible(False)
+        self.device_status, self.device_do, self.linking = {}, None, False
         self.verification = ""
         self.render({"state": "out", "name": "", "email": "", "initials": "", "provider": ""})
 
@@ -915,14 +1039,135 @@ class ErsaId(Page):
         self.ask("Config", "List", None, None, self.got_settings)
 
     def got_settings(self, values):
+        if self.signing_in:                  # an answer to a request made before the sign-in began
+            return
         self.settings = identity.settings_from(values or {})
         session = identity.load_session(self.settings["issuer"]) if self.settings["configured"] and self.settings["enabled"] else None
         view = model.identity_view(self.settings, session)
         self.render(view)
         if view["state"] == "in":
-            threading.Thread(target=self.fetch_profile, args=(dict(self.settings),), daemon=True).start()
+            threading.Thread(target=self.fetch_profile, args=(dict(self.settings), self.epoch), daemon=True).start()
+        self.load_device(view["state"] == "in")
 
-    def fetch_profile(self, settings):
+    # -- this computer -------------------------------------------------------------------------
+
+    def load_device(self, signed_in):
+        if view_state_hidden(self.settings):
+            self.device_group.set_visible(False)
+            return
+        self.ask("Devices", "Status", None, None, lambda status: self.show_device(status, signed_in),
+                 lambda _e: self.device_group.set_visible(False))          # a foundationd without Devices: nothing to show
+
+    def show_device(self, status, signed_in):
+        self.device_status = status
+        view = model.device_view(status, signed_in)
+        subtitle = view["subtitle"]
+        if view["problem"]:
+            subtitle = (subtitle + " " if subtitle else "") + view["problem"]
+        self.device_row.set_title(view["title"])
+        self.device_row.set_subtitle(subtitle)
+        self.device_do = view["action"]
+        self.device_button.set_visible(view["action"] is not None and not self.linking)
+        self.device_button.set_label({"link": _("Link this computer"), "unlink": _("Unlink"), None: ""}[view["action"]])
+        self.device_group.set_visible(True)
+        if signed_in and status.get("url"):
+            self.load_devices(status["url"], status.get("id", ""))
+        else:
+            self.devices_group.set_visible(False)
+
+    def load_devices(self, url, this_id):
+        threading.Thread(target=self.fetch_devices, args=(dict(self.settings), url, this_id, self.epoch), daemon=True).start()
+
+    def fetch_devices(self, settings, url, this_id, epoch):
+        """In a thread: the account's computers, from the account service, with the stored sign-in."""
+        from foundation import devices
+        try:
+            found, problem = devices.list_devices(settings, url), ""
+        except devices.DevicesError as error:
+            found, problem = None, str(error)
+        GLib.idle_add(self.show_devices, found, problem, this_id, epoch)
+
+    def show_devices(self, found, problem, this_id, epoch):
+        if epoch != self.epoch or self.signing_in:           # the person signed out or in again meanwhile
+            return False
+        clear(self.devices_group)
+        self.devices_group.set_visible(True)
+        if found is None:
+            self.empty(self.devices_group, problem or _("Your devices could not be listed."))
+        elif not found:
+            self.empty(self.devices_group, _("No computers are linked yet."))
+        for entry in model.device_rows(found or [], this_id, time.time()):
+            row = Adw.ActionRow(title=entry["title"], subtitle=entry["subtitle"], activatable=False)
+            row.add_prefix(icons.image("computer-symbolic"))
+            if entry["this"]:
+                row.add_suffix(Gtk.Label(label=_("This computer"), css_classes=["dim-label", "caption"], valign=Gtk.Align.CENTER))
+            add_row(self.devices_group, row)
+        return False
+
+    def device_action(self):
+        if self.device_do == "link":
+            self.link_device()
+        elif self.device_do == "unlink":
+            self.win.confirm(_("Unlink this computer?"), _("It is removed from your Ersa ID account, stops reporting, and its device key is forgotten."),
+                             _("Unlink"), self.unlink_device)
+
+    def unlink_device(self, local_only=False):
+        self.linking = True
+        self.device_button.set_visible(False)
+        self.device_row.set_subtitle(_("Unlinking…"))
+        threading.Thread(target=self.run_unlink, args=(dict(self.settings), local_only), daemon=True).start()
+
+    def run_unlink(self, settings, local_only):
+        """In a thread: remove the computer from the account with the stored sign-in, then forget it here."""
+        from foundation import devices
+        from foundation.client import Client, ClientError
+        try:
+            client = Client(self.win.get_application().bus)
+            devices.unlink_here(client) if local_only else devices.unlink(client, settings)
+            GLib.idle_add(self.unlink_done, "", False)
+        except devices.DevicesError as error:
+            GLib.idle_add(self.unlink_done, str(error), True)
+        except ClientError as error:
+            GLib.idle_add(self.unlink_done, error.message, False)
+
+    def unlink_done(self, problem, can_force):
+        self.linking = False
+        if problem and can_force:             # the account could not be told: offer to forget it here only
+            self.win.confirm(_("Could not remove it from your account"), problem + " " + _("Unlink on this computer only? The account keeps listing it until you remove it on the website."),
+                             _("Unlink Here"), lambda: self.unlink_device(True))
+        elif problem:
+            self.error.set_title(problem)
+            self.error.set_revealed(True)
+        else:
+            self.win.toast(_("This computer was unlinked."))
+        self.reload()
+        return False
+
+    def link_device(self):
+        self.linking = True
+        self.device_button.set_visible(False)
+        self.device_row.set_subtitle(_("Linking…"))
+        threading.Thread(target=self.run_link, args=(dict(self.settings), self.device_status.get("url", "")), daemon=True).start()
+
+    def run_link(self, settings, url):
+        """In a thread: the same linking as `foundation devices link`, with the sign-in already stored on this computer."""
+        from foundation import devices
+        from foundation.client import Client, ClientError
+        try:
+            devices.link_with_session(Client(self.win.get_application().bus), settings, url, socket.gethostname() or "This computer")
+            GLib.idle_add(self.link_done, "")
+        except (devices.DevicesError, ClientError) as error:
+            GLib.idle_add(self.link_done, getattr(error, "message", None) or str(error))
+
+    def link_done(self, problem):
+        self.linking = False
+        if problem:
+            self.error.set_title(problem)
+            self.error.set_revealed(True)
+        self.reload()
+        return False
+
+    def fetch_profile(self, settings, epoch):
         """In a thread: the current profile, then the photo."""
         identity.refresh_profile(settings)
         session = identity.load_session(settings["issuer"])
@@ -930,13 +1175,16 @@ class ErsaId(Page):
         picture = view.get("picture", "")
         if picture and picture not in self.pictures:
             self.pictures[picture] = identity.fetch_picture(picture)
-        GLib.idle_add(self.show_profile, view)
+        GLib.idle_add(self.show_profile, view, epoch)
 
-    def show_profile(self, view):
-        self.render(view)
+    def show_profile(self, view, epoch):
+        if epoch == self.epoch and not self.signing_in:      # not if the person signed out or began signing in meanwhile
+            self.render(view)
         return False
 
     def render(self, view):
+        if self.signing_in:                  # while a sign-in waits for approval nobody is signed in, whatever was shown before
+            view = {"state": "out", "name": "", "email": "", "initials": "", "provider": view.get("provider", "")}
         state = view["state"]
         self.name.set_label(view["name"] if state == "in" else "")
         self.name.set_visible(state == "in")
@@ -964,6 +1212,7 @@ class ErsaId(Page):
     # -- signing in ----------------------------------------------------------------------------
 
     def sign_in(self):
+        self.epoch += 1
         self.cancelled, self.signing_in = False, True
         self.code.set_label(_("\u2026"))
         self.render({"state": "out", "name": "", "email": "", "initials": "", "provider": model.identity_view(self.settings, None)["provider"]})
@@ -1008,6 +1257,8 @@ class ErsaId(Page):
 
     def sign_out(self):
         def done(result):
+            self.epoch += 1
+            self.render({"state": "out", "name": "", "email": "", "initials": "", "provider": model.identity_view(self.settings, None)["provider"]})
             self.win.toast(result.capitalize() + ".")
             self.reload()
         self.win.confirm(_("Sign out of Ersa ID?"), _("This computer forgets your account. Your files and settings stay."), _("Sign Out"),
@@ -1015,7 +1266,7 @@ class ErsaId(Page):
 
 
 PAGE_CLASSES = {"ersaid": ErsaId, "overview": Overview, "appsources": AppSources, "updates": Updates, "bundles": Bundles, "repositories": Repositories, "packages": Packages,
-                "slots": Slots, "appearance": Appearance, "remote": Remote, "advanced": Advanced, "activity": Activity}
+                "slots": Slots, "encryption": Encryption, "appearance": Appearance, "remote": Remote, "advanced": Advanced, "activity": Activity}
 
 
 for _name, _class in PAGE_CLASSES.items():

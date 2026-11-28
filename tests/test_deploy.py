@@ -9,7 +9,7 @@ import tempfile
 import unittest
 
 import support  # noqa: F401  (puts the package on sys.path)
-from foundationd.backends import deploy, gpt, layout, verity
+from foundationd.backends import deploy, encryption, gpt, layout, verity
 from foundationd.errors import Failed, InvalidArgument, Unavailable
 
 TOOLS = all(shutil.which(t) for t in ("systemd-repart", "mdir", "mren", "mkfs.btrfs", "mkfs.vfat"))
@@ -406,3 +406,55 @@ class EncryptedInstall(Medium):
         self.assertEqual(encryption.partition_node("/dev/vda", 7), "/dev/vda7")
         self.assertEqual(encryption.partition_node("/dev/nvme0n1", 7), "/dev/nvme0n1p7")
         self.assertEqual(encryption.partition_node("/dev/mmcblk0", 7), "/dev/mmcblk0p7")
+
+
+class EncryptionStatus(unittest.TestCase):
+    """encryption.status reads the key slots through cryptsetup (read only) and never returns key material."""
+
+    LUKS = {"keyslots": {"1": {"type": "luks2"}, "2": {"type": "luks2"}, "3": {"type": "luks2"}},
+            "tokens": {"0": {"type": "systemd-tpm2", "keyslots": ["3"]}}}
+
+    def setUp(self):
+        self.system = support.FakeSystem()
+        self.addCleanup(self.system.cleanup)
+        self.paths = dict(self.system.paths)
+        self.paths["tpm_class"] = os.path.join(self.system.tmp, "no-tpm")
+        self.paths["tpmrm"] = os.path.join(self.system.tmp, "no-tpmrm")
+
+    def runner(self, status="LUKS2", metadata=None, dump_code=0):
+        def run(cmd, timeout=60, env=None):
+            self.last = list(cmd)
+            if cmd[:2] == ["cryptsetup", "status"]:
+                return 0, f"/dev/mapper/ecp-data is active and is in use.\n  type:    {status}\n  cipher:  aes-xts-plain64\n  device:  /dev/vda7\n", ""
+            return dump_code, json.dumps(metadata or self.LUKS), ""
+        return run
+
+    def mount(self, source):
+        self.system.write_mountinfo([f"40 36 0:30 / /var rw - btrfs {source} rw"])
+
+    def test_a_plain_volume_is_not_encrypted(self):
+        self.mount("/dev/vda7")
+        self.assertEqual(encryption.status(self.paths, self.runner()), {"tpm_present": False, "encrypted": False})
+        self.system.write_mountinfo([])
+        self.assertFalse(encryption.status(self.paths, self.runner())["encrypted"])
+
+    def test_the_slots_are_counted_by_the_token_that_names_them(self):
+        self.mount("/dev/mapper/ecp-data")
+        result = encryption.status(self.paths, self.runner())
+        self.assertEqual((result["encrypted"], result["tpm_slots"], result["recovery_slots"], result["fido2_slots"], result["password_slots"]),
+                         (True, 1, 0, 0, 2))
+        self.assertEqual(result["cipher"], "aes-xts-plain64")
+        self.assertEqual(self.last[:3], ["cryptsetup", "luksDump", "--dump-json-metadata"])      # read only: the header, no key is opened
+
+    def test_a_mapped_volume_that_is_not_luks_is_not_reported_as_encrypted(self):
+        self.mount("/dev/mapper/vg-data")
+        self.assertFalse(encryption.status(self.paths, self.runner(status="PLAIN"))["encrypted"])
+
+    def test_an_unreadable_header_is_an_error_not_a_guess(self):
+        self.mount("/dev/mapper/ecp-data")
+        with self.assertRaises(Failed):
+            encryption.status(self.paths, self.runner(dump_code=1))
+        def garbage(cmd, timeout=60, env=None):
+            return (0, "not json", "") if cmd[1] == "luksDump" else self.runner()(cmd, timeout)
+        with self.assertRaises(Failed):
+            encryption.status(self.paths, garbage)

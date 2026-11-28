@@ -24,7 +24,9 @@ import urllib.request
 from .fetch import url_allowed
 
 DISCOVERY = "/.well-known/openid-configuration"
-DEFAULT_SCOPES = "openid profile email offline_access"
+# devices:write lets this computer link itself to the account (docs/devices-and-telemetry.md). If the provider does not allow the app that
+# permission, the sign-in still works and simply grants less; linking then says what is missing.
+DEFAULT_SCOPES = "openid profile email offline_access devices:read devices:write"
 TIMEOUT = 15
 MAX_BODY = 256 * 1024
 MAX_PICTURE = 2 * 1024 * 1024
@@ -212,6 +214,8 @@ def access_token(provider, state_home=None, now=time.time, opener=urllib.request
     if answer.get("error") or not answer.get("access_token"):
         os.unlink(session_path(provider["issuer"], state_home))      # the grant is gone (revoked, expired): sign in again
         return None
+    if load_session(provider["issuer"], state_home) is None:       # signed out while the provider was answering: sign-out wins
+        return None
     session["access_token"] = answer["access_token"]
     session["expires_at"] = now() + int(answer.get("expires_in") or 300)
     session["refresh_token"] = answer.get("refresh_token") or session["refresh_token"]      # providers that rotate send a new one
@@ -239,6 +243,12 @@ def logout(provider, state_home=None, opener=urllib.request.urlopen):
     return "signed out" if revoked else "signed out here (the provider could not be told to revoke it)"
 
 
+def session_has_scope(session, scope):
+    """Whether the provider granted `scope` at sign-in (the scope field of the token answer, space or comma separated)."""
+    granted = str((session or {}).get("scope", "")).replace(",", " ").split()
+    return scope in granted
+
+
 # -- the profile ----------------------------------------------------------------------------------
 
 def refresh_profile(provider, state_home=None, now=time.time, opener=urllib.request.urlopen):
@@ -260,6 +270,11 @@ def refresh_profile(provider, state_home=None, now=time.time, opener=urllib.requ
         return None
     if not isinstance(info, dict) or info.get("sub") != session["claims"].get("sub"):
         return None                                  # the answer must be about the same person
+    # The answer can arrive after the person signed out here (the request takes a moment). Writing the old session back would sign
+    # them in again, so write only if the same person is still signed in.
+    current = load_session(provider["issuer"], state_home)
+    if current is None or current.get("claims", {}).get("sub") != session["claims"].get("sub"):
+        return None
     session["claims"].update({k: info[k] for k in PROFILE_CLAIMS if k in info and isinstance(info[k], (str, bool))})
     save_session(session, state_home)
     return session["claims"]

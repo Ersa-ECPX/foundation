@@ -48,6 +48,9 @@ def register(service):
     def system_info(call):
         return service.query(call, "system.info", {}, reply_dict)
 
+    def encryption_status(call):
+        return service.query(call, "system.encryption", {}, reply_dict)
+
     def base_packages(call):
         return service.query(call, "system.base_packages", {}, reply_list)
 
@@ -72,6 +75,7 @@ def register(service):
     return {
         (MANAGER, "GetStatus"): Method(get_status),
         (MANAGER, "GetSystemInfo"): Method(system_info),
+        (MANAGER, "GetEncryptionStatus"): Method(encryption_status),
         (MANAGER, "ListBasePackages"): Method(base_packages),
         (MANAGER, "ListJobs"): Method(list_jobs),
         (MANAGER, "CheckProvisioning"): Method(check_provisioning),

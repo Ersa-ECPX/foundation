@@ -211,12 +211,15 @@ class DeckWindow(Adw.ApplicationWindow):
             self.backend.call(interface, method, signature, args, got, timeout, **kwargs)
         return start
 
-    def run_job(self, call, on_ok=None, label=None):
+    def run_job(self, call, on_ok=None, label=None, watch=None):
         """Start a job with call(callback) and follow it as a task in the sidebar panel. The daemon refuses a job that clashes
-        with a running one (Busy); that is shown on the task."""
+        with a running one (Busy); that is shown on the task. `watch` (a page) is also told: watch.job_event(kind, *args) as the job
+        goes, and watch.job_finished(message) when it ends, message being empty on success."""
         task = self.tasks.add((label or _("Working")).rstrip("\u2026."))
 
         def event(kind, *args):
+            if watch is not None:
+                watch.job_event(kind, *args)
             if kind == "step":
                 task.set_step(args[1])
             elif kind == "progress":
@@ -231,6 +234,9 @@ class DeckWindow(Adw.ApplicationWindow):
                 task.finish(False, model.error_text(job.error_name, job.error_message))
             else:
                 task.finish(True, _("Done"))
+            if watch is not None:
+                watch.job_finished("" if error is None and job.ok else task.step.get_label())
+            if error is None and job.ok:
                 if on_ok:
                     on_ok(job.result)
             self.refresh()

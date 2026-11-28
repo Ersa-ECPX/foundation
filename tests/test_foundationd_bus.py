@@ -128,7 +128,7 @@ class ManagerAndReadTests(BusCase):
     def test_list_contains_every_schema_key(self):
         (values,) = self.call(CONFIG, "List")
         self.assertEqual(sorted(values), [
-            "apps.default_apps", "devices.enabled", "devices.url", "identity.client_id", "identity.enabled", "identity.issuer", "identity.scopes",
+            "apps.default_apps", "devices.enabled", "devices.sync_hostname", "devices.url", "identity.client_id", "identity.enabled", "identity.issuer", "identity.scopes",
             "ota.auto_check", "ota.auto_update", "ota.channel", "ota.url", "system.developer_mode"])
 
     def test_describe(self):

@@ -50,8 +50,8 @@
   },
   "identity.scopes": {
     "type": "string",
-    "default": "openid profile email offline_access",
-    "description": "Scopes asked for at sign-in, separated by spaces."
+    "default": "openid profile email offline_access devices:read devices:write",
+    "description": "Scopes asked for at sign-in, separated by spaces. devices:read shows your computers on the Ersa ID page and devices:write lets this computer link and unlink itself; if the account service does not grant them, Deck and `foundation devices` ask you to sign in again."
   },
   "devices.enabled": {
     "type": "boolean",
@@ -62,5 +62,10 @@
     "type": "string",
     "default": "https://id.ersa.dev",
     "description": "The account service this computer links to and reports to. Changing it needs the config authorization; a linked computer keeps reporting to the address it linked with until it is unlinked."
+  },
+  "devices.sync_hostname": {
+    "type": "boolean",
+    "default": true,
+    "description": "Make this computer's host name follow the name your Ersa ID account gives it (\"Ersa Workstation\" becomes Ersa-Workstation). Only when the name changes; a host name you set by hand afterwards stays until the name is changed again."
   }
 }

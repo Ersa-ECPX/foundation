@@ -43,6 +43,60 @@ class Text(unittest.TestCase):
         self.assertEqual(signed(name="Ada", email="a@x.org")["provider"], "id.example")
 
 
+    def test_the_install_progress_texts(self):
+        self.assertEqual((model.percent_text(0.426), model.percent_text(1.0), model.percent_text(-1), model.percent_text(None)), ("42%", "100%", "", ""))
+        self.assertEqual(model.percent_text(1.7), "100%")
+        self.assertEqual(model.installing_title("1.0.3"), "Installing version 1.0.3")
+        self.assertEqual(model.installing_title(), "Installing the update")
+
+    def test_the_device_list_puts_this_computer_first_then_the_most_recent(self):
+        now = 1_000_000
+        rows = model.device_rows([
+            {"id": "old", "name": "Old box", "last_seen_at": now - 5 * 86400, "report": {"version": "1.0.0", "boot_ok": False}},
+            {"id": "me", "name": "Laptop", "last_seen_at": now - 120, "report": {"version": "1.0.2"}},
+            {"id": "new", "name": "Workshop PC", "last_seen_at": now - 7200, "report": {"update_state": "failed"}},
+            {"id": "never", "name": "New VM", "last_seen_at": None, "report": None}], "me", now)
+        self.assertEqual([r["id"] for r in rows], ["me", "new", "old", "never"])
+        by = {r["id"]: r for r in rows}
+        self.assertEqual((by["me"]["this"], by["new"]["this"]), (True, False))
+        self.assertEqual(by["me"]["subtitle"], "Version 1.0.2 \u00b7 2 min ago")
+        self.assertEqual(by["new"]["subtitle"], "Update failed \u00b7 2 h ago")
+        self.assertIn("Needed a fallback", by["old"]["subtitle"])
+        self.assertEqual(by["never"]["subtitle"], "never reported")
+        self.assertEqual((model.seen_text(now - 30, now), model.seen_text(now - 3 * 3600, now)), ("just now", "3 h ago"))
+
+    def test_the_this_computer_rows(self):
+        linked = model.device_view({"linked": True, "enabled": True, "key_protection": "tpm", "last_attempt": 5, "last_error": ""}, True)
+        self.assertEqual((linked["state"], linked["action"]), ("linked", "unlink"))
+        self.assertIn("security chip", linked["subtitle"])
+        off = model.device_view({"linked": True, "enabled": False, "key_protection": "file"}, True)
+        self.assertIn("turned off", off["subtitle"])
+        self.assertEqual(model.device_view({"linked": False}, True)["action"], "link")
+        out = model.device_view({"linked": False}, False)
+        self.assertEqual((out["action"], out["state"]), (None, "signedout"))
+        self.assertEqual(model.device_view({"linked": True, "last_error": "clock"}, True)["problem"], "clock")
+
+    def test_the_encryption_page_says_what_protects_the_files(self):
+        view = model.encryption_view
+        off = view({"encrypted": False, "tpm_present": True})
+        self.assertEqual((off["good"], off["rows"], off["headline"]), (False, [], "Your files are not encrypted"))
+        auto = view({"encrypted": True, "tpm_present": True, "tpm_slots": 1, "password_slots": 1, "cipher": "aes-xts-plain64"})
+        rows = dict(auto["rows"])
+        self.assertTrue(auto["good"])
+        self.assertIn("by itself", auto["detail"])
+        self.assertTrue(rows["Unlock with this computer"].startswith("On."))
+        self.assertTrue(rows["Recovery key"].startswith("Set."))
+        self.assertEqual(rows["Passphrase"], "None.")                          # the one password slot is the recovery key
+        self.assertEqual(rows["Encryption"], "LUKS2, aes-xts-plain64")
+        phrase = view({"encrypted": True, "tpm_present": False, "tpm_slots": 0, "password_slots": 2})
+        self.assertEqual(dict(phrase["rows"])["Passphrase"], "Set.")
+        self.assertIn("no usable security chip", dict(phrase["rows"])["Unlock with this computer"])
+        self.assertIn("passphrase", phrase["detail"])
+        lost = view({"encrypted": True, "tpm_present": True, "tpm_slots": 0, "password_slots": 0})
+        self.assertFalse(lost["good"])
+        self.assertTrue(dict(lost["rows"])["Recovery key"].startswith("None."))
+        self.assertIn("security chip is not used", dict(lost["rows"])["Unlock with this computer"])
+
     def test_slot_actions(self):
         base = {"name": "b", "bootable": True, "running": False, "default": False}
         self.assertEqual(model.slot_actions(base), ["once", "default"])
@@ -301,10 +355,94 @@ class Window(BootDaemon):
         self.pump(lambda: self.rows(page.slots_group))
         self.assertEqual([r.get_title() for r in self.rows(page.slots_group)], ["Slot A", "Slot B"])
 
+    def test_the_encryption_page_shows_the_state_of_the_volume(self):
+        page = self.show("encryption")
+        page.show({"encrypted": True, "tpm_present": True, "tpm_slots": 1, "password_slots": 1, "cipher": "aes-xts-plain64"})
+        self.assertEqual(self.rows(page.summary)[0].get_title(), "Your files are encrypted")
+        self.assertIn("Recovery key", [r.get_title() for r in self.rows(page.keys)])
+        page.show({"encrypted": False})
+        self.assertEqual(self.rows(page.summary)[0].get_title(), "Your files are not encrypted")
+        self.assertFalse(page.keys.get_visible())
+
     def test_updates_page_says_to_check(self):
         page = self.show("updates")
         self.pump(lambda: page.status.get_label())
         self.assertEqual(page.status.get_label(), "Check to see whether an update is available.")
+
+    def test_while_an_update_installs_the_page_shows_only_the_progress(self):
+        page = self.show("updates")
+        self.pump(lambda: page.status.get_label())
+        page.available = {"available": True, "version": "1.0.3", "size": 1}
+        page.begin_install()
+        self.assertEqual(page.status.get_label(), "Installing version 1.0.3")
+        self.assertTrue(page.progress.get_visible())
+        self.assertFalse(page.actions.get_visible())
+        self.assertFalse(any(g.get_visible() for g in (page.auto_group, page.developer_group, page.local_group)))
+        page.job_event("step", "write", "Writing the system image")
+        page.job_event("progress", 0.42)
+        self.assertEqual((page.progress_step.get_label(), page.progress_percent.get_label()), ("Writing the system image", "42%"))
+        self.assertAlmostEqual(page.progress_bar.get_fraction(), 0.42)
+        page.show()                                                       # a reload in the middle must not bring the buttons back
+        self.assertFalse(page.install_button.get_visible() or page.check_button.get_visible() and page.actions.get_visible())
+        page.job_finished("")
+        self.assertFalse(page.progress.get_visible())
+        self.assertTrue(page.actions.get_visible() and page.auto_group.get_visible() and page.local_group.get_visible())
+        self.assertFalse(page.error.get_revealed())
+
+    def test_a_failed_install_says_why_and_brings_the_page_back(self):
+        page = self.show("updates")
+        page.begin_install()
+        page.job_finished("The update could not be verified.")
+        self.assertTrue(page.error.get_revealed())
+        self.assertEqual(page.error.get_title(), "The update could not be verified.")
+        self.assertTrue(page.actions.get_visible())
+
+    def test_a_sign_in_never_shows_the_account_that_was_signed_out(self):
+        page = self.show("ersaid")
+        stale = {"state": "in", "name": "Gagan M.", "email": "g@example.org", "initials": "GM", "provider": "id.example"}
+        page.sign_in = lambda: None                                       # no network: only what the page shows
+        page.epoch += 1
+        page.signing_in = True
+        page.render(stale)
+        self.assertFalse(page.name.get_visible())                         # the old name is not drawn over the new sign-in
+        self.assertFalse(page.sign_out_button.get_visible())
+        self.assertTrue(page.code_group.get_visible())
+        page.show_profile(stale, page.epoch - 1)                          # an answer from before the sign-in began
+        self.assertFalse(page.name.get_visible())
+        page.signing_in = False
+        old = page.epoch
+        page.show_profile(stale, old - 1)                                 # and one from before a sign-out
+        self.assertFalse(page.name.get_visible())
+        page.show_profile(stale, old)
+        self.assertTrue(page.name.get_visible())
+
+    def test_the_ersa_id_page_shows_this_computer(self):
+        page = self.show("ersaid")
+        page.settings = {"configured": True, "enabled": True, "issuer": "https://id.example", "client_id": "c", "scopes": ""}
+        page.show_device({"linked": False, "enabled": True, "key_protection": "tpm", "url": "https://id.example"}, True)
+        self.assertTrue(page.device_group.get_visible())
+        self.assertEqual((page.device_row.get_title(), page.device_button.get_label()), ("Not linked", "Link this computer"))
+        page.show_device({"linked": True, "enabled": True, "key_protection": "tpm", "url": "u", "id": "d"}, True)
+        self.assertEqual((page.device_row.get_title(), page.device_button.get_label()), ("Linked to your account", "Unlink"))
+        page.show_device({"linked": False, "enabled": True, "key_protection": "", "url": "u"}, False)
+        self.assertFalse(page.device_button.get_visible())               # signed out: nothing to press, and it says to sign in
+        self.assertIn("Sign in", page.device_row.get_subtitle())
+
+    def test_the_ersa_id_page_lists_the_accounts_devices(self):
+        page = self.show("ersaid")
+        page.show_devices([{"id": "me", "name": "Laptop", "last_seen_at": time.time() - 60, "report": {"version": "1.0.2"}},
+                           {"id": "o", "name": "Workshop PC", "last_seen_at": None, "report": None}], "", "me", page.epoch)
+        rows = self.rows(page.devices_group)
+        self.assertEqual([r.get_title() for r in rows], ["Laptop", "Workshop PC"])
+        self.assertTrue(page.devices_group.get_visible())
+        page.show_devices(None, "Sign in again to see your computers.", "me", page.epoch)
+        self.assertEqual(self.rows(page.devices_group)[0].get_title(), "Sign in again to see your computers.")
+        page.show_devices([], "", "me", page.epoch)
+        self.assertEqual(self.rows(page.devices_group)[0].get_title(), "No computers are linked yet.")
+        page.signing_in = True
+        page.show_devices([{"id": "x", "name": "Stale", "last_seen_at": 1, "report": None}], "", "me", page.epoch)     # not while signing in
+        page.signing_in = False
+        self.assertEqual(self.rows(page.devices_group)[0].get_title(), "No computers are linked yet.")
 
     def test_overview_shows_the_system(self):
         page = self.window.pages["overview"]
@@ -384,7 +522,7 @@ class Window(BootDaemon):
     def test_advanced_lists_the_settings_by_group(self):
         page = self.show("advanced")
         self.pump(lambda: len(getattr(page, "_rows", {})) >= 6)
-        self.assertEqual(sorted(page.groups), ["Applications", "System", "Updates"])
+        self.assertEqual(sorted(page.groups), ["Applications", "Devices", "System", "Updates"])
 
     def test_remote_and_repositories_and_activity_build(self):
         for name in ("remote", "repositories", "activity", "appearance", "packages"):

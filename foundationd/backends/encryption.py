@@ -20,7 +20,7 @@ import os
 import re
 
 from ..errors import Failed, InvalidArgument
-from . import verity
+from . import osinfo, verity
 from .runner import check, run
 
 MIN_PASSPHRASE = 8
@@ -117,3 +117,36 @@ def read_secrets_file(path):
         except OSError:
             pass
     return parse_secrets(text)
+
+
+def status(paths, runner=run):
+    """Facts about the encryption of the data volume, read only (for Deck). Keys: tpm_present (b), encrypted (b); when encrypted also
+    cipher (s), tpm_slots, recovery_slots, fido2_slots and password_slots (counts of the key slots of each kind).
+
+    A key slot is told by the token that names it: `systemd-tpm2`, `systemd-recovery` and `systemd-fido2` (what systemd-cryptenroll
+    writes). A slot no token names is a password slot: it holds the recovery key the installer made (a recovery key enrolled by this
+    platform is a password slot, so it is among these), or a passphrase. The key material itself is never read."""
+    result = {"tpm_present": tpm_present(paths), "encrypted": False}
+    source = (osinfo.mounts(paths["mountinfo"]).get("/var") or {}).get("source", "")
+    if not source.startswith("/dev/mapper/"):
+        return result
+    code, out, _err = runner(["cryptsetup", "status", os.path.basename(source)], 30)
+    fields = dict(line.strip().split(":", 1) for line in out.splitlines() if ":" in line) if code == 0 else {}
+    fields = {key.strip(): value.strip() for key, value in fields.items()}
+    device = fields.get("device")
+    if not device or not fields.get("type", "").upper().startswith("LUKS"):
+        return result
+    code, out, _err = runner(["cryptsetup", "luksDump", "--dump-json-metadata", device], 30)
+    if code != 0:
+        raise Failed("cannot read the encryption keys of the data volume")
+    try:
+        metadata = json.loads(out)
+        keyslots, tokens = metadata.get("keyslots", {}), metadata.get("tokens", {})
+    except (ValueError, AttributeError) as error:
+        raise Failed("cannot read the encryption keys of the data volume") from error
+    named = {str(slot) for token in tokens.values() for slot in token.get("keyslots", [])}
+    count = lambda kind: sum(1 for token in tokens.values() if token.get("type") == kind)
+    result.update({"encrypted": True, "cipher": fields.get("cipher", ""), "tpm_slots": count("systemd-tpm2"),
+                   "recovery_slots": count("systemd-recovery"), "fido2_slots": count("systemd-fido2"),
+                   "password_slots": len([slot for slot in keyslots if slot not in named])})
+    return result

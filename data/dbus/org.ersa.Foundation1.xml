@@ -45,6 +45,14 @@
     <method name="GetSystemInfo">
       <arg name="info" type="a{sv}" direction="out"/>
     </method>
+    <!--
+      Encryption of the data volume (/var and /home), read only. Keys: tpm_present (b), encrypted (b); when encrypted also
+      cipher (s), tpm_slots, recovery_slots, fido2_slots, password_slots (i: how many key slots of each kind; a recovery key made by
+      the installer is a password slot). Key material is never returned. No authorization, like GetSystemInfo.
+    -->
+    <method name="GetEncryptionStatus">
+      <arg name="status" type="a{sv}" direction="out"/>
+    </method>
     <!-- RPM packages in the base image. Fields: name, version, vendor. -->
     <method name="ListBasePackages">
       <arg name="packages" type="aa{sv}" direction="out"/>

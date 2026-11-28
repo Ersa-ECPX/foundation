@@ -22,7 +22,9 @@ import os
 import pwd
 import re
 import signal
+import socket
 import time
+import unicodedata
 import urllib.error
 import urllib.request
 
@@ -40,6 +42,7 @@ ANSWER_MAX = 4096                 # how much of an answer is read
 DAY = 24 * 3600
 BODY_MAX = 4096
 CRED_NAME = "ecp-device-key"
+USER_AGENT = "foundation-device-checkin"
 # What the account service hands out to be signed: expires.nonce.mac, all url-safe. Nothing else is ever signed for it.
 CHALLENGE = re.compile(r"[0-9]{1,12}\.[A-Za-z0-9_-]{1,64}\.[A-Za-z0-9_-]{1,64}")
 LINK_PREFIX = "prism-device-link"
@@ -273,7 +276,9 @@ def signed_request(paths, body, now=time.time, runner=run):
     message = f"{state['id']}.{timestamp}.{raw}".encode()
     signature = _b64url(_private_key(paths, False, runner).sign(message))
     url = f"{state['url']}/api/oauth/me/devices/{state['id']}/checkin"
-    return url, {"Content-Type": "application/json", "X-Device-Timestamp": timestamp, "X-Device-Signature": signature}, raw.encode()
+    # A User-Agent is required in practice: a CDN in front of the account service refuses the bare "Python-urllib" one (HTTP 403).
+    return url, {"Content-Type": "application/json", "Accept": "application/json", "User-Agent": USER_AGENT, "X-Device-Timestamp": timestamp,
+                 "X-Device-Signature": signature}, raw.encode()
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -290,15 +295,20 @@ def _error_code(error):
 
 
 def _request(url, headers, data, opener=None):
-    """(HTTP status, error code) of one POST, 0 when the service cannot be reached. Redirects are errors; certificates are checked."""
+    """(HTTP status, error code, name) of one POST, status 0 when the service cannot be reached. `name` is what the account calls this
+    computer, from a successful answer (at most ANSWER_MAX bytes of it are read). Redirects are errors; certificates are checked."""
     opener = opener or urllib.request.build_opener(_NoRedirect).open
     try:
-        with opener(urllib.request.Request(url, data=data, headers=headers, method="POST"), timeout=TIMEOUT):
-            return 200, ""
+        with opener(urllib.request.Request(url, data=data, headers=headers, method="POST"), timeout=TIMEOUT) as answer:
+            try:
+                name = json.loads(answer.read(ANSWER_MAX).decode("utf-8", "replace")).get("name", "")
+            except (ValueError, OSError, AttributeError):
+                name = ""
+            return 200, "", name if isinstance(name, str) else ""
     except urllib.error.HTTPError as error:
-        return error.code, _error_code(error)
+        return error.code, _error_code(error), ""
     except (urllib.error.URLError, OSError, ValueError):
-        return 0, ""
+        return 0, "", ""
 
 
 def drop_privileges(setgroups=os.setgroups, setgid=os.setgid, setuid=os.setuid, getuid=os.getuid, lookup=pwd.getpwnam):
@@ -322,7 +332,7 @@ def drop_privileges(setgroups=os.setgroups, setgid=os.setgid, setuid=os.setuid, 
 
 
 def send(url, headers, data, opener=None):
-    """POST in a child process that has dropped root, with a time limit, and read back only (status, error code). The key was used
+    """POST in a child process that has dropped root, with a time limit, and read back only (status, error code, name). The key was used
     before this (the request is already signed), so nothing the server sends can reach it, or anything else root can."""
     read_fd, write_fd = os.pipe()
     pid = os.fork()
@@ -332,24 +342,75 @@ def send(url, headers, data, opener=None):
             os.close(read_fd)
             signal.alarm(TOTAL_TIMEOUT)
             drop_privileges()
-            status_, error = _request(url, headers, data, opener)
-            os.write(write_fd, json.dumps({"status": status_, "error": error}).encode())
+            status_, error, name = _request(url, headers, data, opener)
+            os.write(write_fd, json.dumps({"status": status_, "error": error, "name": name}).encode())
             code = 0
         except BaseException:          # noqa: BLE001 - nothing may escape a forked child
             pass
         os._exit(code)
     os.close(write_fd)
     with os.fdopen(read_fd, "rb") as handle:
-        answer = handle.read(512)
+        answer = handle.read(1024)
     os.waitpid(pid, 0)
     try:
         result = json.loads(answer.decode())
-        return int(result["status"]), str(result["error"])
+        return int(result["status"]), str(result["error"]), str(result.get("name", ""))
     except (ValueError, KeyError, TypeError):
-        return 0, ""
+        return 0, "", ""
 
 
-def checkin_if_due(paths, enabled, due=True, interval=DAY, now=time.time, sender=send, runner=run):
+def hostname_from_name(name):
+    """The host name that goes with a computer's name: spaces become hyphens, the ends are trimmed, and only letters, digits and
+    hyphens stay (what a host name may hold), at most 63 characters. None when nothing usable is left. "Ersa Workstation" is
+    "Ersa-Workstation"."""
+    if not isinstance(name, str):
+        return None
+    text = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    text = re.sub(r"\s+", "-", text.strip())
+    text = re.sub(r"[^A-Za-z0-9-]", "", text)
+    text = re.sub(r"-{2,}", "-", text).strip("-")[:63].strip("-")
+    return text or None
+
+
+def set_hostname(paths, hostname):
+    """Change the host name through systemd-hostnamed (the static one, kept across restarts, and the running one)."""
+    import gi
+    gi.require_version("Gio", "2.0")
+    from gi.repository import Gio, GLib
+    bus = Gio.bus_get_sync(Gio.BusType.SYSTEM if paths.get("bus", "system") == "system" else Gio.BusType.SESSION, None)
+    for method in ("SetStaticHostname", "SetHostname"):
+        try:
+            bus.call_sync("org.freedesktop.hostname1", "/org/freedesktop/hostname1", "org.freedesktop.hostname1", method,
+                          GLib.Variant("(sb)", (hostname, False)), None, Gio.DBusCallFlags.NONE, 15000, None)
+        except GLib.Error as error:
+            raise Failed(f"the host name could not be changed: {error.message}") from error
+
+
+def _remember_name(paths, name):
+    state = link_state(paths)
+    if state:
+        state["name"] = name
+        temporary = link_path(paths) + ".new"
+        with open(temporary, "w", encoding="utf-8") as handle:
+            json.dump(state, handle)
+        os.replace(temporary, link_path(paths))
+
+
+def sync_hostname(paths, name, enabled=True, setter=set_hostname):
+    """Make the host name follow the account's name for this computer, once per change: a name that is the same as the last one seen
+    leaves the host name alone, so a name the person sets by hand afterwards stays. Returns the new host name, or None."""
+    state = link_state(paths)
+    if not enabled or not state or not name or name == state.get("name"):
+        return None
+    wanted = hostname_from_name(name)
+    _remember_name(paths, name)
+    if not wanted or wanted == socket.gethostname():
+        return None
+    setter(paths, wanted)
+    return wanted
+
+
+def checkin_if_due(paths, enabled, due=True, interval=DAY, now=time.time, sender=send, runner=run, follow_name=True, setter=set_hostname):
     """Check in when this computer is linked, reporting is on and (if `due`) `interval` seconds have passed since the last attempt.
     Returns "sent", "off", "not linked" or "not due". A failed attempt is recorded (and raised), and is not tried again before the
     interval has passed, so a service that is down is asked once a day and not at every run."""
@@ -361,11 +422,15 @@ def checkin_if_due(paths, enabled, due=True, interval=DAY, now=time.time, sender
     if due and seen and now() - seen["at"] < interval:
         return "not due"
     try:
-        checkin(paths, sender, now, runner)
+        sent = checkin(paths, sender, now, runner)
     except (Failed, Unavailable) as error:
         _record(paths, now(), str(error))
         raise
     _record(paths, now(), "")
+    try:
+        sync_hostname(paths, sent.get("_name", ""), follow_name, setter)
+    except Failed as error:                      # the report went through; only the host name could not be changed
+        _record(paths, now(), str(error))
     return "sent"
 
 
@@ -384,9 +449,10 @@ def checkin(paths, sender=send, now=time.time, runner=run):
     own answer. The person unlinks (or links again) deliberately."""
     body = report(paths, runner)
     url, headers, data = signed_request(paths, body, now, runner)
-    status_, error = sender(url, headers, data)
+    answer = sender(url, headers, data)
+    status_, error, name = (tuple(answer) + ("",))[:3]
     if status_ == 200:
-        return body
+        return dict(body, _name=name) if name else body
     if status_ == 0:
         raise Unavailable("the account service cannot be reached")
     if status_ == 401 and error != "device_clock_skew":

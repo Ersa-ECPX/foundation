@@ -1240,6 +1240,8 @@ def cmd_devices_link(client, args):
         raise UserError("This computer is already linked. Unlink it first: foundation devices unlink")
     provider = _provider(client)
     _identity_ready(provider)
+    if not identity.load_session(provider["issuer"]):
+        raise UserError("Sign in to Ersa ID first: foundation identity login (the same sign-in is used to link this computer).")
     name = (args.name or socket.gethostname() or "This computer").strip()[:64]
     try:
         device_id = devices.link(client, provider, status["url"], name)
@@ -1254,15 +1256,25 @@ def cmd_devices_link(client, args):
 
 
 def cmd_devices_unlink(client, args):
-    if not sure(args, "Unlink this computer and forget its device key?"):
+    if not sure(args, "Remove this computer from your Ersa ID account and forget its key?" if not args.local
+                else "Forget the device key on this computer? (The account keeps listing it until you remove it on the website.)"):
         return 1
-    was = client.one("Devices", "Unlink")["was_linked"]
+    try:
+        if args.local:
+            was, remote = devices.unlink_here(client), False
+        else:
+            provider = _provider(client)
+            was, remote = devices.unlink(client, provider), True
+    except devices.DevicesError as error:
+        raise UserError(f"{error} Nothing was changed. To forget it on this computer only: foundation devices unlink --local")
     if args.json:
-        emit_json({"was_linked": was})
+        emit_json({"was_linked": was, "removed_from_account": was and remote})
+    elif not was:
+        print("This computer was not linked.")
     else:
-        print("Unlinked." if was else "This computer was not linked.")
-        if was:
-            ui.note("The account still lists the computer until you remove it on the website.")
+        print("Removed from your account and unlinked." if remote else "Unlinked on this computer.")
+        if not remote:
+            ui.note("The account still lists it until you remove it on the website.")
     return 0
 
 
@@ -1678,9 +1690,10 @@ def build_parser():
     _, dev = group("devices", "link this computer to your Ersa ID account")
     add(dev, "status", cmd_devices_status, "show whether this computer is linked, and how its key is kept")
     add(dev, "show", cmd_devices_show, "show exactly what a report contains")
-    linker = add(dev, "link", cmd_devices_link, "link this computer: sign in and approve a code on any device")
+    linker = add(dev, "link", cmd_devices_link, "link this computer using your Ersa ID sign-in (foundation identity login)")
     linker.add_argument("--name", help="how the computer is listed on your account (default: its host name)")
-    add(dev, "unlink", cmd_devices_unlink, "unlink this computer and forget its key", yes=True)
+    unlinker = add(dev, "unlink", cmd_devices_unlink, "remove this computer from your Ersa ID account and forget its key", yes=True)
+    unlinker.add_argument("--local", action="store_true", help="forget the key on this computer only, without telling the account")
     add(dev, "checkin", cmd_devices_checkin, "report now instead of waiting for the daily check")
 
     _, job = group("job", "follow operations started earlier")

@@ -37,4 +37,5 @@ def unlink(ctx):
 
 @worker("devices.checkin")
 def checkin(ctx):
-    return {"result": devices.checkin_if_due(ctx.paths, ctx.arg("enabled", bool, True), ctx.arg("due", bool, True))}
+    return {"result": devices.checkin_if_due(ctx.paths, ctx.arg("enabled", bool, True), ctx.arg("due", bool, True),
+                                             follow_name=ctx.arg("follow_name", bool, True))}

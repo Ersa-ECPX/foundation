@@ -2,7 +2,7 @@
 
 import platform
 
-from ..backends import osinfo
+from ..backends import encryption, osinfo
 from ..backends.runner import check
 from ..workerlib import worker
 
@@ -30,3 +30,8 @@ def base_packages(ctx):
     out = check(["rpm", "-qa", "--qf", "%{NAME}\t%{VERSION}-%{RELEASE}\t%{VENDOR}\n"], timeout=60)
     rows = sorted(tuple(line.split("\t")) for line in out.splitlines() if line.count("\t") == 2)
     return [{"name": n, "version": v, "vendor": vendor} for n, v, vendor in rows]
+
+
+@worker("system.encryption")
+def encryption_status(ctx):
+    return encryption.status(ctx.paths)

@@ -205,6 +205,13 @@ class Checkin(Base):
         self.assertEqual(json.loads(data), body)
         Ed25519PublicKey.from_public_bytes(unb64(self.pub)).verify(unb64(headers["X-Device-Signature"]), f"dev1.1000.{data.decode()}".encode())
 
+    def test_the_request_names_itself(self):
+        """A CDN in front of the account service refuses the default Python user agent with a 403: the check-in must send its own."""
+        devices.checkin(self.paths, self.sender, now=lambda: 1000, runner=self.runner)
+        headers = self.sent[0][1]
+        self.assertEqual(headers["User-Agent"], "foundation-device-checkin")
+        self.assertNotIn("Python", headers["User-Agent"])
+
     def test_a_changed_body_would_not_verify(self):
         devices.checkin(self.paths, self.sender, now=lambda: 1000, runner=self.runner)
         _url, headers, data = self.sent[0]
@@ -282,6 +289,59 @@ class Daily(Base):
                          (True, "dev1", 1000, "", "file"))
 
 
+class HostName(Base):
+    def setUp(self):
+        super().setUp()
+        devices.link(self.paths, "dev1", "https://id.example", self.runner)
+        self.set = []
+        self.setter = lambda paths, name: self.set.append(name)
+
+    def test_the_host_name_is_made_from_the_name(self):
+        for name, expected in (("Ersa Workstation", "Ersa-Workstation"), ("  Ersa   Workstation  ", "Ersa-Workstation"), ("-x-", "x"),
+                               ("Caf\u00e9 d\u00e9j\u00e0", "Cafe-deja"), ("a_b.c", "abc"), ("A--B", "A-B"), ("   ", None), ("", None),
+                               ("x" * 80, "x" * 63), (None, None), (5, None)):
+            self.assertEqual(devices.hostname_from_name(name), expected, repr(name))
+
+    def test_a_hostile_name_stays_a_plain_host_name(self):
+        wanted = devices.hostname_from_name("a b\n; rm -rf / `x` $(y) ../../etc")
+        self.assertRegex(wanted, r"^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$")
+        self.assertLessEqual(len(wanted), 63)
+
+    def test_it_follows_a_changed_name_once(self):
+        self.assertEqual(devices.sync_hostname(self.paths, "Ersa Workstation", True, self.setter), "Ersa-Workstation")
+        self.assertIsNone(devices.sync_hostname(self.paths, "Ersa Workstation", True, self.setter))         # same name: leave it
+        self.assertEqual(devices.sync_hostname(self.paths, "Studio PC", True, self.setter), "Studio-PC")
+        self.assertEqual(self.set, ["Ersa-Workstation", "Studio-PC"])
+
+    def test_a_host_name_set_by_hand_stays_until_the_name_changes(self):
+        devices.sync_hostname(self.paths, "Ersa Workstation", True, self.setter)
+        self.set.clear()
+        devices.sync_hostname(self.paths, "Ersa Workstation", True, self.setter)                              # a later check-in
+        self.assertEqual(self.set, [])
+
+    def test_off_and_unusable_names_change_nothing(self):
+        self.assertIsNone(devices.sync_hostname(self.paths, "Ersa Workstation", False, self.setter))
+        self.assertIsNone(devices.sync_hostname(self.paths, "!!!", True, self.setter))
+        self.assertEqual(self.set, [])
+
+    def test_a_checkin_brings_the_name_and_sets_the_host_name(self):
+        sender = lambda url, headers, data: (200, "", "Ersa Workstation")
+        devices.checkin_if_due(self.paths, True, now=lambda: 1000, sender=sender, runner=self.runner, setter=self.setter)
+        self.assertEqual(self.set, ["Ersa-Workstation"])
+
+    def test_the_setting_can_turn_it_off(self):
+        sender = lambda url, headers, data: (200, "", "Ersa Workstation")
+        devices.checkin_if_due(self.paths, True, now=lambda: 1000, sender=sender, runner=self.runner, follow_name=False, setter=self.setter)
+        self.assertEqual(self.set, [])
+
+    def test_a_host_name_that_cannot_be_set_does_not_lose_the_report(self):
+        def broken(paths, name):
+            raise Failed("no hostnamed")
+        sender = lambda url, headers, data: (200, "", "Ersa Workstation")
+        self.assertEqual(devices.checkin_if_due(self.paths, True, now=lambda: 1000, sender=sender, runner=self.runner, setter=broken), "sent")
+        self.assertIn("no hostnamed", devices.last(self.paths)["error"])
+
+
 class Handler(http.server.BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -292,6 +352,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if route == "/ok":
             self.send_response(200)
             self.end_headers()
+        elif route == "/name":
+            body = json.dumps({"ok": True, "name": "Ersa Workstation"}).encode()
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         elif route == "/refuse":
             body = json.dumps({"error": "device_clock_skew"}).encode()
             self.send_response(401)
@@ -330,21 +396,24 @@ class SendTests(unittest.TestCase):
         return devices.send(self.base + route, {"Content-Type": "application/json"}, b"{}")
 
     def test_success(self):
-        self.assertEqual(self.post("/ok"), (200, ""))
+        self.assertEqual(self.post("/ok"), (200, "", ""))
+
+    def test_the_computers_name_comes_back_from_a_successful_answer(self):
+        self.assertEqual(self.post("/name"), (200, "", "Ersa Workstation"))
 
     def test_the_error_code_is_read_from_the_answer(self):
-        self.assertEqual(self.post("/refuse"), (401, "device_clock_skew"))
+        self.assertEqual(self.post("/refuse"), (401, "device_clock_skew", ""))
 
     def test_a_redirect_is_an_error_and_is_not_followed(self):
         self.assertEqual(self.post("/redirect")[0], 307)
 
     def test_an_endless_answer_is_read_only_a_little(self):
-        status, error = self.post("/flood")
+        status, error, _name = self.post("/flood")
         self.assertEqual(status, 401)
         self.assertEqual(error, "")                                                    # not json, and not read to the end
 
     def test_nothing_listening(self):
-        self.assertEqual(devices.send("http://127.0.0.1:1/x", {}, b"{}"), (0, ""))
+        self.assertEqual(devices.send("http://127.0.0.1:1/x", {}, b"{}"), (0, "", ""))
 
 
 class DropPrivileges(unittest.TestCase):

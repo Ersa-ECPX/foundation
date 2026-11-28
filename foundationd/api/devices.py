@@ -16,7 +16,8 @@ ACTION_DEVICES = "org.ersa.foundation.devices"
 
 def register(service):
     def settings():
-        return {"enabled": bool(service.config.get("devices.enabled")), "url": service.config.get("devices.url")}
+        return {"enabled": bool(service.config.get("devices.enabled")), "url": service.config.get("devices.url"),
+                "follow_name": bool(service.config.get("devices.sync_hostname"))}
 
     def status(call):
         return service.query(call, "devices.status", settings(), reply_dict)
