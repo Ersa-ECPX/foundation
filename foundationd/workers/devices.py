@@ -38,4 +38,6 @@ def unlink(ctx):
 @worker("devices.checkin")
 def checkin(ctx):
     return {"result": devices.checkin_if_due(ctx.paths, ctx.arg("enabled", bool, True), ctx.arg("due", bool, True),
-                                             follow_name=ctx.arg("follow_name", bool, True))}
+                                             interval=ctx.arg("interval", int, devices.SCHEDULED_INTERVAL),
+                                             follow_name=ctx.arg("follow_name", bool, True),
+                                             quiet_unreachable=ctx.arg("quiet_unreachable", bool, False))}

@@ -1251,7 +1251,7 @@ def cmd_devices_link(client, args):
         emit_json({"linked": True, "id": device_id, "name": name})
     else:
         print(ui.badge("ok", f"Linked as \"{name}\"."))
-        ui.note("It reports its health about once a day. See exactly what with: foundation devices show")
+        ui.note("It reports its health with every update check and when the network comes up. See exactly what with: foundation devices show")
     return 0
 
 

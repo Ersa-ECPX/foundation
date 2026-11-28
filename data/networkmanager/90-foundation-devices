@@ -1,0 +1,16 @@
+#!/bin/sh
+# NetworkManager dispatcher: when a connection comes up, or the internet becomes reachable, ask foundationd to report this computer to
+# the Ersa ID account it is linked to (so a rename made on the website arrives within seconds of the computer coming online).
+#
+# It only starts a unit and returns at once (NetworkManager waits for its scripts). Nothing happens on a computer that is not linked.
+# foundationd decides whether to send: at most once every fifteen minutes. Overridable for tests: ECP_LINK_FILE, ECP_SYSTEMCTL.
+link="${ECP_LINK_FILE:-/var/lib/foundation/device/link.json}"
+systemctl="${ECP_SYSTEMCTL:-systemctl}"
+
+case "$NM_DISPATCHER_ACTION" in
+  up) ;;
+  connectivity-change) [ "$CONNECTIVITY_STATE" = FULL ] || exit 0 ;;     # a captive portal or no internet is not "online"
+  *) exit 0 ;;
+esac
+[ -e "$link" ] || exit 0
+exec "$systemctl" --no-block start foundation-devices-online.service

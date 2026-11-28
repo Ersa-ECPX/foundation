@@ -204,6 +204,7 @@ class Queries(JobCase):
         (status,) = self.call(devices, "Status")
         self.assertEqual((status["linked"], status["enabled"], status["url"]), (False, True, "https://id.ersa.dev"))
         self.assertEqual(self.call(devices, "CheckinIfDue")[0]["result"], "not linked")
+        self.assertEqual(self.call(devices, "CheckinOnline")[0]["result"], "not linked")
         (report,) = self.call(devices, "Report")
         self.assertEqual(report["schema"], 1)
         (made,) = self.call(devices, "PrepareLink")

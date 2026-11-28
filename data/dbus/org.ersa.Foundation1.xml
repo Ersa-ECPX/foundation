@@ -691,14 +691,23 @@
     <method name="Unlink">
       <arg name="result" type="a{sv}" direction="out"/>
     </method>
-    <!-- Report now if this computer is linked, reporting is on (devices.enabled) and a day has passed since the last attempt. Result:
+    <!-- Report now if this computer is linked, reporting is on (devices.enabled) and about five hours have passed since the last attempt
+         (so every run of the six-hourly update check reports). The answer brings the account's name for the computer, and the host name
+         follows it when it changed (devices.sync_hostname). Result:
          result (s): "sent", "off", "not linked" or "not due". Unavailable or Failed when the service cannot be reached or refuses; the
-         failure is recorded and not retried before the day is over. The request is sent by a child process that has dropped root. Called by the update-check unit, so it costs no wake-up of its own.
+         failure is recorded and not retried before that time is over. The request is sent by a child process that has dropped root. Called by the update-check unit, so it costs no wake-up of its own.
          No authorization: it sends only the fields of Report to the address already linked. -->
     <method name="CheckinIfDue">
       <arg name="result" type="a{sv}" direction="out"/>
     </method>
-    <!-- As CheckinIfDue but without waiting for the day to pass. Requires org.ersa.foundation.devices. -->
+    <!-- Called when the network comes up (boot, wake, reconnect): as CheckinIfDue, but only fifteen minutes must have passed since the last
+         attempt, and a service that cannot be reached yet is not counted as an attempt, so the next event tries again. This is how a
+         rename made on the website reaches a computer within seconds of its coming online. No authorization, for the same reason as
+         CheckinIfDue. Result as CheckinIfDue. -->
+    <method name="CheckinOnline">
+      <arg name="result" type="a{sv}" direction="out"/>
+    </method>
+    <!-- As CheckinIfDue but without waiting. Requires org.ersa.foundation.devices. -->
     <method name="CheckinNow">
       <arg name="result" type="a{sv}" direction="out"/>
     </method>

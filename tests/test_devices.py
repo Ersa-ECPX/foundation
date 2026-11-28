@@ -313,6 +313,25 @@ class HostName(Base):
         self.assertEqual(devices.sync_hostname(self.paths, "Studio PC", True, self.setter), "Studio-PC")
         self.assertEqual(self.set, ["Ersa-Workstation", "Studio-PC"])
 
+    def test_a_name_that_is_already_the_host_name_changes_nothing(self):
+        """The default name at linking is the host name: it must not be rewritten (dots stripped) into a different host name."""
+        import socket
+        current = socket.gethostname()
+        self.assertIsNone(devices.sync_hostname(self.paths, current, True, self.setter))
+        self.assertEqual(self.set, [])
+        self.assertEqual(devices.link_state(self.paths)["name"], current)                       # but it is remembered
+
+    def test_a_name_with_a_dot_is_not_applied_when_it_is_the_host_name(self):
+        import socket
+        original = socket.gethostname
+        socket.gethostname = lambda: "localhost.localdomain"
+        try:
+            self.assertIsNone(devices.sync_hostname(self.paths, "localhost.localdomain", True, self.setter))
+            self.assertEqual(self.set, [])
+            self.assertEqual(devices.sync_hostname(self.paths, "Ersa Workstation", True, self.setter), "Ersa-Workstation")   # a real rename still applies
+        finally:
+            socket.gethostname = original
+
     def test_a_host_name_set_by_hand_stays_until_the_name_changes(self):
         devices.sync_hostname(self.paths, "Ersa Workstation", True, self.setter)
         self.set.clear()

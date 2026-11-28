@@ -40,6 +40,11 @@ TIMEOUT = 20
 TOTAL_TIMEOUT = 60                 # the whole request, however slowly the server answers
 ANSWER_MAX = 4096                 # how much of an answer is read
 DAY = 24 * 3600
+# How often a linked computer reports. The update check already wakes the computer about every six hours (and a run can come a little
+# early), so every run reports: one more small request and no extra wake-up. A name changed on the website reaches the computer then.
+SCHEDULED_INTERVAL = 5 * 3600
+# Reporting when the network comes up (boot, wake, a reconnect) is allowed this often at most, so a flapping connection cannot spam.
+ONLINE_GAP = 15 * 60
 BODY_MAX = 4096
 CRED_NAME = "ecp-device-key"
 USER_AGENT = "foundation-device-checkin"
@@ -404,16 +409,21 @@ def sync_hostname(paths, name, enabled=True, setter=set_hostname):
         return None
     wanted = hostname_from_name(name)
     _remember_name(paths, name)
-    if not wanted or wanted == socket.gethostname():
+    # A name that already is the host name (the default name at linking is the host name) is not a change, however the sanitising would
+    # rewrite it: "localhost.localdomain" must not become "localhostlocaldomain".
+    if not wanted or name == socket.gethostname() or wanted == socket.gethostname():
         return None
     setter(paths, wanted)
     return wanted
 
 
-def checkin_if_due(paths, enabled, due=True, interval=DAY, now=time.time, sender=send, runner=run, follow_name=True, setter=set_hostname):
+def checkin_if_due(paths, enabled, due=True, interval=SCHEDULED_INTERVAL, now=time.time, sender=send, runner=run, follow_name=True,
+                   setter=set_hostname, quiet_unreachable=False):
     """Check in when this computer is linked, reporting is on and (if `due`) `interval` seconds have passed since the last attempt.
     Returns "sent", "off", "not linked" or "not due". A failed attempt is recorded (and raised), and is not tried again before the
-    interval has passed, so a service that is down is asked once a day and not at every run."""
+    interval has passed, so a service that is down is asked once an interval and not at every run. With `quiet_unreachable` (the
+    network has just come up, and the name servers may not answer yet) a service that cannot be reached is not recorded as an attempt,
+    so the next event tries again."""
     if not enabled:
         return "off"
     if not link_state(paths):
@@ -423,7 +433,11 @@ def checkin_if_due(paths, enabled, due=True, interval=DAY, now=time.time, sender
         return "not due"
     try:
         sent = checkin(paths, sender, now, runner)
-    except (Failed, Unavailable) as error:
+    except Unavailable as error:
+        if not (quiet_unreachable and "cannot be reached" in str(error)):
+            _record(paths, now(), str(error))
+        raise
+    except Failed as error:
         _record(paths, now(), str(error))
         raise
     _record(paths, now(), "")

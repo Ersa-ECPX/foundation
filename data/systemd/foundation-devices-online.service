@@ -1,0 +1,13 @@
+[Unit]
+Description=Report this computer to its Ersa ID account now that the network is up
+Documentation=file:///usr/share/doc/foundation/README.md
+# Only a linked computer starts anything at all; the installer medium is never linked
+ConditionPathExists=/var/lib/foundation/device/link.json
+ConditionPathExists=!/usr/share/ersa/payload
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/foundation-devices-online
+Nice=19
+IOSchedulingClass=idle
+TimeoutStartSec=3min

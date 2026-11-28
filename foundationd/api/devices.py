@@ -7,6 +7,7 @@ service is the setting devices.url and is not an argument of any method: changin
 cannot send reports somewhere else.
 """
 
+from ..backends import devices as devices_backend
 from ..service import Method
 from ..variants import reply_dict
 
@@ -42,6 +43,11 @@ def register(service):
     def checkin_if_due(call):
         return service.query(call, "devices.checkin", dict(settings(), due=True), reply_dict)
 
+    def checkin_online(call):
+        """The network has come up: report if linked and nothing was sent in the last few minutes."""
+        return service.query(call, "devices.checkin", dict(settings(), due=True, interval=devices_backend.ONLINE_GAP,
+                                                           quiet_unreachable=True), reply_dict)
+
     def checkin_now(call):
         return service.query(call, "devices.checkin", dict(settings(), due=False), reply_dict)
 
@@ -53,5 +59,6 @@ def register(service):
         (DEVICES, "CompleteLink"): Method(complete_link, ACTION_DEVICES),
         (DEVICES, "Unlink"): Method(unlink, ACTION_DEVICES),
         (DEVICES, "CheckinIfDue"): Method(checkin_if_due),
+        (DEVICES, "CheckinOnline"): Method(checkin_online),
         (DEVICES, "CheckinNow"): Method(checkin_now, ACTION_DEVICES),
     }
